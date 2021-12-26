@@ -115,33 +115,37 @@ union Move {
 
 union GameInfo {
 	uint32_t i;
-	uint16_t w[2];
 	struct {
+		// number of active pieces on the board (0..31)
+		uint32_t piece_cnt          :  5;
+		uint32_t on_move            :  1; // 0=white on move, 1=black
+		// if drawn reason is 14D, this is the sub-reason:
+		// 00 - King v King (14D1)
+		// 01 - King v King with Bishop/Knight (14D2)
+		// 10 - King with Bishop/Knight v King with Bishop/Knight (14D3)
+		uint32_t drawn_reason       :  2;
 		// Castling is possible only if the participating pieces have not
 		// moved (among other rules, but have nothing to do with prior movement.)
-		uint16_t wks_castle_illegal :  1;
-		uint16_t wqs_castle_illegal :  1;
-		uint16_t bks_castle_illegal :  1;
-		uint16_t bqs_castle_illegal :  1;
-		uint16_t on_move            :  1; // 0=white on move, 1=black
-		uint16_t en_passant_latch   :  1; // pawn subject to en passant
-		uint16_t unused_0           :  3;
-		uint16_t en_passant_file    :  3; // file number where pawn rests
+		uint32_t wks_castle_disabled:  1;	// WK or WKR has moved
+		uint32_t wqs_castle_disabled:  1;	// WK or WQR has moved
+		uint32_t bks_castle_disabled:  1;	// BK or BKR has moved
+		uint32_t bqs_castle_disabled:  1;	// BK or BQR has moved
+		// en passant
+		// If set, the pawn that rests on file en_passant_file moved two
+		// positions. This signals that a pawn subject to en passant capture
+		// exists, and does not mean that there is an opposing pawn that can
+		// affect it.
+		uint32_t en_passant_latch   :  1;   // pawn subject to en passant
+		uint32_t en_passant_file    :  3;   // file number where pawn rests
 		//
-		uint16_t position_considered:  1;
-		uint16_t drawn_game         :  1;	// 1=drawn game (terminal)
-		uint16_t drawn_reason       :  2;
+		uint32_t drawn_game         :  1;	// 1=drawn game (terminal)
 		// drawn reason
 		// 00 - stalemate (14A)
 		// 01 - triple of position (14C)
 		// 10 - no material (14D)
 		// 11 - 50 move rule (14F)
-		uint16_t reason_14d         :  2;
-		// if drawn reason is 14D, this is the sub-reason:
-		// 00 - King v King (14D1)
-		// 01 - King v King with Bishop/Knight (14D2)
-		// 10 - King with Bishop/Knight v King with Bishop/Knight (14D3)
-		uint16_t unused_1           : 14; // for future use
+		uint32_t reason_14d         :  2;
+		uint32_t unused             : 13; // for future use
 	} f;
 };
 # pragma pack()
@@ -207,14 +211,60 @@ enum Dir {
 	UPR,
 	UPL,
 	DNR,
-	DNL,
-	END
+	DNL
 };
 
 struct Offset {
 	short df;	// delta file
 	short dr;	// delta rank
 };
+
+struct PieceInfo {
+	PieceType p;
+	bool      s;
+	char      c;
+	PieceInfo(PieceType pt, bool si)
+	: p{pt}, s{si}, c{0x00}
+	{}
+
+	PieceInfo(uint8_t b)
+	: c{0x00}
+	{
+		s = b & SIDE_MASK;
+		p = (PieceType)(b & PIECE_MASK);
+	}
+
+	uint8_t toByte() const
+	{
+		uint8_t r = (uint8_t)p;
+		if (s)
+			r |= SIDE_MASK;
+		return r;
+	}
+
+	bool isBlack() const { return s;}
+	bool isWhite() const { return !s;}
+
+	const char toChar()
+	{
+		if (!c) {
+			switch(p) {
+				case PT_EMPTY:    c = '.'; break;
+				case PT_KING:     c = 'K'; break;
+				case PT_QUEEN:    c = 'Q'; break;
+				case PT_BISHOP:   c = 'B'; break;
+				case PT_KNIGHT:   c = 'N'; break;
+				case PT_ROOK:     c = 'R'; break;
+				case PT_PAWN:
+				case PT_PAWN_OFF: c = 'P'; break;
+			}
+			if (isBlack())
+				c |= 0x20;
+		}
+		return c;
+	}
+};
+
 
 struct Vector {
 	short  			 c;	// max number of moves
@@ -233,10 +283,10 @@ std::map<Dir,Offset> offsets = {
 };
 
 std::map<PieceType,Vector> vectors = {
-	{PT_KING,  {1, {UP, DN, LFT,RGT,UPR,UPL,DNR,DNL,END}}},
-	{PT_QUEEN, {7, {UP, DN, LFT,RGT,UPR,UPL,DNR,DNL,END}}},
-	{PT_BISHOP,{7, {UPR,UPL,DNR,DNL,END}}},
-	{PT_ROOK,  {7, {UP, DN, LFT,RGT,END}}}
+	{PT_KING,  {1, {UP, DN, LFT,RGT,UPR,UPL,DNR,DNL}}},
+	{PT_QUEEN, {7, {UP, DN, LFT,RGT,UPR,UPL,DNR,DNL}}},
+	{PT_BISHOP,{7, {UPR,UPL,DNR,DNL}}},
+	{PT_ROOK,  {7, {UP, DN, LFT,RGT}}}
 };
 
 // knights are a special case
@@ -257,11 +307,13 @@ private:
 	// we always need to know where the kings are
 	uint8_t  _bk_pos;
 	uint8_t  _wk_pos;
+	GameInfo _gi;
 
 public:
-	Board() {
+	Board()
+	{
 		memset(_b, PT_EMPTY, 64);
-		// set the initial position. 
+		// set the initial position.
 		// first set the while/black court pieces
 		PieceType court[] = {PT_ROOK, PT_KNIGHT, PT_BISHOP, PT_QUEEN, PT_KING, PT_BISHOP, PT_KNIGHT, PT_ROOK};
 		int f = Fa;
@@ -274,47 +326,28 @@ public:
 		}
 	}
 
-	void placePiece(PieceType t, bool side, Rank r, File f) {
-		uint8_t n = t;
-		if (PT_EMPTY != t && side)
-			n |= SIDE_BLACK;
-		_b[r][f] = n;
+	GameInfo& gi() { return _gi; }
+
+	void placePiece(PieceInfo p, Rank r, File f) {
+		_b[r][f] = p.toByte();
 	}
 
-	PieceType getPiece(File f, Rank r) {
-		Nibbles n{_b[r][f]};
-		return (PieceType)(n.f.lo);
+	void placePiece(PieceType t, bool side, Rank r, File f) {
+		placePiece(PieceInfo(t,side), r, f);
+	}
+
+	PieceInfo getPiece(File f, Rank r) {
+		return PieceInfo(_b[r][f]);
 	}
 
 	bool inBounds(short f, short r) {
-		return 0 <= f && f < 8 && 0 <= r < 8;
+		return Fa <= f && f <= Fh && R1 <= r <= R8;
 	}
 
 	void dump() {
 		for(int r = R8; r >= R1; r--) {
 			for(int f = Fa; f <= Fh; f++) {
-				std::cout << r << ',' << f << ' ' << std::hex << (int)_b[r][f] << std::endl;
-			}
-		}
-
-		for(int r = R8; r >= R1; r--) {
-			for(int f = Fa; f <= Fh; f++) {
-				char p;
-				bool s = _b[r][f] & SIDE_MASK;
-				PieceType pt = (PieceType)(_b[r][f] & PIECE_MASK);
-				switch(pt) {
-					case PT_EMPTY:    p = '.'; break;
-					case PT_KING:     p = 'K'; break;
-					case PT_QUEEN:    p = 'Q'; break;
-					case PT_BISHOP:   p = 'B'; break;
-					case PT_KNIGHT:   p = 'N'; break;
-					case PT_ROOK:     p = 'R'; break;
-					case PT_PAWN:
-					case PT_PAWN_OFF: p = 'P'; break;
-				}
-				if (s)
-					p |= 0x20;
-				std::cout << ' ' << p;
+				std::cout << ' ' << PieceInfo(_b[r][f]).toChar();
 			}
 			std::cout << std::endl;
 		}
