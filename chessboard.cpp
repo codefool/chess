@@ -173,8 +173,6 @@ enum PieceType {
 	PIECE_MASK   = 0x07
 };
 
-// const uint8_t SIDE_MASK = 0x08;
-
 enum DrawReason {
 	R_NONE                = 0x00,
 	//
@@ -227,59 +225,40 @@ struct Offset {
 	short dr;	// delta rank
 };
 
-struct PieceInfo {
-	PieceType p;
-	bool      s;
-	char      c;
-	PieceInfo(PieceType pt, bool si)
-	: p{pt}, s{si}, c{0x00}
-	{}
-
-	PieceInfo(uint8_t b)
-	: c{0x00}
-	{
-		s = b & SIDE_MASK;
-		p = (PieceType)(b & PIECE_MASK);
-	}
-
-	uint8_t toByte() const
-	{
-		uint8_t r = (uint8_t)p;
-		if (s)
-			r |= SIDE_MASK;
-		return r;
-	}
-
-	bool isBlack() const { return s;}
-	bool isWhite() const { return !s;}
-
-	const char toChar()
-	{
-		if (!c) {
-			switch(p) {
-				case PT_EMPTY:    c = '.'; break;
-				case PT_KING:     c = 'K'; break;
-				case PT_QUEEN:    c = 'Q'; break;
-				case PT_BISHOP:   c = 'B'; break;
-				case PT_KNIGHT:   c = 'N'; break;
-				case PT_ROOK:     c = 'R'; break;
-				case PT_PAWN:
-				case PT_PAWN_OFF: c = 'P'; break;
-			}
-			if (isBlack())
-				c |= 0x20;
-		}
-		return c;
-	}
-};
-
-
 struct Vector {
 	short  			 c;	// max number of moves
 	std::vector<Dir> d;
 };
 
-std::map<Dir,Offset> offsets = {
+
+// base class of all pieces
+class Piece
+{
+private:
+	PieceType _t;
+	bool      _s;
+	char	  _c;
+
+protected:
+	static std::map<Dir,Offset> s_os;
+
+protected:
+	Piece(PieceType t, bool s, const char* c)
+	: _t{t}, _s{s}, _c{c[s]}
+	{}
+
+public:
+	bool isWhite() const { return !_s;}
+	bool isBlack() const { return _s; }
+
+	const char toChar() const {return _c;}
+
+	static std::shared_ptr<Piece*> create(PieceType pt, bool s);
+	static std::shared_ptr<Piece*> createWhite(PieceType pt) { return Piece::create(pt, false);}
+	static std::shared_ptr<Piece*> createBlack(PieceType pt) { return Piece::create(pt, true);}
+};
+
+std::map<Dir,Offset> Piece::s_os = {
 	{UP, {+0,+1}},
 	{DN, {+0,-1}},
 	{LFT,{-1,+0}},
@@ -290,39 +269,14 @@ std::map<Dir,Offset> offsets = {
 	{DNL,{-1,-1}}
 };
 
-// base class of all pieces
-class Piece
-{
-private:
-	PieceType _t;
-	bool      _s;
-
-protected:
-	Piece(PieceType t, bool s = false)
-	: _t{t}, _s{s}
-	{}
-
-public:
-	bool isWhite() const { return !_s;}
-	bool isBlack() const { return _s; }
-
-	virtual const char toChar() const = 0;
-
-	static std::shared_ptr<Piece*> create(PieceType pt, bool s);
-	static std::shared_ptr<Piece*> createWhite(PieceType pt) { return Piece::create(pt, false);}
-	static std::shared_ptr<Piece*> createBlack(PieceType pt) { return Piece::create(pt, true);}
-};
-
 class King : public Piece
 {
 private:
 	static std::vector<Dir> _d;
 public:
 	King(bool s)
-	: Piece(PT_KING, s)
+	: Piece(PT_KING, s, "Kk")
 	{}
-	virtual const char toChar() const { return "Kk"[isBlack()];}
-
 };
 
 std::vector<Dir> King::_d = {UP, DN, LFT,RGT,UPR,UPL,DNR,DNL};
@@ -333,9 +287,8 @@ private:
 	static std::vector<Dir> _d;
 public:
 	Queen(bool s)
-	: Piece(PT_QUEEN, s)
+	: Piece(PT_QUEEN, s, "Qq")
 	{}
-	virtual const char toChar() const { return "Qq"[isBlack()];}
 };
 
 std::vector<Dir> Queen::_d = {UP, DN, LFT,RGT,UPR,UPL,DNR,DNL};
@@ -346,9 +299,8 @@ private:
 	static std::vector<Dir> _d;
 public:
 	Rook(bool s)
-	: Piece(PT_ROOK, s)
+	: Piece(PT_ROOK, s, "Rr")
 	{}
-	virtual const char toChar() const { return "Rr"[isBlack()];}
 };
 
 std::vector<Dir> Rook::_d = {UP, DN, LFT,RGT};
@@ -359,9 +311,8 @@ private:
 	static std::vector<Offset> _o;
 public:
 	Knight(bool s)
-	: Piece(PT_KNIGHT, s)
+	: Piece(PT_KNIGHT, s, "Nn")
 	{}
-	virtual const char toChar() const { return "Nn"[isBlack()];}
 };
 
 std::vector<Offset> Knight::_o = {
@@ -377,9 +328,8 @@ private:
 	static std::vector<Dir> _d;
 public:
 	Bishop(bool s)
-	: Piece(PT_BISHOP, s)
+	: Piece(PT_BISHOP, s, "Bb")
 	{}
-	virtual const char toChar() const { return "Bb"[isBlack()];}
 };
 
 std::vector<Dir> Bishop::_d = {UP, DN, LFT,RGT};
@@ -403,11 +353,9 @@ private:
 
 public:
 	Pawn(bool s, bool off)
-	: Piece((off) ? PT_PAWN_OFF : PT_PAWN, s), _off(off)
+	: Piece((off) ? PT_PAWN_OFF : PT_PAWN, s, "Pp"), _off(off)
 	{
 	}
-	// virtual const char toChar() const { return isBlack()?'p':'P';}
-	virtual const char toChar() const { return "Pp"[isBlack()];}
 };
 
 std::shared_ptr<Piece*> Piece::create(PieceType pt, bool s)
@@ -423,8 +371,6 @@ std::shared_ptr<Piece*> Piece::create(PieceType pt, bool s)
 	}
 	return nullptr;
 }
-
-#define SQUARE(r,f) (u_char)(r | (f<<3))
 
 class Board {
 private:
@@ -458,10 +404,6 @@ public:
 		std::shared_ptr<Piece*> ptr = Piece::create(t,s);
 		uint8_t pos = (r << 3) | f;
 		_p[pos] = ptr;
-	}
-
-	PieceInfo getPiece(File f, Rank r) {
-		return PieceInfo(_b[r][f]);
 	}
 
 	bool inBounds(short f, short r) {
