@@ -2,13 +2,13 @@
 Research to generate all possible games of Chess
 
 Maximum possible moves for any given position
-K -  8 * 1 =  8
-Q - 28 * 1 = 28 (R+B, so can use this in determining poss. moves for Q)
-R - 14 * 2 = 56
-N -  8 * 2 = 16
-B - 13 * 2 = 26
-P -  1 * 8 =  8
-            142
+ K -  8 * 1 =  8
+ Q - 28 * 1 = 28 (R+B, so can use this in determining poss. moves for Q)
+ R - 14 * 2 = 56
+ N -  8 * 2 = 16
+ B - 13 * 2 = 26
+ P -  1 * 8 =  8
+             142
 
 <position><possible moves up to 141 for side on move>
 Encode in a byte. Hi nibble is piece id 0-31, and lo nibble is target square.
