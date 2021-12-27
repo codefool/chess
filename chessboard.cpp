@@ -283,23 +283,6 @@ std::map<Dir,Offset> offsets = {
 	{DNL,{-1,-1}}
 };
 
-// std::map<PieceType,Vector> vectors = {
-// 	{PT_KING,  {1, {UP, DN, LFT,RGT,UPR,UPL,DNR,DNL}}},
-// 	{PT_QUEEN, {7, {UP, DN, LFT,RGT,UPR,UPL,DNR,DNL}}},
-// 	{PT_BISHOP,{7, {UPR,UPL,DNR,DNL}}},
-// 	{PT_ROOK,  {7, {UP, DN, LFT,RGT}}}
-// };
-
-// // knights are a special case
-// std::vector<Offset> knight_offsets = {
-// 	{+1,+2}, {-1,+2},
-// 	{+1,-2}, {-1,-2},
-// 	{-2,+1}, {-2,-1},
-// 	{+1,+2}, {-1,+2}
-// };
-
-// pawns are filthy animals
-
 // base class of all pieces
 class Piece
 {
@@ -394,14 +377,26 @@ public:
 
 std::vector<Dir> Bishop::_d = {UP, DN, LFT,RGT};
 
+// pawns are filthy animals
+//
+// Movement rules are wack.
+// 1. On initial move, can move 1 or 2 spaces
+// 2. Can only capture UPL or UPR (for white, opp for black)
+// 3. Can en passant capture if:
+//    a. pawn is on its 5th rank
+//    b. has never left its own file, and
+//    c. target pawn moved 2 spaces on prior turn.
+// 4. If moved 2 spaces, flag as en passant target.
+// 5. Upon reaching its eight rank is promoted.
+//
 class Pawn : public Piece
 {
 private:
-	bool	_moved_off_file;
+	bool	_off;
 
 public:
-	Pawn(bool s, bool off_file)
-	: Piece((off_file) ? PT_PAWN_OFF : PT_PAWN, s)
+	Pawn(bool s, bool off)
+	: Piece((off) ? PT_PAWN_OFF : PT_PAWN, s), _off(off)
 	{
 	}
 	// virtual const char toChar() const { return isBlack()?'p':'P';}
@@ -416,8 +411,8 @@ std::shared_ptr<Piece*> Piece::create(PieceType pt, bool s)
 		case PT_BISHOP:   return std::make_shared<Piece*>(new Bishop(s));
 		case PT_KNIGHT:   return std::make_shared<Piece*>(new Knight(s));
 		case PT_ROOK:     return std::make_shared<Piece*>(new Rook(s));
-		case PT_PAWN:	  return std::make_shared<Piece*>(new Pawn(s,false));
-		case PT_PAWN_OFF: return std::make_shared<Piece*>(new Pawn(s,true));
+		case PT_PAWN:
+		case PT_PAWN_OFF: return std::make_shared<Piece*>(new Pawn(s,pt==PT_PAWN_OFF));
 	}
 	return nullptr;
 }
