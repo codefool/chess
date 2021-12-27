@@ -12,6 +12,9 @@
 #include <vector>
 #include <initializer_list>
 
+#include "constants.h"
+#include "pieces.h"
+
 /*
 Maximum possible moves for any given position
 K -  8 * 1 =  8
@@ -158,106 +161,6 @@ union GameInfo {
 };
 # pragma pack()
 
-enum PieceType {
-	PT_EMPTY     = 0x00,
-	PT_KING      = 0x01,
-	PT_QUEEN     = 0x02,
-	PT_BISHOP    = 0x03,
-	PT_KNIGHT    = 0x04,
-	PT_ROOK      = 0x05,
-	PT_PAWN      = 0x06, // on its own file
-	PT_PAWN_OFF  = 0x07,  // off its own file
-	SIDE_MASK    = 0x08,
-	SIDE_WHITE   = 0x00,
-	SIDE_BLACK   = 0x08,
-	PIECE_MASK   = 0x07
-};
-
-enum DrawReason {
-	R_NONE                = 0x00,
-	//
-	R_14A_STALEMATE       = 0x00,
-	R_14C_TRIPLE_OF_POS   = 0x01,
-	R_14D_NO_MATERIAL     = 0x02,
-	R_14F_50_MOVE_RULE    = 0x03,
-	//
-	R_14D1_KVK            = 0x00,
-	R_14D2_KVKWBN         = 0x01,
-	R_14D3_KWBVKWB        = 0x02,
-	R_14D4_NO_LGL_MV_CM   = 0x03
-};
-
-enum Rank {
-	R1 = 0x00,
-	R2 = 0x01,
-	R3 = 0x02,
-	R4 = 0x03,
-	R5 = 0x04,
-	R6 = 0x05,
-	R7 = 0x06,
-	R8 = 0x07
-};
-
-enum File {
-	Fa = 0x00,
-	Fb = 0x01,
-	Fc = 0x02,
-	Fd = 0x03,
-	Fe = 0x04,
-	Ff = 0x05,
-	Fg = 0x06,
-	Fh = 0x07
-};
-
-enum Dir {
-	UP = 0,
-	DN,
-	LFT,
-	RGT,
-	UPR,
-	UPL,
-	DNR,
-	DNL
-};
-
-struct Offset {
-	short df;	// delta file
-	short dr;	// delta rank
-};
-
-struct Vector {
-	short  			 c;	// max number of moves
-	std::vector<Dir> d;
-};
-
-
-// base class of all pieces
-class Piece
-{
-private:
-	PieceType _t;
-	bool      _s;
-	char	  _c;
-
-protected:
-	static std::map<Dir,Offset> s_os;
-
-protected:
-	Piece(PieceType t, bool s, const char* c)
-	: _t{t}, _s{s}, _c{c[s]}
-	{}
-
-public:
-	bool isWhite() const { return !_s;}
-	bool isBlack() const { return _s; }
-
-	const char toChar() const {return _c;}
-
-	static std::shared_ptr<Piece*> create(PieceType pt, bool s);
-	static std::shared_ptr<Piece*> createWhite(PieceType pt) { return Piece::create(pt, false);}
-	static std::shared_ptr<Piece*> createBlack(PieceType pt) { return Piece::create(pt, true);}
-};
-
 std::map<Dir,Offset> Piece::s_os = {
 	{UP, {+0,+1}},
 	{DN, {+0,-1}},
@@ -269,94 +172,16 @@ std::map<Dir,Offset> Piece::s_os = {
 	{DNL,{-1,-1}}
 };
 
-class King : public Piece
-{
-private:
-	static std::vector<Dir> _d;
-public:
-	King(bool s)
-	: Piece(PT_KING, s, "Kk")
-	{}
-};
-
 std::vector<Dir> King::_d = {UP, DN, LFT,RGT,UPR,UPL,DNR,DNL};
-
-class Queen : public Piece
-{
-private:
-	static std::vector<Dir> _d;
-public:
-	Queen(bool s)
-	: Piece(PT_QUEEN, s, "Qq")
-	{}
-};
-
 std::vector<Dir> Queen::_d = {UP, DN, LFT,RGT,UPR,UPL,DNR,DNL};
-
-class Rook : public Piece
-{
-private:
-	static std::vector<Dir> _d;
-public:
-	Rook(bool s)
-	: Piece(PT_ROOK, s, "Rr")
-	{}
-};
-
 std::vector<Dir> Rook::_d = {UP, DN, LFT,RGT};
-
-class Knight : public Piece
-{
-private:
-	static std::vector<Offset> _o;
-public:
-	Knight(bool s)
-	: Piece(PT_KNIGHT, s, "Nn")
-	{}
-};
-
 std::vector<Offset> Knight::_o = {
 	{+1,+2}, {-1,+2},
 	{+1,-2}, {-1,-2},
 	{-2,+1}, {-2,-1},
 	{+1,+2}, {-1,+2}
 };
-
-class Bishop : public Piece
-{
-private:
-	static std::vector<Dir> _d;
-public:
-	Bishop(bool s)
-	: Piece(PT_BISHOP, s, "Bb")
-	{}
-};
-
 std::vector<Dir> Bishop::_d = {UP, DN, LFT,RGT};
-
-// pawns are filthy animals
-//
-// Movement rules are wack.
-// 1. On initial move, can move 1 or 2 spaces
-// 2. Can only capture UPL or UPR (for white, opp for black)
-// 3. Can en passant capture if:
-//    a. pawn is on its 5th rank
-//    b. has never left its own file, and
-//    c. target pawn moved 2 spaces on prior turn.
-// 4. If moved 2 spaces, flag as en passant target.
-// 5. Upon reaching its eight rank is promoted.
-//
-class Pawn : public Piece
-{
-private:
-	bool	_off;
-
-public:
-	Pawn(bool s, bool off)
-	: Piece((off) ? PT_PAWN_OFF : PT_PAWN, s, "Pp"), _off(off)
-	{
-	}
-};
 
 std::shared_ptr<Piece*> Piece::create(PieceType pt, bool s)
 {
@@ -410,6 +235,14 @@ public:
 		return Fa <= f && f <= Fh && R1 <= r <= R8;
 	}
 
+	// a property of the physical chessboard is that
+	// if the odd'ness of the rank and file are the
+	// same, then the square is black, otherwise it's
+	// white.
+	bool isBlackSquare(short r, short f) {
+		return (r&1) == (f&1);
+	}
+
 	void dump() {
 		for(int r = R8; r >= R1; r--) {
 			uint8_t rank = r << 3;
@@ -423,6 +256,11 @@ public:
 			}
 			std::cout << std::endl;
 		}
+		for( auto it = _p.begin(); it != _p.end(); ++it) {
+			if ((*it->second)->is_on_move(_gi.f.on_move))
+				std::cout << ' ' << (*it->second)->toChar();
+		}
+		std::cout << std::endl;
 	}
 };
 
