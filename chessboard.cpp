@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cstring>
 #include <map>
+#include <memory>
 #include <vector>
 #include <initializer_list>
 
@@ -282,22 +283,144 @@ std::map<Dir,Offset> offsets = {
 	{DNL,{-1,-1}}
 };
 
-std::map<PieceType,Vector> vectors = {
-	{PT_KING,  {1, {UP, DN, LFT,RGT,UPR,UPL,DNR,DNL}}},
-	{PT_QUEEN, {7, {UP, DN, LFT,RGT,UPR,UPL,DNR,DNL}}},
-	{PT_BISHOP,{7, {UPR,UPL,DNR,DNL}}},
-	{PT_ROOK,  {7, {UP, DN, LFT,RGT}}}
+// std::map<PieceType,Vector> vectors = {
+// 	{PT_KING,  {1, {UP, DN, LFT,RGT,UPR,UPL,DNR,DNL}}},
+// 	{PT_QUEEN, {7, {UP, DN, LFT,RGT,UPR,UPL,DNR,DNL}}},
+// 	{PT_BISHOP,{7, {UPR,UPL,DNR,DNL}}},
+// 	{PT_ROOK,  {7, {UP, DN, LFT,RGT}}}
+// };
+
+// // knights are a special case
+// std::vector<Offset> knight_offsets = {
+// 	{+1,+2}, {-1,+2},
+// 	{+1,-2}, {-1,-2},
+// 	{-2,+1}, {-2,-1},
+// 	{+1,+2}, {-1,+2}
+// };
+
+// pawns are filthy animals
+
+// base class of all pieces
+class Piece
+{
+private:
+	PieceType _t;
+	bool      _s;
+
+protected:
+	Piece(PieceType t, bool s = false)
+	: _t{t}, _s{s}
+	{}
+
+public:
+	bool isWhite() const { return !_s;}
+	bool isBlack() const { return _s; }
+
+	virtual const char toChar() const = 0;
+
+	static std::shared_ptr<Piece*> create(PieceType pt, bool s);
+	static std::shared_ptr<Piece*> createWhite(PieceType pt) { return Piece::create(pt, false);}
+	static std::shared_ptr<Piece*> createBlack(PieceType pt) { return Piece::create(pt, true);}
 };
 
-// knights are a special case
-std::vector<Offset> knight_offsets = {
+class King : public Piece
+{
+private:
+	static std::vector<Dir> _d;
+public:
+	King(bool s)
+	: Piece(PT_KING, s)
+	{}
+	virtual const char toChar() const { return "Kk"[isBlack()];}
+
+};
+
+std::vector<Dir> King::_d = {UP, DN, LFT,RGT,UPR,UPL,DNR,DNL};
+
+class Queen : public Piece
+{
+private:
+	static std::vector<Dir> _d;
+public:
+	Queen(bool s)
+	: Piece(PT_QUEEN, s)
+	{}
+	virtual const char toChar() const { return "Qq"[isBlack()];}
+};
+
+std::vector<Dir> Queen::_d = {UP, DN, LFT,RGT,UPR,UPL,DNR,DNL};
+
+class Rook : public Piece
+{
+private:
+	static std::vector<Dir> _d;
+public:
+	Rook(bool s)
+	: Piece(PT_ROOK, s)
+	{}
+	virtual const char toChar() const { return "Rr"[isBlack()];}
+};
+
+std::vector<Dir> Rook::_d = {UP, DN, LFT,RGT};
+
+class Knight : public Piece
+{
+private:
+	static std::vector<Offset> _o;
+public:
+	Knight(bool s)
+	: Piece(PT_KNIGHT, s)
+	{}
+	virtual const char toChar() const { return "Nn"[isBlack()];}
+};
+
+std::vector<Offset> Knight::_o = {
 	{+1,+2}, {-1,+2},
 	{+1,-2}, {-1,-2},
 	{-2,+1}, {-2,-1},
 	{+1,+2}, {-1,+2}
 };
 
-// pawns are filthy animals
+class Bishop : public Piece
+{
+private:
+	static std::vector<Dir> _d;
+public:
+	Bishop(bool s)
+	: Piece(PT_BISHOP, s)
+	{}
+	virtual const char toChar() const { return "Bb"[isBlack()];}
+};
+
+std::vector<Dir> Bishop::_d = {UP, DN, LFT,RGT};
+
+class Pawn : public Piece
+{
+private:
+	bool	_moved_off_file;
+
+public:
+	Pawn(bool s, bool off_file)
+	: Piece((off_file) ? PT_PAWN_OFF : PT_PAWN, s)
+	{
+	}
+	// virtual const char toChar() const { return isBlack()?'p':'P';}
+	virtual const char toChar() const { return "Pp"[isBlack()];}
+};
+
+std::shared_ptr<Piece*> Piece::create(PieceType pt, bool s)
+{
+	switch(pt) {
+		case PT_KING:	  return std::make_shared<Piece*>(new King(s));
+		case PT_QUEEN:	  return std::make_shared<Piece*>(new Queen(s));
+		case PT_BISHOP:   return std::make_shared<Piece*>(new Bishop(s));
+		case PT_KNIGHT:   return std::make_shared<Piece*>(new Knight(s));
+		case PT_ROOK:     return std::make_shared<Piece*>(new Rook(s));
+		case PT_PAWN:	  return std::make_shared<Piece*>(new Pawn(s,false));
+		case PT_PAWN_OFF: return std::make_shared<Piece*>(new Pawn(s,true));
+	}
+	return nullptr;
+}
 
 #define SQUARE(r,f) (u_char)(r | (f<<3))
 
@@ -308,6 +431,7 @@ private:
 	uint8_t  _bk_pos;
 	uint8_t  _wk_pos;
 	GameInfo _gi;
+	std::map<uint8_t,std::shared_ptr<Piece*>> _p;
 
 public:
 	Board()
@@ -328,12 +452,10 @@ public:
 
 	GameInfo& gi() { return _gi; }
 
-	void placePiece(PieceInfo p, Rank r, File f) {
-		_b[r][f] = p.toByte();
-	}
-
-	void placePiece(PieceType t, bool side, Rank r, File f) {
-		placePiece(PieceInfo(t,side), r, f);
+	void placePiece(PieceType t, bool s, Rank r, File f) {
+		std::shared_ptr<Piece*> ptr = Piece::create(t,s);
+		uint8_t pos = (r << 3) | f;
+		_p[pos] = ptr;
 	}
 
 	PieceInfo getPiece(File f, Rank r) {
@@ -346,8 +468,14 @@ public:
 
 	void dump() {
 		for(int r = R8; r >= R1; r--) {
+			uint8_t rank = r << 3;
 			for(int f = Fa; f <= Fh; f++) {
-				std::cout << ' ' << PieceInfo(_b[r][f]).toChar();
+				char c = '.';
+				auto itr = _p.find(rank | f);
+				if (itr != _p.end()) {
+					c = (*itr->second)->toChar();
+				}
+				std::cout << ' ' << c;
 			}
 			std::cout << std::endl;
 		}
@@ -379,42 +507,6 @@ int main() {
 	Board b;
 
 	b.dump();
-
-	// for(auto itr : vectors ) {
-	// 	std::cout << itr.first << "\n========" << std::endl;
-	// 	Vector v = itr.second;
-	// 	for(Dir p : v.d) {
-	// 		Offset& o = offsets[p];
-	// 		short r = Rd;
-	// 		short f = F4;
-	// 		for(short c = 0; c < v.c; c++) {
-	// 			// travel in this direction until we are:
-	// 			// 1. out of bounds
-	// 			// 2. hit an occupied square
-	// 			f += o.df;
-	// 			r += o.dr;
-	// 			if (!b.inBounds(f, r))
-	// 				break;
-	// 			std::cout << c << ' ' << f << ',' << r << ' ' << b.inBounds(f, r) << std::endl;
-	// 		}
-	// 	}
-	// }
-
-	// // Knights
-	// std::cout << "Knight\n=======" << std::endl;
-	// for(auto o : knight_offsets) {
-	// 	short f = F4 + o.df;
-	// 	short r = Rb + o.dr;
-	// 	// if (!b.inBounds(f, r))
-	// 	// 	continue;
-	// 	std::cout << o.df << ',' << o.dr << ' ' << f << ',' << r << ' ' << b.inBounds(f, r) << std::endl;
-	// }
-
-	// Nibbles n{0};
-	// n.f.lo = PT_PAWN_OFF;
-	// std::cout << std::hex << (int)n.b << std::endl;
-
-
 
 	return 0;
 }
