@@ -1,3 +1,10 @@
+// Chess analysis
+//
+// Copyright (C) 2021 Garyl Hester. All rights reserved.
+// github.com/codefool/chess
+//
+// Released under the GNU General Public Licence Version 3, 29 June 2007
+//
 #include <iostream>
 #include <cstring>
 #include <map>
@@ -120,10 +127,11 @@ union GameInfo {
 		// number of active pieces on the board (0..31)
 		uint32_t piece_cnt          :  5;
 		uint32_t on_move            :  1; // 0=white on move, 1=black
-		// if drawn reason is 14D, this is the sub-reason:
-		// 00 - King v King (14D1)
-		// 01 - King v King with Bishop/Knight (14D2)
-		// 10 - King with Bishop/Knight v King with Bishop/Knight (14D3)
+		// drawn reason
+		// 00 - stalemate (14A)
+		// 01 - triple of position (14C)
+		// 10 - no material (14D)
+		// 11 - 50 move rule (14F)
 		uint32_t drawn_reason       :  2;
 		// Castling is possible only if the participating pieces have not
 		// moved (among other rules, but have nothing to do with prior movement.)
@@ -140,11 +148,10 @@ union GameInfo {
 		uint32_t en_passant_file    :  3;   // file number where pawn rests
 		//
 		uint32_t drawn_game         :  1;	// 1=drawn game (terminal)
-		// drawn reason
-		// 00 - stalemate (14A)
-		// 01 - triple of position (14C)
-		// 10 - no material (14D)
-		// 11 - 50 move rule (14F)
+		// if drawn reason is 14D, this is the sub-reason:
+		// 00 - King v King (14D1)
+		// 01 - King v King with Bishop/Knight (14D2)
+		// 10 - King with Bishop/Knight v King with Bishop/Knight (14D3)
 		uint32_t reason_14d         :  2;
 		uint32_t unused             : 13; // for future use
 	} f;
