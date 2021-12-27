@@ -80,3 +80,20 @@ struct Vector {
 	short  			 c;	// max number of moves
 	std::vector<Dir> d;
 };
+
+union Nibbles {
+	uint8_t b;
+	struct {
+		uint8_t lo : 4;
+		uint8_t hi : 4;
+	} f;
+};
+
+union Move {
+	uint8_t b;
+	struct {
+		uint8_t action    : 4;
+		uint8_t piece     : 6;
+		uint8_t target    : 6;
+	} f;
+};

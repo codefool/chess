@@ -1,6 +1,10 @@
-CFLAGS =  -g -std=c++17
+CC = g++
+CFLAGS = -g -std=c++17
+HEADERS = pieces.h constants.h gameinfo.h
+OBJECTS = chessboard.o pieces.o
 
-DEFAULT = all
+.cpp.o:
+	$(CC) $(CFLAGS) -c $<
 
-a.out : chessboard.cpp pieces.h constants.h
-	g++ $(CFLAGS) chessboard.cpp
+a.out : $(OBJECTS) $(HEADERS)
+	$(CC) $(CFLAGS) $(OBJECTS)

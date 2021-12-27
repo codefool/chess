@@ -12,6 +12,7 @@
 #include <vector>
 #include <initializer_list>
 
+#include "gameinfo.h"
 #include "constants.h"
 #include "pieces.h"
 
@@ -106,96 +107,8 @@ Which pieces do we need to know if they have moved or not?
   - king does not pass through check
   - no pieces between the king and rook
 */
-#pragma pack(1)
-union Nibbles {
-	uint8_t b;
-	struct {
-		uint8_t lo : 4;
-		uint8_t hi : 4;
-	} f;
-};
 
-union Move {
-	uint8_t b;
-	struct {
-		uint8_t action    : 4;
-		uint8_t piece     : 6;
-		uint8_t target    : 6;
-	} f;
-};
 
-union GameInfo {
-	uint32_t i;
-	struct {
-		// number of active pieces on the board (0..31)
-		uint32_t piece_cnt          :  5;
-		uint32_t on_move            :  1; // 0=white on move, 1=black
-		// drawn reason
-		// 00 - stalemate (14A)
-		// 01 - triple of position (14C)
-		// 10 - no material (14D)
-		// 11 - 50 move rule (14F)
-		uint32_t drawn_reason       :  2;
-		// Castling is possible only if the participating pieces have not
-		// moved (among other rules, but have nothing to do with prior movement.)
-		uint32_t wks_castle_disabled:  1;	// WK or WKR has moved
-		uint32_t wqs_castle_disabled:  1;	// WK or WQR has moved
-		uint32_t bks_castle_disabled:  1;	// BK or BKR has moved
-		uint32_t bqs_castle_disabled:  1;	// BK or BQR has moved
-		// en passant
-		// If set, the pawn that rests on file en_passant_file moved two
-		// positions. This signals that a pawn subject to en passant capture
-		// exists, and does not mean that there is an opposing pawn that can
-		// affect it.
-		uint32_t en_passant_latch   :  1;   // pawn subject to en passant
-		uint32_t en_passant_file    :  3;   // file number where pawn rests
-		//
-		uint32_t drawn_game         :  1;	// 1=drawn game (terminal)
-		// if drawn reason is 14D, this is the sub-reason:
-		// 00 - King v King (14D1)
-		// 01 - King v King with Bishop/Knight (14D2)
-		// 10 - King with Bishop/Knight v King with Bishop/Knight (14D3)
-		uint32_t reason_14d         :  2;
-		uint32_t unused             : 13; // for future use
-	} f;
-};
-# pragma pack()
-
-std::map<Dir,Offset> Piece::s_os = {
-	{UP, {+0,+1}},
-	{DN, {+0,-1}},
-	{LFT,{-1,+0}},
-	{RGT,{+1,+0}},
-	{UPR,{+1,+1}},
-	{UPL,{-1,+1}},
-	{DNR,{+1,-1}},
-	{DNL,{-1,-1}}
-};
-
-std::vector<Dir> King::_d = {UP, DN, LFT,RGT,UPR,UPL,DNR,DNL};
-std::vector<Dir> Queen::_d = {UP, DN, LFT,RGT,UPR,UPL,DNR,DNL};
-std::vector<Dir> Rook::_d = {UP, DN, LFT,RGT};
-std::vector<Offset> Knight::_o = {
-	{+1,+2}, {-1,+2},
-	{+1,-2}, {-1,-2},
-	{-2,+1}, {-2,-1},
-	{+1,+2}, {-1,+2}
-};
-std::vector<Dir> Bishop::_d = {UP, DN, LFT,RGT};
-
-std::shared_ptr<Piece*> Piece::create(PieceType pt, bool s)
-{
-	switch(pt) {
-		case PT_KING:	  return std::make_shared<Piece*>(new King(s));
-		case PT_QUEEN:	  return std::make_shared<Piece*>(new Queen(s));
-		case PT_BISHOP:   return std::make_shared<Piece*>(new Bishop(s));
-		case PT_KNIGHT:   return std::make_shared<Piece*>(new Knight(s));
-		case PT_ROOK:     return std::make_shared<Piece*>(new Rook(s));
-		case PT_PAWN:
-		case PT_PAWN_OFF: return std::make_shared<Piece*>(new Pawn(s,pt==PT_PAWN_OFF));
-	}
-	return nullptr;
-}
 
 class Board {
 private:
