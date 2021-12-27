@@ -2,6 +2,7 @@
 Research to generate all possible games of Chess
 
 Maximum possible moves for any given position
+```
  K -  8 * 1 =  8
  Q - 28 * 1 = 28 (R+B, so can use this in determining poss. moves for Q)
  R - 14 * 2 = 56
@@ -9,10 +10,11 @@ Maximum possible moves for any given position
  B - 13 * 2 = 26
  P -  1 * 8 =  8
              142
+```
 
-<position><possible moves up to 141 for side on move>
 Encode in a byte. Hi nibble is piece id 0-31, and lo nibble is target square.
 If target square is occupied capture is inferred.
+```
 xxxx .... .... .... - action
 .... xxxx xx.. .... - Source square
 .... .... ..xx xxxx - Target square
@@ -34,8 +36,9 @@ Action:
 0x1101 unused
 0x1110 unused
 0x1111 unused
-
+```
 Pieces are encoded in nibbles of a 32-byte array, as follows:
+```
 x... - side 0=white, 1=black
 .xxx - piece type
 .001 - King
@@ -46,11 +49,11 @@ x... - side 0=white, 1=black
 .110 - Pawn
 .111 - Pawn not in its own file
 0000 - empty square
-
+```
 Each nibble of the position array represents one square on the chessboard. This is
 more efficient than encoding location data per-piece, and also allows easy
 addition of duplicate piece types through pawn promotion.
-
+```
 xxxx x... .... .... .... .... .... .... = number of active pieces on the board (0..31)
 .... .x.. .... .... .... .... .... .... = side on move: 0-white, 1-black
 .... ..xx .... .... .... .... .... .... = drawn game reason
@@ -63,7 +66,7 @@ xxxx x... .... .... .... .... .... .... = number of active pieces on the board (
 .... .... .... .... x... .... .... .... = drawn game
 .... .... .... .... .xx. .... .... .... = 14D reason
 .... .... .... .... ...? ???? ???? ???? = unused (zeroes)
-
+```
 It is imperitive that all unused bits - or bits that are out of scope - be set to 0
 
 Which pieces do we need to know if they have moved or not?
