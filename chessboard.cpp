@@ -12,10 +12,10 @@
 #include <vector>
 #include <initializer_list>
 
-#include "gameinfo.h"
 #include "constants.h"
-#include "pieces.h"
+#include "gameinfo.h"
 #include "board.h"
+#include "pieces.h"
 
 /*
 Maximum possible moves for any given position
@@ -123,9 +123,7 @@ int main() {
 
 	GameInfo g;
 	g.setWord(0);
-	g.setDrawnGameState(true);
-	g.setDrawnReason(R_14D_NO_MATERIAL);
-	g.set14DReason(R_14D3_KWBVKWB);
+	g.setEndGameReason(EGR_14D3_KWBVKWB);
 	g.setEnPassantLatch(true);
 	g.setEnPassantFile(Fg);
 

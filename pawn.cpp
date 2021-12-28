@@ -19,6 +19,6 @@
 // 4. If moved 2 spaces, flag as en passant target.
 // 5. Upon reaching its eight rank is promoted.
 //
-MoveList Pawn::getValidMoves() {
+MoveList Pawn::getValidMoves(Board& b) {
     return MoveList();
 }

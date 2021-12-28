@@ -14,6 +14,6 @@ std::vector<Offset> Knight::_o = {
 	{+1,+2}, {-1,+2}
 };
 
-MoveList Knight::getValidMoves() {
+MoveList Knight::getValidMoves(Board& b) {
     return MoveList();
 }

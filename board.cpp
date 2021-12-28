@@ -9,6 +9,7 @@
 #include <cstring>
 #include <memory>
 
+#include "pieces.h"
 #include "board.h"
 
 Board::Board()
@@ -16,22 +17,27 @@ Board::Board()
     memset(_b, PT_EMPTY, 64);
     // set the initial position.
     // first set the while/black court pieces
-    PieceType court[] = {PT_ROOK, PT_KNIGHT, PT_BISHOP, PT_QUEEN, PT_KING, PT_BISHOP, PT_KNIGHT, PT_ROOK};
+    PieceType court[] = {
+        PT_ROOK, PT_KNIGHT, PT_BISHOP, PT_QUEEN,
+        PT_KING, PT_BISHOP, PT_KNIGHT, PT_ROOK
+    };
     int f = Fa;
     for( PieceType pt : court) {
-        File fi = (File)f++;
-        placePiece(pt,      false, R1, fi);
-        placePiece(PT_PAWN, false, R2, fi);
-        placePiece(PT_PAWN, true,  R7, fi);
-        placePiece(pt,      true,  R8, fi);
+        File fi = static_cast<File>(f++);
+        placePiece(pt,      SIDE_WHITE, R1, fi);
+        placePiece(PT_PAWN, SIDE_WHITE, R2, fi);
+        placePiece(PT_PAWN, SIDE_BLACK, R7, fi);
+        placePiece(pt,      SIDE_BLACK, R8, fi);
     }
 }
 
-void Board::placePiece(PieceType t, bool s, Rank r, File f) {
-    std::shared_ptr<Piece> ptr = Piece::create(t,s);
+void Board::placePiece(PieceType t, Side s, Rank r, File f) {
+    PiecePtr ptr = Piece::create(t,s);
     ptr->setPos(r,f);
-    uint8_t pos = (r << 3) | f;
-    _p[pos] = ptr;
+    _p[ptr->getPos().toByte()] = ptr;
+    if (PT_KING == t) {
+        _k[s] = ptr;
+    }
 }
 
 bool Board::inBounds(short f, short r) {
@@ -59,9 +65,4 @@ void Board::dump() {
         }
         std::cout << std::endl;
     }
-    for( auto it = _p.begin(); it != _p.end(); ++it) {
-        if (it->second->is_on_move(_gi.getOnMove()))
-            std::cout << ' ' << it->second->toChar();
-    }
-    std::cout << std::endl;
 }

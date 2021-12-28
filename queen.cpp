@@ -9,6 +9,6 @@
 
 std::vector<Dir> Queen::_d = {UP, DN, LFT,RGT,UPR,UPL,DNR,DNL};
 
-MoveList Queen::getValidMoves() {
+MoveList Queen::getValidMoves(Board& b) {
     return MoveList();
 }

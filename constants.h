@@ -6,25 +6,26 @@
 // Released under the GNU General Public Licence Version 3, 29 June 2007
 //
 #pragma once
-
+#include <iostream>
 #include <vector>
 
-enum DrawReason {
-	R_NONE                = 0x00,
-	//
-	R_14A_STALEMATE       = 0x00,
-	R_14C_TRIPLE_OF_POS   = 0x01,
-	R_14D_NO_MATERIAL     = 0x02,
-	R_14F_50_MOVE_RULE    = 0x03
+enum Side {
+	SIDE_WHITE = 0,
+	SIDE_BLACK = 1
 };
 
-enum Draw14dReason {
-	R_14D_NONE            = 0x00,
+enum EndGameReason {
+	EGR_NONE               = 0x00,
 	//
-	R_14D1_KVK            = 0x00,
-	R_14D2_KVKWBN         = 0x01,
-	R_14D3_KWBVKWB        = 0x02,
-	R_14D4_NO_LGL_MV_CM   = 0x03
+	EGR_CHECKMATE          = 0x01,
+	EGR_14A_STALEMATE      = 0x02,
+	EGR_14C_TRIPLE_OF_POS  = 0x03,
+	EGR_14D_NO_MATERIAL    = 0x04,
+	EGR_14D1_KVK           = 0x05,
+	EGR_14D2_KVKWBN        = 0x06,
+	EGR_14D3_KWBVKWB       = 0x07,
+	EGR_14D4_NO_LGL_MV_CM  = 0x08,
+	EGR_14F_50_MOVE_RULE   = 0x09
 };
 
 enum Rank {
@@ -59,8 +60,7 @@ enum PieceType {
 	PT_PAWN      = 0x06, // on its own file
 	PT_PAWN_OFF  = 0x07,  // off its own file
 	SIDE_MASK    = 0x08,
-	SIDE_WHITE   = 0x00,
-	SIDE_BLACK   = 0x08,
+	BLACK_MASK   = 0x08,
 	PIECE_MASK   = 0x07
 };
 
@@ -102,6 +102,9 @@ union Move {
 	} f;
 };
 
+typedef std::vector<Move>   MoveList;
+typedef MoveList::iterator  MoveListItr;
+
 struct Pos {
 	Rank r;
 	File f;
@@ -126,5 +129,5 @@ struct Pos {
 	inline File file() { return f; }
 };
 
-typedef std::vector<Move>   MoveList;
-typedef MoveList::iterator  MoveListItr;
+class Piece;
+typedef std::shared_ptr<Piece> PiecePtr;

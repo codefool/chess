@@ -11,23 +11,23 @@
 #include <map>
 #include <memory>
 
-#include "pieces.h"
+#include "constants.h"
 #include "gameinfo.h"
 
 class Board {
 private:
 	uint8_t  _b[8][8];
 	// we always need to know where the kings are
-	uint8_t  _bk_pos;
-	uint8_t  _wk_pos;
+	PiecePtr _k[2];
+	PiecePtr _wk;
 	GameInfo _gi;
-	std::map<uint8_t,std::shared_ptr<Piece>> _p;
+	std::map<uint8_t,PiecePtr> _p;
 
 public:
 	Board();
 	GameInfo& gi() { return _gi; }
 
-	void placePiece(PieceType t, bool s, Rank r, File f);
+	void placePiece(PieceType t, Side s, Rank r, File f);
 	bool inBounds(short f, short r);
 
 	// a property of the physical chessboard is that

@@ -9,7 +9,7 @@
 
 std::vector<Dir> King::_d = {UP, DN, LFT,RGT,UPR,UPL,DNR,DNL};
 
-MoveList King::getValidMoves() {
+MoveList King::getValidMoves(Board& b) {
     MoveList ret;
 
     short r = _p.r;

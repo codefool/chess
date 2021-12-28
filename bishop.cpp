@@ -9,6 +9,6 @@
 
 std::vector<Dir> Bishop::_d = {UP, DN, LFT,RGT};
 
-MoveList Bishop::getValidMoves() {
+MoveList Bishop::getValidMoves(Board& b) {
     return MoveList();
 }

@@ -18,7 +18,7 @@ std::map<Dir,Offset> Piece::s_os = {
 	{DNL,{-1,-1}}
 };
 
-std::shared_ptr<Piece> Piece::create(PieceType pt, bool s)
+PiecePtr Piece::create(PieceType pt, Side s)
 {
 	switch(pt) {
 		case PT_KING:	  return std::make_shared<King>(s);

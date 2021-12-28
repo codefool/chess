@@ -9,6 +9,6 @@
 
 std::vector<Dir> Rook::_d = {UP, DN, LFT,RGT};
 
-MoveList Rook::getValidMoves() {
+MoveList Rook::getValidMoves(Board& b) {
     return MoveList();
 }
