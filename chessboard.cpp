@@ -137,32 +137,3 @@ int main() {
 
 	return 0;
 }
-
-// validate that the given square is either empty or
-// occupied by an opponent piece.
-bool moveIsValid(bool side, File file, Rank rank) {
-	return false;
-}
-
-// determine side's king is under attack by any opponent
-// piece.
-bool inCheck(bool side) {
-	// we do this by following all paths to see if there
-	// exists an opposing piece which can attack on that
-	// path.
-	return false;
-}
-
-void bogus() {
-	PieceType typ;
-
-	if (typ == PT_KING) {
-		// check one spot in each direction to see if
-	} else if (typ == PT_KNIGHT) {
-
-	}
-
-
-
-
-}

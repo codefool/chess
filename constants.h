@@ -97,3 +97,31 @@ union Move {
 		uint8_t target    : 6;
 	} f;
 };
+
+union Pos {
+	uint8_t b;
+	struct {
+		uint8_t rank   : 3;
+		uint8_t file   : 3;
+		uint8_t unused : 2;
+	} f;
+
+	Pos() : b{0} {}
+
+	Pos(Rank ra, File fi)
+	: b{0}
+	{
+		set(ra,fi);
+	}
+
+	void set(Rank ra, File fi) {
+		f.rank = ra;
+		f.file = fi;
+	}
+
+	inline Rank rank() { return (Rank)f.rank; }
+	inline File file() { return (File)f.file; }
+};
+
+typedef std::vector<Move>   MoveList;
+typedef MoveList::iterator  MoveListItr;

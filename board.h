@@ -21,7 +21,7 @@ private:
 	uint8_t  _bk_pos;
 	uint8_t  _wk_pos;
 	GameInfo _gi;
-	std::map<uint8_t,std::shared_ptr<Piece*>> _p;
+	std::map<uint8_t,std::shared_ptr<Piece>> _p;
 
 public:
 	Board();

@@ -20,24 +20,36 @@ private:
 	PieceType _t;
 	bool      _s;
 	char	  _c;
+	Rank	  _r;
+	File	  _f;
 
 protected:
 	static std::map<Dir,Offset> s_os;
 
 protected:
 	Piece(PieceType t, bool s, const char* c)
-	: _t{t}, _s{s}, _c{c[s]}
+	: _t{t}, _s{s}, _c{c[s]}, _r{R1}, _f{Fa}
 	{}
 
 public:
 	bool is_on_move(bool m) { return _s == m; }
-	bool is_not_on_move(bool m) { return _s != m; }
 
 	const char toChar() const {return _c;}
 
-	static std::shared_ptr<Piece*> create(PieceType pt, bool s);
-	static std::shared_ptr<Piece*> createWhite(PieceType pt) { return Piece::create(pt, false);}
-	static std::shared_ptr<Piece*> createBlack(PieceType pt) { return Piece::create(pt, true);}
+	Pos getPos() { return Pos(_r,_f); }
+
+	void setPos(Rank r, File f) {
+		_r = r;
+		_f = f;
+	}
+
+	void setPos(Pos p) {
+		setPos(p.rank(), p.file());
+	}
+
+	static std::shared_ptr<Piece> create(PieceType pt, bool s);
+
+    virtual MoveList getValidMoves() = 0;
 };
 
 class King : public Piece
@@ -48,6 +60,7 @@ public:
 	King(bool s)
 	: Piece(PT_KING, s, "Kk")
 	{}
+    virtual MoveList getValidMoves();
 };
 
 class Queen : public Piece
@@ -58,6 +71,7 @@ public:
 	Queen(bool s)
 	: Piece(PT_QUEEN, s, "Qq")
 	{}
+    virtual MoveList getValidMoves();
 };
 
 class Rook : public Piece
@@ -68,6 +82,7 @@ public:
 	Rook(bool s)
 	: Piece(PT_ROOK, s, "Rr")
 	{}
+    virtual MoveList getValidMoves();
 };
 
 class Knight : public Piece
@@ -78,6 +93,7 @@ public:
 	Knight(bool s)
 	: Piece(PT_KNIGHT, s, "Nn")
 	{}
+    virtual MoveList getValidMoves();
 };
 
 class Bishop : public Piece
@@ -88,6 +104,7 @@ public:
 	Bishop(bool s)
 	: Piece(PT_BISHOP, s, "Bb")
 	{}
+    virtual MoveList getValidMoves();
 };
 
 // pawns are filthy animals
@@ -112,4 +129,5 @@ public:
 	: Piece((off) ? PT_PAWN_OFF : PT_PAWN, s, "Pp"), _off(off)
 	{
 	}
+    virtual MoveList getValidMoves();
 };

@@ -28,7 +28,8 @@ Board::Board()
 }
 
 void Board::placePiece(PieceType t, bool s, Rank r, File f) {
-    std::shared_ptr<Piece*> ptr = Piece::create(t,s);
+    std::shared_ptr<Piece> ptr = Piece::create(t,s);
+    ptr->setPos(r,f);
     uint8_t pos = (r << 3) | f;
     _p[pos] = ptr;
 }
@@ -52,15 +53,15 @@ void Board::dump() {
             char c = '.';
             auto itr = _p.find(rank | f);
             if (itr != _p.end()) {
-                c = (*itr->second)->toChar();
+                c = itr->second->toChar();
             }
             std::cout << ' ' << c;
         }
         std::cout << std::endl;
     }
     for( auto it = _p.begin(); it != _p.end(); ++it) {
-        if ((*it->second)->is_on_move(_gi.f.on_move))
-            std::cout << ' ' << (*it->second)->toChar();
+        if (it->second->is_on_move(_gi.f.on_move))
+            std::cout << ' ' << it->second->toChar();
     }
     std::cout << std::endl;
 }
