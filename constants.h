@@ -98,29 +98,28 @@ union Move {
 	} f;
 };
 
-union Pos {
-	uint8_t b;
-	struct {
-		uint8_t rank   : 3;
-		uint8_t file   : 3;
-		uint8_t unused : 2;
-	} f;
+struct Pos {
+	Rank r;
+	File f;
 
-	Pos() : b{0} {}
+	Pos() : r{R1}, f{Fa} {}
 
 	Pos(Rank ra, File fi)
-	: b{0}
 	{
 		set(ra,fi);
 	}
 
 	void set(Rank ra, File fi) {
-		f.rank = ra;
-		f.file = fi;
+		r = ra;
+		f = fi;
 	}
 
-	inline Rank rank() { return (Rank)f.rank; }
-	inline File file() { return (File)f.file; }
+	uint8_t toByte() {
+		return (uint8_t)(r << 3 | f);
+	}
+
+	inline Rank rank() { return r; }
+	inline File file() { return f; }
 };
 
 typedef std::vector<Move>   MoveList;
