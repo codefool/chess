@@ -7,6 +7,7 @@
 //
 #pragma once
 #include <cstdint>
+#include "constants.h"
 /*
 xxxx x... .... .... .... .... .... .... = number of active pieces on the board (0..31)
 .... .x.. .... .... .... .... .... .... = side on move: 0-white, 1-black
@@ -27,6 +28,7 @@ It is imperitive that all unused bits - or bits that are out of scope - be set t
 #pragma pack(1)
 
 union GameInfo {
+private:
 	uint32_t i;
 	struct {
 		// number of active pieces on the board (0..31)
@@ -60,5 +62,46 @@ union GameInfo {
 		uint32_t reason_14d         :  2;
 		uint32_t unused             : 13; // for future use
 	} f;
+public:
+	GameInfo() : i{0} {}
+
+	uint32_t getWord() { return i;}
+	void setWord(uint32_t w) {i = w;}
+	//
+	short getPieceCnt() { return f.piece_cnt; }
+	void setPieceCnt(short cnt) { f.piece_cnt = (uint32_t)cnt; }
+	bool  getOnMove() { return f.on_move == 0x01;}
+	void setOnMove(bool b) { f.on_move = (b) ? 0x01 : 0x00; }
+	DrawReason getDrawnReason() { return (DrawReason)f.drawn_reason; }
+	void setDrawnReason(DrawReason r) { 
+		f.drawn_reason = (short)r; 
+		if (r != R_14D_NO_MATERIAL)
+			// if reason is not 14D, then clear the 14D reason
+			set14DReason(R_14D_NONE);
+	}
+	bool isWksCastleEnabled() { return f.wks_castle_disabled == 0; }
+	void setWksCastleEnabled(bool s) { f.wks_castle_disabled = (s) ? 1 : 0;}
+	bool isWqsCastleEnabled() { return f.wqs_castle_disabled == 0; }
+	void setWqsCastleEnabled(bool s) { f.wqs_castle_disabled = (s) ? 1 : 0;}
+	bool isBksCastleEnabled() { return f.bks_castle_disabled == 0; }
+	void setBksCastleEnabled(bool s) { f.bks_castle_disabled = (s) ? 1 : 0;}
+	bool isBqsCastleEnabled() { return f.bqs_castle_disabled == 0; }
+	void setBqsCastleEnabled(bool s) { f.bqs_castle_disabled = (s) ? 1 : 0;}
+	bool getEnPassantLatch() { return f.en_passant_latch == 1;}
+	void setEnPassantLatch(bool s) {
+		uint32_t v = 1;
+		if (!s) {
+			// if clearing the latch, set the file to zero
+			v = 0;
+			setEnPassantFile(Fa);
+		}
+		f.en_passant_latch = v;
+	}
+	short getEnPassantFile() { return (short)f.en_passant_file; }
+	void setEnPassantFile(File fi) { f.en_passant_file = (uint32_t)fi; }
+	bool getDrawnGameState() { return f.drawn_game == 1; }
+	void setDrawnGameState(bool s) { f.drawn_game = (s) ? 1 : 0;}
+	Draw14dReason get14DReason() { return (Draw14dReason)f.reason_14d;}
+	void set14DReason(Draw14dReason r) { f.reason_14d = (uint32_t)r; }
 };
 # pragma pack()

@@ -122,14 +122,14 @@ int main() {
 	}
 
 	GameInfo g;
-	g.i = 0;
-	g.f.drawn_game = 1;
-	g.f.drawn_reason = 0x02;
-	g.f.reason_14d = 0x02;
-	g.f.en_passant_latch = 1;
-	g.f.en_passant_file = Fg;
+	g.setWord(0);
+	g.setDrawnGameState(true);
+	g.setDrawnReason(R_14D_NO_MATERIAL);
+	g.set14DReason(R_14D3_KWBVKWB);
+	g.setEnPassantLatch(true);
+	g.setEnPassantFile(Fg);
 
-	std::cout << std::hex << g.i << std::endl;
+	std::cout << std::hex << g.getWord() << std::endl;
 
 	Board b;
 

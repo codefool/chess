@@ -60,7 +60,7 @@ void Board::dump() {
         std::cout << std::endl;
     }
     for( auto it = _p.begin(); it != _p.end(); ++it) {
-        if (it->second->is_on_move(_gi.f.on_move))
+        if (it->second->is_on_move(_gi.getOnMove()))
             std::cout << ' ' << it->second->toChar();
     }
     std::cout << std::endl;

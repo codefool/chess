@@ -15,7 +15,11 @@ enum DrawReason {
 	R_14A_STALEMATE       = 0x00,
 	R_14C_TRIPLE_OF_POS   = 0x01,
 	R_14D_NO_MATERIAL     = 0x02,
-	R_14F_50_MOVE_RULE    = 0x03,
+	R_14F_50_MOVE_RULE    = 0x03
+};
+
+enum Draw14dReason {
+	R_14D_NONE            = 0x00,
 	//
 	R_14D1_KVK            = 0x00,
 	R_14D2_KVKWBN         = 0x01,
