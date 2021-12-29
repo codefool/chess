@@ -12,16 +12,9 @@ std::vector<Dir> King::_d = {UP, DN, LFT,RGT,UPR,UPL,DNR,DNL};
 MoveList King::getValidMoves(Board& b) {
     MoveList ret;
 
-    short r = _p.r;
-    short f = _p.f;
-
-    for(auto d : _d) {
-        Offset o = s_os[d];
-        r += o.dr;
-        f += o.df;
-
-    }
-
-
+    std::vector<Pos> squares;
+    b.getSquares(_p, _d, 1, squares);
+    for (Pos p : squares)
+        std::cout << p << std::endl;
     return ret;
 }

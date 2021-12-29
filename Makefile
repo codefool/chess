@@ -1,7 +1,7 @@
 CC = g++
 CFLAGS = -g -std=c++17
 HEADERS = constants.h gameinfo.h board.h pieces.h
-OBJECTS = chessboard.o board.o piece.o king.o queen.o bishop.o knight.o rook.o pawn.o
+OBJECTS = chessboard.o board.o piece.o king.o queen.o bishop.o knight.o rook.o pawn.o util.o
 
 .cpp.o:
 	$(CC) $(CFLAGS) -c $<
@@ -18,3 +18,4 @@ pawn.o: pawn.cpp pieces.h
 piece.o: piece.cpp pieces.h
 queen.o: queen.cpp pieces.h
 rook.o: rook.cpp pieces.h
+util.o: util.cpp constants.h

@@ -7,6 +7,7 @@
 //
 #pragma once
 #include <iostream>
+#include <memory>
 #include <vector>
 
 enum Side {
@@ -116,6 +117,11 @@ struct Pos {
 		set(ra,fi);
 	}
 
+	Pos(short ra, short fi)
+	{
+		set(static_cast<Rank>(ra), static_cast<File>(fi));
+	}
+
 	void set(Rank ra, File fi) {
 		r = ra;
 		f = fi;
@@ -127,6 +133,8 @@ struct Pos {
 
 	inline Rank rank() { return r; }
 	inline File file() { return f; }
+
+	friend std::ostream& operator<<(std::ostream& os, const Pos& p);
 };
 
 class Piece;

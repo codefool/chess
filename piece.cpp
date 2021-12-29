@@ -7,16 +7,12 @@
 //
 #include "pieces.h"
 
-std::map<Dir,Offset> Piece::s_os = {
-	{UP, {+0,+1}},
-	{DN, {+0,-1}},
-	{LFT,{-1,+0}},
-	{RGT,{+1,+0}},
-	{UPR,{+1,+1}},
-	{UPL,{-1,+1}},
-	{DNR,{+1,-1}},
-	{DNL,{-1,-1}}
-};
+uint8_t Piece::toByte() {
+	uint8_t r = static_cast<uint8_t>(_t);
+	if (_s == SIDE_BLACK)
+		r |= BLACK_MASK;
+	return r;
+}
 
 PiecePtr Piece::create(PieceType pt, Side s)
 {

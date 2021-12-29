@@ -25,9 +25,6 @@ protected:
 	Pos		  _p;
 
 protected:
-	static std::map<Dir,Offset> s_os;
-
-protected:
 	Piece(PieceType t, Side s, const char* c)
 	: _t{t}, _s{s}, _c{c[s]}
 	{}
@@ -47,6 +44,9 @@ public:
 	void setPos(Pos p) {
 		_p = p;
 	}
+
+	// encode piece type and side into 4-bit value
+	uint8_t toByte();
 
 	static PiecePtr create(PieceType pt, Side s);
 

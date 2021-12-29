@@ -133,5 +133,9 @@ int main() {
 
 	b.dump();
 
+	PiecePtr king = Piece::create(PT_KING, SIDE_WHITE);
+	king->setPos(R1, Fe);
+	king->getValidMoves(b);
+
 	return 0;
 }
