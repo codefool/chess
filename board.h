@@ -33,8 +33,12 @@ public:
 	void placePiece(PieceType t, Side s, Rank r, File f);
 	bool inBounds(short f, short r);
 	Board& getSquares(Pos start, std::vector<Dir> dir, int range, std::vector<Pos>& p);
-	bool validateMove(Pos& from, Pos& to, uint8_t mask);
-	bool testForCheck(Pos& from, Pos& to);
+
+	bool check(Pos& src);
+	bool check_ranges(Pos& src, std::vector<Dir>& dirs, int range, std::vector<PieceType>& pts, Side side);
+	bool check_piece(uint8_t pi, std::vector<PieceType>& trg, Side side);
+	uint8_t search_not_empty(Pos& start, Dir dir, int range);
+
 
 	// a property of the physical chessboard is that
 	// if the odd'ness of the rank and file are the

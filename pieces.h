@@ -37,8 +37,7 @@ public:
 	Pos& getPos() { return _p; }
 
 	void setPos(Rank r, File f) {
-		_p.r = r;
-		_p.f = f;
+		_p.set(r,f);
 	}
 
 	void setPos(Pos p) {
@@ -89,7 +88,7 @@ public:
 
 class Knight : public Piece
 {
-private:
+public:
 	static std::vector<Offset> _o;
 public:
 	Knight(Side s)

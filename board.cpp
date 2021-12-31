@@ -6,6 +6,7 @@
 // Released under the GNU General Public Licence Version 3, 29 June 2007
 //
 #include <iostream>
+#include <algorithm>
 #include <cstring>
 #include <memory>
 
@@ -83,47 +84,80 @@ Board& Board::getSquares(Pos start, std::vector<Dir> dir, int range, std::vector
                 std::cout << r << ',' << f << " out of bounds" << std::endl;
                 break;
             }
-            // if we're in bounds, then r and f are good
+            // if we're in bounds, then r and f are valid
             Pos there(r,f);
-            if (validateMove(start, there, onmove))
-                p.push_back(there);
+            // if (validateMove(start, there, onmove))
+            //     p.push_back(there);
         }
     }
     return *this;
 }
 
-bool Board::validateMove(Pos& src, Pos& trg, uint8_t mask) {
-    uint8_t pi = static_cast<uint8_t>(_b[trg.r][trg.f]);
-    if (!pi) {
-        std::cout << trg << " empty" << std::endl;
-        return true;
+// to test for check, we have to travel all rays and knights moves
+// from the position of the king in question to see if any square
+// contains an opposing piece capable of attacking the king.
+//
+// For diags finding a bishop or queen (or pawn at range 1 on opponent side.)
+// For axes finding a rook or queen
+// For kight can only be a knight.
+bool Board::check(Pos& src) {
+    std::vector<Dir> dirs = {UP,  DN,LFT,RGT};
+    std::vector<PieceType> pts = {PT_ROOK,  PT_QUEEN};
+    bool ret = check_ranges( src, dirs, 7, pts, _gi.getOnMove());
+    if (!ret) {
+        dirs.assign({UPL,UPR,DNL,DNR});
+        pts .assign({PT_BISHOP, PT_QUEEN});
+        ret = check_ranges( src, dirs, 7, pts, _gi.getOnMove());
     }
-
-    // if square is not empty
-    // check if space is occupied by friendly piece
-    if ((pi & SIDE_MASK) == mask) {
-        std::cout << trg << " occupied by friendly piece" << std::endl;
-        return false;
-    }
-    // square occupied by an opposing piece
-    // check if this move places the onmove king in check.}
-    return testForCheck(src, trg);
-}
-
-bool Board::testForCheck(Pos& src, Pos& trg) {
-    // make a copy of the board
-    // make the suggested move
-    // see if this places the king in check
-    //
-    // check all diagonals, axes, and knights from the king's
-    // position to determine if he's under attack
-    static uint8_t  cpy[8][8];
-    memcpy(_b, cpy, sizeof(_b));
-    uint8_t piece     = cpy[src.r][src.f];
-    cpy[trg.r][trg.f] = piece;
-    cpy[src.r][src.f] = PT_EMPTY;
+    // if (!ret) {
+    //     for(Offset o : Knight::_o) {
+    //         if ( testPiece(src.r() + o.dr, src.f() + o.df, {PT_KNIGHT}, _gi.getOnMove()) )
+    //             return true;
+    //     }
+    // }
+    if (!ret)
+        ;    // pawns are filthy animals.
 
     return false;
+}
+
+// for each direection provided, walk in that direction until a target is encountered, or
+// the walker goes out of bounds
+bool Board::check_ranges(Pos& src, std::vector<Dir>& dirs, int range, std::vector<PieceType>& pts, Side side) {
+    for(Dir d : dirs) {
+        uint8_t pi = search_not_empty(src, d, range);
+        if (pi == PT_EMPTY)
+            continue;
+        if (check_piece(pi, pts, side))
+            return true;
+    }
+    return false;
+}
+
+bool Board::check_piece(uint8_t pi, std::vector<PieceType>& trg, Side side) {
+    // 1. it's not a friendly piece, and
+    // 2. it exists in the trg vector.
+    PieceType pt = static_cast<PieceType>(pi & PIECE_MASK);
+    Side      s  = static_cast<Side>     ((pi & SIDE_MASK) == SIDE_BLACK);
+    if (s != side && std::find(trg.begin(), trg.end(), pt) != trg.end())
+        return true;
+    return false;
+}
+
+uint8_t Board::search_not_empty(Pos& start, Dir dir, int range) {
+    Offset o = s_os[dir];
+    short  r = start.r();
+    short  f = start.f();
+    uint8_t ret;
+    while( range-- ) {
+        r += o.dr;
+        f += o.df;
+        if (!inBounds(r,f))
+            break;
+        if ((ret = _b[r][f]) != PT_EMPTY)
+            return ret;
+    }
+    return PT_EMPTY;
 }
 
 void Board::dump() {

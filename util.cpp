@@ -8,8 +8,8 @@
 #include "constants.h"
 
 std::ostream& operator<<(std::ostream& os, const Pos& p) {
-	char r = "12345678"[p.r];
-	char f = "abcdefgh"[p.f];
+	char r = "12345678"[p.r()];
+	char f = "abcdefgh"[p.f()];
 
 	os << f << r;
 

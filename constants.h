@@ -106,11 +106,12 @@ union Move {
 typedef std::vector<Move>   MoveList;
 typedef MoveList::iterator  MoveListItr;
 
-struct Pos {
-	Rank r;
-	File f;
-
-	Pos() : r{R1}, f{Fa} {}
+class Pos {
+private:
+	short _r;
+	short _f;
+public:
+	Pos() : _r{0}, _f{0} {}
 
 	Pos(Rank ra, File fi)
 	{
@@ -118,21 +119,27 @@ struct Pos {
 	}
 
 	Pos(short ra, short fi)
-	{
-		set(static_cast<Rank>(ra), static_cast<File>(fi));
+	: _r(ra), _f(fi)
+	{}
+
+	void set(short ra, short fi) {
+		_r = ra;
+		_f = fi;
 	}
 
 	void set(Rank ra, File fi) {
-		r = ra;
-		f = fi;
+		set(static_cast<short>(ra), static_cast<short>(fi));
 	}
 
 	uint8_t toByte() {
-		return (uint8_t)(r << 3 | f);
+		return (uint8_t)(_r << 3 | _f);
 	}
 
-	inline Rank rank() { return r; }
-	inline File file() { return f; }
+	const short r() const { return _r; }
+	const short f() const { return _f; }
+
+	inline Rank rank() { return static_cast<Rank>(_r); }
+	inline File file() { return static_cast<File>(_f); }
 
 	friend std::ostream& operator<<(std::ostream& os, const Pos& p);
 };
