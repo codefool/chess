@@ -75,17 +75,11 @@ bool Board::isBlackSquare(short r, short f) {
 // range spaces or until it runs out of bounds.
 Board& Board::getSquares(Pos start, std::vector<Dir> dir, int range, std::vector<Pos>& p) {
     uint8_t onmove = (_gi.getOnMove() == SIDE_BLACK) ? BLACK_MASK : 0x00;
-    // short sr = start.r();
-    // short sf = start.f();
     for (auto d : dir) {
         Pos pos(start);
         Offset o = s_os[d];
-        // short r = sr;
-        // short f = sf;
         for(int rng = range; rng > 0; rng--) {
             pos += o;
-            // f += o.df;
-            // r += o.dr;
             if (!inBounds(pos)) {
                 std::cout << pos.r() << ',' << pos.f() << " out of bounds" << std::endl;
                 break;
@@ -118,8 +112,6 @@ bool Board::check(Pos& src) {
         pts.assign({PT_KNIGHT});
         for(Offset o : Knight::_o) {
             Pos pos = src + o;
-            // short r = src.r() + o.dr;
-            // short f = src.f() + o.df;
             if( !inBounds(pos))
                 continue;
             if ( check_piece(piece_info(pos), pts, _gi.getOnMove()) )
@@ -171,13 +163,9 @@ bool Board::check_piece(uint8_t pi, std::vector<PieceType>& trg, Side side) {
 uint8_t Board::search_not_empty(Pos& start, Dir dir, int range) {
     Offset o = s_os[dir];
     Pos pos(start);
-    // short  r = start.r();
-    // short  f = start.f();
     uint8_t ret;
     while( range-- ) {
         pos += o;
-        // r += o.dr;
-        // f += o.df;
         if (!inBounds(pos))
             break;
         if ((ret = piece_info(pos)) != PT_EMPTY)
