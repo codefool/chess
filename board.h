@@ -27,15 +27,15 @@ public:
 	static std::map<Dir,Offset> s_os;
 
 public:
-	Board();
+	Board(bool init=true);
 	GameInfo& gi() { return _gi; }
 
-	void placePiece(PieceType t, Side s, Rank r, File f);
-	bool inBounds(short f, short r);
-	bool inBounds(Pos pos);
+	PiecePtr place_piece(PieceType t, Side s, Rank r, File f);
+	bool in_bounds(short f, short r);
+	bool in_bounds(Pos pos);
 	Board& getSquares(Pos start, std::vector<Dir> dir, int range, std::vector<Pos>& p);
 
-	bool check(Pos& src);
+	bool test_for_check(Pos& src);
 	bool check_ranges(Pos& src, std::vector<Dir>& dirs, int range, std::vector<PieceType>& pts, Side side);
 	bool check_piece(uint8_t pi, std::vector<PieceType>& trg, Side side);
 	uint8_t search_not_empty(Pos& start, Dir dir, int range);

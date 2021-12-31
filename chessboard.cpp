@@ -129,12 +129,12 @@ int main() {
 
 	std::cout << std::hex << g.getWord() << std::endl;
 
-	Board b;
+	Board b(false);
 
-	b.dump();
-
-  Pos wk(R1,Fe);
-  b.check(wk);
+  auto king = b.place_piece(PT_KING,   SIDE_WHITE, R3, Fc);
+  b.place_piece(PT_KNIGHT, SIDE_BLACK, R4, Fe);
+  b.dump();
+  b.test_for_check(king->getPos());
 
 	// PiecePtr king = Piece::create(PT_KING, SIDE_WHITE);
 	// king->setPos(R1, Fe);
