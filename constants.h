@@ -131,6 +131,20 @@ public:
 		set(static_cast<short>(ra), static_cast<short>(fi));
 	}
 
+	inline Pos operator+(const Offset& o) {
+		return Pos(_r + o.dr, _f + o.df);
+	}
+
+	inline Pos operator+=(const Offset& o) {
+		_r += o.dr;
+		_f += o.df;
+		return *this;
+	}
+
+	Pos offset(Offset& o) {
+		return Pos(_r + o.dr, _f + o.df);
+	}
+
 	uint8_t toByte() {
 		return (uint8_t)(_r << 3 | _f);
 	}
