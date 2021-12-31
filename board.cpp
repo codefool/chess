@@ -110,7 +110,7 @@ MoveList Board::get_moves(PiecePtr p) {
             if(mov != nullptr)
                 moves.push_back(*mov);
         }
-    } else if (pt == PT_PAWN) {
+    } else if (pt == PT_PAWN || pt == PT_PAWN_OFF) {
         // pawns are filthy animals ...
         //
         // 1. Pawns can only move one square forward.
@@ -165,12 +165,17 @@ MoveList Board::get_moves(PiecePtr p) {
         // AND the pawn has not moved off its own rank (is not of type PT_PAWN_OFF)
         // AND pawn is on its fifth rank.
         // AND if target pawn is adjacent to this pawn
-        if ( _gi.getEnPassantLatch() && pt == PT_PAWN && ppos.rank() == (isBlack)?R4:R5 && abs(ppos.f() - _gi.getEnPassantFile()) == 1) {
-            // If so, check if the space above the target pawn is empty.
-            // If so, then en passant is possible.
-            Pos epos( (isBlack)?R3:R6, _gi.getEnPassantFile()); // pos of target square
-            if ( piece_info(epos) == PT_EMPTY) {
-                moves.push_back(Move(MV_EN_PASSANT, pos, epos));
+        if ( _gi.getEnPassantLatch() && pt == PT_PAWN_OFF ) {
+            // an en passant candidate exists
+            Rank r_pawn = (isBlack) ? R4 : R5;      // where the pawns are
+            Rank r_move = (isBlack) ? R3 : R6;      // the space where our pawn moves
+            if( ppos.rank() == r_pawn && abs(ppos.f() - _gi.getEnPassantFile()) == 1) {
+                // If so, check if the space above the target pawn is empty.
+                // If so, then en passant is possible.
+                Pos epos(r_move, _gi.getEnPassantFile()); // pos of target square
+                if ( piece_info(epos) == PT_EMPTY) {
+                    moves.push_back(Move(MV_EN_PASSANT, pos, epos));
+                }
             }
         }
     } else {

@@ -134,7 +134,7 @@ int main() {
   //auto king = b.place_piece(PT_KING, SIDE_WHITE, R3, Fc);
   // auto knight = b.place_piece(PT_KNIGHT, SIDE_BLACK, R3, Fc);
   b.place_piece(PT_PAWN, SIDE_BLACK, R5, Fc);
-  auto pawn = b.place_piece(PT_PAWN, SIDE_WHITE, R5, Fd);
+  auto pawn = b.place_piece(PT_PAWN_OFF, SIDE_WHITE, R5, Fd);
   b.dump();
  	b.gi().setEnPassantLatch(true);
 	b.gi().setEnPassantFile(Fc);

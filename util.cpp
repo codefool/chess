@@ -21,10 +21,26 @@ std::ostream& operator<<(std::ostream& os, const Move& m) {
 	os << Pos(m.f.source);
 
 	switch(m.f.action) {
-		case MV_CAPTURE: os << ':';
+		case MV_CAPTURE:
+		case MV_EN_PASSANT:
+			os << 'x';
+			break;
 	}
 
 	os << Pos(m.f.target);
+
+	switch(m.f.action) {
+		case MV_EN_PASSANT:
+			os << "e.p.";
+			break;
+		case MV_CHECK:
+			os << '+';
+			break;
+		case MV_CHECKMATE:
+			os << "++";
+			break;
+	}
+
 	return os;
 }
 
