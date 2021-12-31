@@ -95,6 +95,62 @@ Board& Board::getSquares(Pos start, std::vector<Dir> dir, int range, std::vector
     return *this;
 }
 
+MoveList Board::get_moves(PiecePtr p) {
+    MoveList moves;
+    Side onmove = p->getSide();
+    PieceType pt = p->getType();
+    if (pt == PT_KNIGHT) {
+        ; // get knight moves
+    } else if (pt == PT_PAWN) {
+        ; // get pawn moves
+    } else {
+        std::vector<Dir> dirs;
+        // get DIAGS for KING, QUEEN, or BISHOP
+        if (pt == PT_KING || pt == PT_QUEEN || pt == PT_BISHOP) {
+            dirs.assign({UPL, UPR, DNL, DNR});
+            bogus(p, dirs, (pt == PT_KING) ? 1 : 7, moves);
+        }
+        // get AXES for KING, QUEEN, or ROOK
+        if (pt == PT_KING || pt == PT_QUEEN || pt == PT_ROOK) {
+            dirs.assign({UP, DN, LFT, RGT});
+            bogus(p, dirs, (pt == PT_KING) ? 1 : 7, moves);
+        }
+    }
+    return moves;
+}
+
+void Board::bogus(PiecePtr p, std::vector<Dir> dirs, int range, MoveList& moves) {
+    Side on_move = p->getSide();
+    for (auto d : dirs) {
+        Pos pos = p->getPos();
+        Offset o = s_os[d];
+        for( int r = range; r; --r ) {
+            pos += o;
+            if( !in_bounds(pos) )
+                break;
+            auto pi = piece_info(pos);
+            if (pi == PT_EMPTY) {
+                // empty square so record move and continue
+                moves.push_back(Move(MV_MOVE, p->getPos(), pos));
+                continue;
+            }
+            // otherwise, square is not empty.
+            // Otherwise, record capture move and leave.
+            PieceType pt = static_cast<PieceType> (pi & PIECE_MASK);
+            Side      s  = static_cast<Side>     ((pi & SIDE_MASK) == BLACK_MASK);
+            if( s == on_move) {
+                // If friendly piece, do not record move and leave.
+                break;
+            }
+            // if opponent piece is king, then record check
+            MoveAction ma = ( pt == PT_KING) ? MV_CHECK : MV_CAPTURE;
+            moves.push_back(Move(ma, p->getPos(), pos));
+        }
+    }
+}
+
+
+
 // to test for check, we have to travel all rays and knights moves
 // from the position of the king in question to see if any square
 // contains an opposing piece capable of attacking the king.
@@ -102,15 +158,16 @@ Board& Board::getSquares(Pos start, std::vector<Dir> dir, int range, std::vector
 // For diags finding a bishop or queen (or pawn at range 1 on opponent side.)
 // For axes finding a rook or queen
 // For kight can only be a knight.
-bool Board::test_for_check(Pos& src) {
-    Side onmove = _gi.getOnMove();
+bool Board::test_for_check(PiecePtr king) {
+    Pos src = king->getPos();
+    Side side = king->getSide();
     std::vector<Dir> dirs = {UP,  DN,LFT,RGT};
     std::vector<PieceType> pts = {PT_ROOK,  PT_QUEEN};
-    bool ret = check_ranges( src, dirs, 7, pts, onmove);
+    bool ret = check_ranges( src, dirs, 7, pts, side);
     if (!ret) {
         dirs.assign({UPL,UPR,DNL,DNR});
         pts .assign({PT_BISHOP, PT_QUEEN});
-        ret = check_ranges( src, dirs, 7, pts, onmove);
+        ret = check_ranges( src, dirs, 7, pts, side);
     }
     if (!ret) {
         pts.assign({PT_KNIGHT});
@@ -118,7 +175,7 @@ bool Board::test_for_check(Pos& src) {
             Pos pos = src + o;
             if( !in_bounds(pos))
                 continue;
-            if ( check_piece(piece_info(pos), pts, onmove) )
+            if ( check_piece(piece_info(pos), pts, side) )
                 return true;
         }
     }
@@ -127,11 +184,11 @@ bool Board::test_for_check(Pos& src) {
         // if we're white, then pawns can be UPL and UPR
         // if we're black, then pawns can be DNL and DNR
         pts.assign({PT_PAWN});
-        if(_gi.getOnMove() == SIDE_WHITE)
+        if(side == SIDE_WHITE)
             dirs.assign({UPL,UPR});
         else
             dirs.assign({DNL,DNR});
-        ret = check_ranges(src, dirs, 1, pts, onmove);
+        ret = check_ranges(src, dirs, 1, pts, side);
     }
 
     return ret;

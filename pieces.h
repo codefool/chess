@@ -32,6 +32,7 @@ protected:
 public:
 	bool is_on_move(Side m) { return _s == m; }
 
+	PieceType getType() { return _t; }
 	const char toChar() const {return _c;}
 
 	Pos& getPos() { return _p; }
@@ -43,6 +44,8 @@ public:
 	void setPos(Pos p) {
 		_p = p;
 	}
+
+	Side getSide() { return _s; }
 
 	// encode piece type and side into 4-bit value
 	uint8_t toByte();

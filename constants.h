@@ -94,17 +94,21 @@ union Nibbles {
 	} f;
 };
 
-union Move {
-	uint8_t b;
-	struct {
-		uint8_t action    : 4;
-		uint8_t piece     : 6;
-		uint8_t target    : 6;
-	} f;
+enum MoveAction {
+	MV_MOVE = 0,
+	MV_CAPTURE = 1,
+	MV_CASTLE_KINGSIDE = 2,
+	MV_CASTLE_QUEENSIDE = 3,
+	MV_CHECK = 4,
+	MV_CHECKMATE = 5,
+	MV_EN_PASSANT = 6,
+	// MV_UNUSED = 7,
+	MV_PROMOTION_QUEEN = 8,
+	MV_PROMOTION_BISHOP = 9,
+	MV_PROMOTION_KNIGHT = 10,
+	MV_PROMOTION_ROOK = 11
 };
 
-typedef std::vector<Move>   MoveList;
-typedef MoveList::iterator  MoveListItr;
 
 class Pos {
 private:
@@ -121,6 +125,11 @@ public:
 	Pos(short ra, short fi)
 	: _r(ra), _f(fi)
 	{}
+
+	Pos(uint8_t b)
+	{
+		fromByte(b);
+	}
 
 	void set(short ra, short fi) {
 		_r = ra;
@@ -149,6 +158,11 @@ public:
 		return (uint8_t)(_r << 3 | _f);
 	}
 
+	void fromByte(uint8_t b) {
+		_f = static_cast<short>(b & 0x07);
+		_r = static_cast<short>((b >> 3) & 0x07);
+	}
+
 	const short r() const { return _r; }
 	const short f() const { return _f; }
 
@@ -160,3 +174,27 @@ public:
 
 class Piece;
 typedef std::shared_ptr<Piece> PiecePtr;
+
+union Move {
+	uint8_t b;
+	struct {
+		uint8_t action    : 4;
+		uint8_t source    : 6;
+		uint8_t target    : 6;
+	} f;
+
+	Move() : b{0} {}
+	Move(MoveAction a, Pos from, Pos to)
+	{
+		setAction(a);
+		f.source = from.toByte();
+		f.target = to.toByte();
+	}
+	void setAction(MoveAction a) { f.action = static_cast<uint8_t>(a); }
+	MoveAction getAction() { return static_cast<MoveAction>(f.action); }
+
+	friend std::ostream& operator<<(std::ostream& os, const Move& p);
+};
+
+typedef std::vector<Move>   MoveList;
+typedef MoveList::iterator  MoveListItr;

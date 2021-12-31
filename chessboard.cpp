@@ -131,14 +131,14 @@ int main() {
 
 	Board b(false);
 
-  auto king = b.place_piece(PT_KING,   SIDE_WHITE, R3, Fc);
-  b.place_piece(PT_KNIGHT, SIDE_BLACK, R4, Fe);
+  auto king = b.place_piece(PT_KING, SIDE_WHITE, R3, Fc);
+  b.place_piece(PT_KNIGHT, SIDE_BLACK, R3, Fd);
   b.dump();
-  b.test_for_check(king->getPos());
+  MoveList moves =  b.get_moves(king);
 
-	// PiecePtr king = Piece::create(PT_KING, SIDE_WHITE);
-	// king->setPos(R1, Fe);
-	// king->getValidMoves(b);
+  for (auto m : moves) {
+    std::cout << m << std::endl;
+  }
 
 	return 0;
 }

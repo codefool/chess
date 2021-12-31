@@ -35,7 +35,11 @@ public:
 	bool in_bounds(Pos pos);
 	Board& getSquares(Pos start, std::vector<Dir> dir, int range, std::vector<Pos>& p);
 
-	bool test_for_check(Pos& src);
+	MoveList get_moves(PiecePtr p);
+	void bogus(PiecePtr p, std::vector<Dir> dirs, int range, std::vector<Move>& moves);
+
+
+	bool test_for_check(PiecePtr king);
 	bool check_ranges(Pos& src, std::vector<Dir>& dirs, int range, std::vector<PieceType>& pts, Side side);
 	bool check_piece(uint8_t pi, std::vector<PieceType>& trg, Side side);
 	uint8_t search_not_empty(Pos& start, Dir dir, int range);

@@ -15,3 +15,13 @@ std::ostream& operator<<(std::ostream& os, const Pos& p) {
 
 	return os;
 }
+
+std::ostream& operator<<(std::ostream& os, const Move& m) {
+	char c = ' ';
+	switch(m.f.action) {
+		case MV_CAPTURE: c = 'x';
+	}
+	os << Pos(m.f.source) << Pos(m.f.target) << c;
+	return os;
+}
+
