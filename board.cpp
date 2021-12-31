@@ -99,6 +99,8 @@ MoveList Board::get_moves(PiecePtr p) {
     MoveList moves;
     Side onmove = p->getSide();
     PieceType pt = p->getType();
+    std::vector<Dir> dirs;
+
     if (pt == PT_KNIGHT) {
         for(Offset o : Knight::_o) {
             Pos pos = p->getPos() + o;
@@ -109,9 +111,69 @@ MoveList Board::get_moves(PiecePtr p) {
                 moves.push_back(*mov);
         }
     } else if (pt == PT_PAWN) {
-        ; // get pawn moves
+        // pawns are filthy animals ...
+        //
+        // 1. Pawns can only move one square forward.
+        // 2. Pawns on their home square may move two spaces forward.
+        // 3. Pawns may capture directly to the UPL or UPR.
+        // 4. A pawn on its own fifth rank may capture a neighboring
+        //    pawn en passant moving UPL or UPR iif the target pawn
+        //    moved forward two squares on its last on move.
+        // 5. A pawn that reaches the eighth rank is promoted.
+        //
+        // Directions are, of course, side dependent.
+        Side s = p->getSide();
+        bool isBlack = (s == SIDE_BLACK);
+        // Case 1: pawns can only move one square forwad.
+        Pos ppos  = p->getPos();
+        Dir updn  = (isBlack)?DN:UP;
+        Dir updnl = (isBlack)?DNL:UPL;
+        Dir updnr = (isBlack)?DNR:UPR;
+        Pos pos = ppos + s_os[updn];
+        if( piece_info(pos) == PT_EMPTY ) {
+            // pawn can move forward
+            if ( (isBlack && pos.rank() == R1) || (pos.rank() == R8)) {
+                // Case 5. A pawn reaching its eighth rank is promoted
+                //
+                // As we're collecting all possible moves, record four
+                // promotions.
+                for( auto action : {MV_PROMOTION_QUEEN, MV_PROMOTION_BISHOP, MV_PROMOTION_KNIGHT, MV_PROMOTION_ROOK})
+                    moves.push_back(Move(action,  ppos, pos));
+                // moves.push_back(Move(MV_PROMOTION_QUEEN,  p->getPos(), pos));
+                // moves.push_back(Move(MV_PROMOTION_BISHOP, p->getPos(), pos));
+                // moves.push_back(Move(MV_PROMOTION_KNIGHT, p->getPos(), pos));
+                // moves.push_back(Move(MV_PROMOTION_ROOK,   p->getPos(), pos));
+            } else {
+                moves.push_back(Move(MV_MOVE, p->getPos(), pos));
+            }
+            // Case 2: Pawns on their home square may move two spaces.
+            if ( (isBlack && ppos.rank() == R7) || ppos.rank() == R2) {
+                pos += s_os[updn];
+                if( piece_info(pos) == PT_EMPTY ) {
+                    moves.push_back(Move(MV_MOVE, ppos, pos));
+                }
+            }
+        }
+        // Case 3: Pawns may capture directly to the UPL or UPR.
+        // see if an opposing piece is UPL or UPR
+        dirs.assign({updnl,updnr});
+        gather_moves(p, dirs, 1, moves);
+        // Case 4. A pawn on its own fifth rank may capture a neighboring pawn en passant moving
+        // UPL or UPR iif the target pawn moved forward two squares on its last on move.
+
+        // First check if an en passant pawn exists
+        // AND the pawn has not moved off its own rank (is not of type PT_PAWN_OFF)
+        // AND pawn is on its fifth rank.
+        // AND if target pawn is adjacent to this pawn
+        if ( _gi.getEnPassantLatch() && pt == PT_PAWN && ppos.rank() == (isBlack)?R4:R5 && abs(ppos.f() - _gi.getEnPassantFile()) == 1) {
+            // If so, check if the space above the target pawn is empty.
+            // If so, then en passant is possible.
+            Pos epos( (isBlack)?R3:R6, _gi.getEnPassantFile()); // pos of target square
+            if ( piece_info(epos) == PT_EMPTY) {
+                moves.push_back(Move(MV_EN_PASSANT, pos, epos));
+            }
+        }
     } else {
-        std::vector<Dir> dirs;
         short range = (pt == PT_KING) ? 1 : 7;
         // get DIAGS for KING, QUEEN, or BISHOP
         if (pt == PT_KING || pt == PT_QUEEN || pt == PT_BISHOP) {
@@ -162,8 +224,6 @@ Move* Board::check_square(PiecePtr p, Pos pos) {
     MoveAction ma = ( pt == PT_KING) ? MV_CHECK : MV_CAPTURE;
     return new Move(ma, p->getPos(), pos);
 }
-
-
 
 // to test for check, we have to travel all rays and knights moves
 // from the position of the king in question to see if any square

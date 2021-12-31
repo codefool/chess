@@ -140,6 +140,10 @@ public:
 		set(static_cast<short>(ra), static_cast<short>(fi));
 	}
 
+	void set(uint8_t b) {
+		fromByte(b);
+	}
+
 	inline Pos operator+(const Offset& o) {
 		return Pos(_r + o.dr, _f + o.df);
 	}

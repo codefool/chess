@@ -131,10 +131,15 @@ int main() {
 
 	Board b(false);
 
-  auto king = b.place_piece(PT_KING, SIDE_WHITE, R3, Fc);
-  auto knight = b.place_piece(PT_KNIGHT, SIDE_BLACK, R3, Fd);
+  //auto king = b.place_piece(PT_KING, SIDE_WHITE, R3, Fc);
+  // auto knight = b.place_piece(PT_KNIGHT, SIDE_BLACK, R3, Fc);
+  b.place_piece(PT_PAWN, SIDE_BLACK, R5, Fc);
+  auto pawn = b.place_piece(PT_PAWN, SIDE_WHITE, R5, Fd);
   b.dump();
-  MoveList moves =  b.get_moves(knight);
+ 	b.gi().setEnPassantLatch(true);
+	b.gi().setEnPassantFile(Fc);
+
+  MoveList moves =  b.get_moves(pawn);
 
   for (auto m : moves) {
     std::cout << m << std::endl;
