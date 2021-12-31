@@ -132,9 +132,9 @@ int main() {
 	Board b(false);
 
   auto king = b.place_piece(PT_KING, SIDE_WHITE, R3, Fc);
-  b.place_piece(PT_KNIGHT, SIDE_BLACK, R3, Fd);
+  auto knight = b.place_piece(PT_KNIGHT, SIDE_BLACK, R3, Fd);
   b.dump();
-  MoveList moves =  b.get_moves(king);
+  MoveList moves =  b.get_moves(knight);
 
   for (auto m : moves) {
     std::cout << m << std::endl;

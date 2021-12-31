@@ -16,12 +16,15 @@ std::ostream& operator<<(std::ostream& os, const Pos& p) {
 	return os;
 }
 
+// the idea will be to display the move in alebraic notation [38]
 std::ostream& operator<<(std::ostream& os, const Move& m) {
-	char c = ' ';
+	os << Pos(m.f.source);
+
 	switch(m.f.action) {
-		case MV_CAPTURE: c = 'x';
+		case MV_CAPTURE: os << ':';
 	}
-	os << Pos(m.f.source) << Pos(m.f.target) << c;
+
+	os << Pos(m.f.target);
 	return os;
 }
 

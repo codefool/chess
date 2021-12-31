@@ -100,26 +100,34 @@ MoveList Board::get_moves(PiecePtr p) {
     Side onmove = p->getSide();
     PieceType pt = p->getType();
     if (pt == PT_KNIGHT) {
-        ; // get knight moves
+        for(Offset o : Knight::_o) {
+            Pos pos = p->getPos() + o;
+            if( !in_bounds(pos))
+                continue;
+            Move *mov = check_square(p, pos);
+            if(mov != nullptr)
+                moves.push_back(*mov);
+        }
     } else if (pt == PT_PAWN) {
         ; // get pawn moves
     } else {
         std::vector<Dir> dirs;
+        short range = (pt == PT_KING) ? 1 : 7;
         // get DIAGS for KING, QUEEN, or BISHOP
         if (pt == PT_KING || pt == PT_QUEEN || pt == PT_BISHOP) {
             dirs.assign({UPL, UPR, DNL, DNR});
-            bogus(p, dirs, (pt == PT_KING) ? 1 : 7, moves);
+            gather_moves(p, dirs, range, moves);
         }
         // get AXES for KING, QUEEN, or ROOK
         if (pt == PT_KING || pt == PT_QUEEN || pt == PT_ROOK) {
             dirs.assign({UP, DN, LFT, RGT});
-            bogus(p, dirs, (pt == PT_KING) ? 1 : 7, moves);
+            gather_moves(p, dirs, range, moves);
         }
     }
     return moves;
 }
 
-void Board::bogus(PiecePtr p, std::vector<Dir> dirs, int range, MoveList& moves) {
+void Board::gather_moves(PiecePtr p, std::vector<Dir> dirs, int range, MoveList& moves) {
     Side on_move = p->getSide();
     for (auto d : dirs) {
         Pos pos = p->getPos();
@@ -128,25 +136,31 @@ void Board::bogus(PiecePtr p, std::vector<Dir> dirs, int range, MoveList& moves)
             pos += o;
             if( !in_bounds(pos) )
                 break;
-            auto pi = piece_info(pos);
-            if (pi == PT_EMPTY) {
-                // empty square so record move and continue
-                moves.push_back(Move(MV_MOVE, p->getPos(), pos));
-                continue;
-            }
-            // otherwise, square is not empty.
-            // Otherwise, record capture move and leave.
-            PieceType pt = static_cast<PieceType> (pi & PIECE_MASK);
-            Side      s  = static_cast<Side>     ((pi & SIDE_MASK) == BLACK_MASK);
-            if( s == on_move) {
-                // If friendly piece, do not record move and leave.
-                break;
-            }
-            // if opponent piece is king, then record check
-            MoveAction ma = ( pt == PT_KING) ? MV_CHECK : MV_CAPTURE;
-            moves.push_back(Move(ma, p->getPos(), pos));
+            Move* mov = check_square(p, pos);
+            if (mov != nullptr)
+                moves.push_back(*mov);
         }
     }
+}
+
+Move* Board::check_square(PiecePtr p, Pos pos) {
+    auto pi = piece_info(pos);
+
+    if (pi == PT_EMPTY)
+        // empty square so record move and continue
+        return new Move(MV_MOVE, p->getPos(), pos);
+
+    // otherwise, square is not empty.
+    // Otherwise, record capture move and leave.
+    PieceType pt = static_cast<PieceType> (pi & PIECE_MASK);
+    Side      s  = static_cast<Side>     ((pi & SIDE_MASK) == BLACK_MASK);
+    if( s == p->getSide()) {
+        // If friendly piece, do not record move and leave.
+        return nullptr;
+    }
+    // if opponent piece is king, then record check
+    MoveAction ma = ( pt == PT_KING) ? MV_CHECK : MV_CAPTURE;
+    return new Move(ma, p->getPos(), pos);
 }
 
 

@@ -36,8 +36,8 @@ public:
 	Board& getSquares(Pos start, std::vector<Dir> dir, int range, std::vector<Pos>& p);
 
 	MoveList get_moves(PiecePtr p);
-	void bogus(PiecePtr p, std::vector<Dir> dirs, int range, std::vector<Move>& moves);
-
+	void gather_moves(PiecePtr p, std::vector<Dir> dirs, int range, std::vector<Move>& moves);
+	Move* check_square(PiecePtr p, Pos pos);
 
 	bool test_for_check(PiecePtr king);
 	bool check_ranges(Pos& src, std::vector<Dir>& dirs, int range, std::vector<PieceType>& pts, Side side);
