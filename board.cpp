@@ -10,7 +10,7 @@
 #include <cstring>
 #include <memory>
 
-#include "pieces.h"
+#include "piece.h"
 #include "board.h"
 
 std::map<Dir,Offset> Board::s_os = {
@@ -22,6 +22,13 @@ std::map<Dir,Offset> Board::s_os = {
 	{UPL,{-1,+1}},
 	{DNR,{+1,-1}},
 	{DNL,{-1,-1}}
+};
+
+std::vector<Offset> Board::s_ko = {
+	{+1,-2}, {+1,+2},
+	{+2,-1}, {+2,+1},
+	{-2,-1}, {-2,+1},
+	{-1,-2}, {-1,+2}
 };
 
 
@@ -110,7 +117,7 @@ void Board::get_moves(PiecePtr p, MoveList& moves) {
     std::vector<Dir> dirs;
 
     if (pt == PT_KNIGHT) {
-        for(Offset o : Knight::_o) {
+        for(Offset o : s_ko) {
             Pos pos = p->getPos() + o;
             if( !in_bounds(pos))
                 continue;
@@ -254,7 +261,7 @@ bool Board::test_for_check(PiecePtr king) {
     }
     if (!ret) {
         pts.assign({PT_KNIGHT});
-        for(Offset o : Knight::_o) {
+        for(Offset o : s_ko) {
             Pos pos = src + o;
             if( !in_bounds(pos))
                 continue;

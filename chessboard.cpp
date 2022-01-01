@@ -15,7 +15,7 @@
 #include "constants.h"
 #include "gameinfo.h"
 #include "board.h"
-#include "pieces.h"
+#include "piece.h"
 
 /*
 Maximum possible moves for any given position

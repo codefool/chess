@@ -5,7 +5,17 @@
 //
 // Released under the GNU General Public Licence Version 3, 29 June 2007
 //
-#include "pieces.h"
+#include "piece.h"
+
+std::map<PieceType, const char *> s_n = {
+	{ PT_KING,     "Kk" },
+	{ PT_QUEEN,    "Qq" },
+	{ PT_BISHOP,   "Bb" },
+	{ PT_KNIGHT,   "Nn" },
+	{ PT_ROOK,     "Rr" },
+	{ PT_PAWN,     "Pp" },
+	{ PT_PAWN_OFF, "Pp" }
+};
 
 uint8_t Piece::toByte() {
 	uint8_t r = static_cast<uint8_t>(_t);
@@ -16,14 +26,5 @@ uint8_t Piece::toByte() {
 
 PiecePtr Piece::create(PieceType pt, Side s)
 {
-	switch(pt) {
-		case PT_KING:	  return std::make_shared<King>(s);
-		case PT_QUEEN:	  return std::make_shared<Queen>(s);
-		case PT_BISHOP:   return std::make_shared<Bishop>(s);
-		case PT_KNIGHT:   return std::make_shared<Knight>(s);
-		case PT_ROOK:     return std::make_shared<Rook>(s);
-		case PT_PAWN:
-		case PT_PAWN_OFF: return std::make_shared<Pawn>(s, pt==PT_PAWN_OFF);
-	}
-	return nullptr;
+	return std::make_shared<Piece>(pt, s);
 }

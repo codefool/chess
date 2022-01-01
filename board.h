@@ -25,6 +25,7 @@ private:
 
 public:
 	static std::map<Dir,Offset> s_os;
+	static std::vector<Offset>  s_ko;
 
 public:
 	Board(bool init=true);
