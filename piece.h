@@ -29,19 +29,14 @@ private:
 
 public:
 	Piece(PieceType t, Side s)
-	: _t{t}, _s{s}, _c{'\0'}
+	: _t{t}, _s{s}, _c{s_n[_t][_s]}
 	{}
 
 	bool is_on_move(Side m) { return _s == m; }
 
 	PieceType getType() { return _t; }
-	const char toChar() const {return _c;}
 
-	const char getPieceGlyph(PieceType pt) {
-		if (!_c)
-			_c = s_n[pt][_s];
-		return _c;
-	}
+	const char getPieceGlyph() const { return _c; }
 
 	Pos& getPos() { return _p; }
 

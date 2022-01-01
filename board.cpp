@@ -328,7 +328,7 @@ void Board::dump() {
             char c = '.';
             auto itr = _p.find(rank | f);
             if (itr != _p.end()) {
-                c = itr->second->toChar();
+                c = itr->second->getPieceGlyph();
             }
             std::cout << ' ' << c;
         }

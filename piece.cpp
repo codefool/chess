@@ -7,7 +7,7 @@
 //
 #include "piece.h"
 
-std::map<PieceType, const char *> s_n = {
+std::map<PieceType, const char *> Piece::s_n = {
 	{ PT_KING,     "Kk" },
 	{ PT_QUEEN,    "Qq" },
 	{ PT_BISHOP,   "Bb" },
