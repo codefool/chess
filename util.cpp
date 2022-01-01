@@ -18,18 +18,18 @@ std::ostream& operator<<(std::ostream& os, const Pos& p) {
 
 // the idea will be to display the move in alebraic notation [38]
 std::ostream& operator<<(std::ostream& os, const Move& m) {
-	os << Pos(m.f.source);
+	os << m._s;
 
-	switch(m.f.action) {
+	switch(m._a) {
 		case MV_CAPTURE:
 		case MV_EN_PASSANT:
 			os << 'x';
 			break;
 	}
 
-	os << Pos(m.f.target);
+	os << m._t;
 
-	switch(m.f.action) {
+	switch(m._a) {
 		case MV_EN_PASSANT:
 			os << " e.p.";
 			break;

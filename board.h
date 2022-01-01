@@ -16,11 +16,10 @@
 
 class Board {
 private:
-	uint8_t  _b[8][8];
+	BoardBuffer _b;
 	// we always need to know where the kings are
-	PiecePtr _k[2];
-	PiecePtr _wk;
-	GameInfo _gi;
+	PiecePtr    _k[2];
+	GameInfo    _gi;
 	std::map<uint8_t,PiecePtr> _p;
 
 public:
@@ -34,7 +33,6 @@ public:
 	PiecePtr place_piece(PieceType t, Side s, Rank r, File f);
 	bool in_bounds(short f, short r);
 	bool in_bounds(Pos pos);
-	Board& getSquares(Pos start, std::vector<Dir> dir, int range, std::vector<Pos>& p);
 
 	void get_all_moves(Side onmove, MoveList& moves);
 	void get_moves(PiecePtr p, MoveList& moves);
@@ -45,6 +43,8 @@ public:
 	bool check_ranges(Pos& src, std::vector<Dir>& dirs, int range, std::vector<PieceType>& pts, Side side);
 	bool check_piece(uint8_t pi, std::vector<PieceType>& trg, Side side);
 	uint8_t search_not_empty(Pos& start, Dir dir, int range);
+
+	bool validate_move(Move mov, Side side);
 
 	uint8_t piece_info(Pos p) {
 		return _b[p.r()][p.f()];

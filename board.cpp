@@ -80,34 +80,19 @@ bool Board::isBlackSquare(short r, short f) {
     return (r&1) == (f&1);
 }
 
-// return a vector of all the squares starting at the given
-// position, and continuing in the provided directions for
-// range spaces or until it runs out of bounds.
-Board& Board::getSquares(Pos start, std::vector<Dir> dir, int range, std::vector<Pos>& p) {
-    uint8_t onmove = (_gi.getOnMove() == SIDE_BLACK) ? BLACK_MASK : 0x00;
-    for (auto d : dir) {
-        Pos pos(start);
-        Offset o = s_os[d];
-        for(int rng = range; rng > 0; rng--) {
-            pos += o;
-            if (!in_bounds(pos)) {
-                std::cout << pos.r() << ',' << pos.f() << " out of bounds" << std::endl;
-                break;
-            }
-            // if we're in bounds, then r and f are valid
-            // if (validateMove(start, there, onmove))
-            //     p.push_back(there);
-        }
-    }
-    return *this;
-}
-
 // collect all moves for the existing pieces for side onmove
 void Board::get_all_moves(Side onmove, MoveList& moves) {
     for( auto p = _p.begin(); p != _p.end(); ++p ) {
         if ( p->second->getSide() == onmove ) {
             get_moves(p->second, moves);
         }
+    }
+    // remove any moves that put the king in check
+    for ( auto itr = moves.begin(); itr != moves.end();) {
+        if( !validate_move(*itr, onmove) )
+            moves.erase(itr);
+        else
+            ++itr;
     }
 }
 
@@ -257,7 +242,7 @@ bool Board::test_for_check(PiecePtr king) {
     if (!ret) {
         dirs.assign({UPL,UPR,DNL,DNR});
         pts .assign({PT_BISHOP, PT_QUEEN});
-        ret = check_ranges( src, dirs, 7, pts, side);
+        ret = check_ranges(src, dirs, 7, pts, side);
     }
     if (!ret) {
         pts.assign({PT_KNIGHT});
@@ -334,4 +319,31 @@ void Board::dump() {
         }
         std::cout << std::endl;
     }
+}
+
+// validate the provided move by simulating the move,
+// then check if the side king is in check.
+//
+// Return true if the move is valid, false otherwise.
+//
+bool Board::validate_move(Move mov, Side side) {
+    // I considered employing a do-undo mechanism for this, but
+    // it's only 64 freakin' bytes, and the code would be much larger.
+    BoardBuffer bup;
+    memcpy(bup, _b, sizeof(BoardBuffer));
+
+    // by this time we've already validated that the move is technically
+    // possible. The only question is whether making the move exposes the
+    // king, which can only be done if the board is actually adjusted.
+    Pos src = mov.getSource();
+    Pos trg = mov.getTarget();
+
+    _b[trg.r()][trg.f()] = _b[src.r()][src.f()];  // copy the source piece to the target square
+    _b[src.r()][src.f()] = PT_EMPTY;                       // vacate the source square
+
+    bool in_check = !test_for_check( _k[side] );
+
+    memcpy(_b, bup, sizeof(BoardBuffer));
+
+    return in_check;
 }

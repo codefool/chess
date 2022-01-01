@@ -122,12 +122,9 @@ int main() {
 	}
 
 	GameInfo g;
-	g.setWord(0);
 	g.setEndGameReason(EGR_14D3_KWBVKWB);
 	g.setEnPassantLatch(true);
 	g.setEnPassantFile(Fg);
-
-	std::cout << std::hex << g.getWord() << std::endl;
 
 	Board b;
 
@@ -147,6 +144,8 @@ int main() {
   for (auto m : moves) {
     std::cout << m << std::endl;
   }
+
+  b.validate_move(moves.front(), SIDE_WHITE);
 
 	return 0;
 }
