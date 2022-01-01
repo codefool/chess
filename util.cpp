@@ -31,7 +31,7 @@ std::ostream& operator<<(std::ostream& os, const Move& m) {
 
 	switch(m.f.action) {
 		case MV_EN_PASSANT:
-			os << "e.p.";
+			os << " e.p.";
 			break;
 		case MV_CHECK:
 			os << '+';

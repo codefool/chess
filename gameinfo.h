@@ -82,5 +82,6 @@ public:
 	}
 	short getEnPassantFile() { return (short)f.en_passant_file; }
 	void setEnPassantFile(File fi) { f.en_passant_file = static_cast<uint32_t>(fi); }
+	void setEnPassangFile(short fi) { f.en_passant_file = fi; }
 };
 # pragma pack()

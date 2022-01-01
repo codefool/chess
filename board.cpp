@@ -95,8 +95,16 @@ Board& Board::getSquares(Pos start, std::vector<Dir> dir, int range, std::vector
     return *this;
 }
 
-MoveList Board::get_moves(PiecePtr p) {
-    MoveList moves;
+// collect all moves for the existing pieces for side onmove
+void Board::get_all_moves(Side onmove, MoveList& moves) {
+    for( auto p = _p.begin(); p != _p.end(); ++p ) {
+        if ( p->second->getSide() == onmove ) {
+            get_moves(p->second, moves);
+        }
+    }
+}
+
+void Board::get_moves(PiecePtr p, MoveList& moves) {
     Side onmove = p->getSide();
     PieceType pt = p->getType();
     std::vector<Dir> dirs;
@@ -139,10 +147,6 @@ MoveList Board::get_moves(PiecePtr p) {
                 // promotions.
                 for( auto action : {MV_PROMOTION_QUEEN, MV_PROMOTION_BISHOP, MV_PROMOTION_KNIGHT, MV_PROMOTION_ROOK})
                     moves.push_back(Move(action,  ppos, pos));
-                // moves.push_back(Move(MV_PROMOTION_QUEEN,  p->getPos(), pos));
-                // moves.push_back(Move(MV_PROMOTION_BISHOP, p->getPos(), pos));
-                // moves.push_back(Move(MV_PROMOTION_KNIGHT, p->getPos(), pos));
-                // moves.push_back(Move(MV_PROMOTION_ROOK,   p->getPos(), pos));
             } else {
                 moves.push_back(Move(MV_MOVE, p->getPos(), pos));
             }
@@ -157,7 +161,7 @@ MoveList Board::get_moves(PiecePtr p) {
         // Case 3: Pawns may capture directly to the UPL or UPR.
         // see if an opposing piece is UPL or UPR
         dirs.assign({updnl,updnr});
-        gather_moves(p, dirs, 1, moves);
+        gather_moves(p, dirs, 1, moves, true);
         // Case 4. A pawn on its own fifth rank may capture a neighboring pawn en passant moving
         // UPL or UPR iif the target pawn moved forward two squares on its last on move.
 
@@ -191,10 +195,9 @@ MoveList Board::get_moves(PiecePtr p) {
             gather_moves(p, dirs, range, moves);
         }
     }
-    return moves;
 }
 
-void Board::gather_moves(PiecePtr p, std::vector<Dir> dirs, int range, MoveList& moves) {
+void Board::gather_moves(PiecePtr p, std::vector<Dir> dirs, int range, MoveList& moves, bool occupied) {
     Side on_move = p->getSide();
     for (auto d : dirs) {
         Pos pos = p->getPos();
@@ -203,19 +206,20 @@ void Board::gather_moves(PiecePtr p, std::vector<Dir> dirs, int range, MoveList&
             pos += o;
             if( !in_bounds(pos) )
                 break;
-            Move* mov = check_square(p, pos);
-            if (mov != nullptr)
-                moves.push_back(*mov);
+            Move* mov = check_square(p, pos, occupied);
+            if (mov == nullptr)
+                break;
+            moves.push_back(*mov);
         }
     }
 }
 
-Move* Board::check_square(PiecePtr p, Pos pos) {
+Move* Board::check_square(PiecePtr p, Pos pos, bool occupied) {
     auto pi = piece_info(pos);
 
     if (pi == PT_EMPTY)
         // empty square so record move and continue
-        return new Move(MV_MOVE, p->getPos(), pos);
+        return (occupied) ? nullptr : new Move(MV_MOVE, p->getPos(), pos);
 
     // otherwise, square is not empty.
     // Otherwise, record capture move and leave.

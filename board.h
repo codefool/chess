@@ -35,9 +35,10 @@ public:
 	bool in_bounds(Pos pos);
 	Board& getSquares(Pos start, std::vector<Dir> dir, int range, std::vector<Pos>& p);
 
-	MoveList get_moves(PiecePtr p);
-	void gather_moves(PiecePtr p, std::vector<Dir> dirs, int range, std::vector<Move>& moves);
-	Move* check_square(PiecePtr p, Pos pos);
+	void get_all_moves(Side onmove, MoveList& moves);
+	void get_moves(PiecePtr p, MoveList& moves);
+	void gather_moves(PiecePtr p, std::vector<Dir> dirs, int range, std::vector<Move>& moves, bool occupied = false);
+	Move* check_square(PiecePtr p, Pos pos, bool occupied = false);
 
 	bool test_for_check(PiecePtr king);
 	bool check_ranges(Pos& src, std::vector<Dir>& dirs, int range, std::vector<PieceType>& pts, Side side);
