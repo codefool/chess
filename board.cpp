@@ -186,6 +186,10 @@ void Board::get_moves(PiecePtr p, MoveList& moves) {
             dirs.assign({UP, DN, LFT, RGT});
             gather_moves(p, dirs, range, moves);
         }
+        if (pt == PT_KING) {
+            // TODO: check for casteling, which is a real bitch.
+            ;
+        }
     }
 }
 

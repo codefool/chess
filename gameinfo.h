@@ -115,9 +115,9 @@ public:
 	GameInfoPacked encode() {
 		GameInfoPacked p;
 
-	    p.f.piece_cnt = static_cast<uint32_t>(piece_cnt);
-		p.f.on_move = static_cast<uint32_t>(on_move);
-		p.f.end_game_reason = static_cast<short>(end_game_reason);
+	    p.f.piece_cnt           = static_cast<uint32_t>(piece_cnt);
+		p.f.on_move             = static_cast<uint32_t>(on_move);
+		p.f.end_game_reason     = static_cast<short>(end_game_reason);
 		p.f.wks_castle_disabled = static_cast<uint32_t>(wks_castle_disabled);
 		p.f.wqs_castle_disabled = static_cast<uint32_t>(wqs_castle_disabled);
 		p.f.bks_castle_disabled = static_cast<uint32_t>(bks_castle_disabled);
