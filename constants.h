@@ -58,12 +58,13 @@ enum PieceType {
 	PT_BISHOP    = 0x03,
 	PT_KNIGHT    = 0x04,
 	PT_ROOK      = 0x05,
-	PT_PAWN      = 0x06, // on its own file
-	PT_PAWN_OFF  = 0x07,  // off its own file
-	SIDE_MASK    = 0x08,
-	BLACK_MASK   = 0x08,
-	PIECE_MASK   = 0x07
+	PT_PAWN      = 0x06,  // on its own file
+	PT_PAWN_OFF  = 0x07   // off its own file
 };
+
+#define	SIDE_MASK  0x08
+#define	BLACK_MASK 0x08
+#define	PIECE_MASK 0x07
 
 enum Dir {
 	UP = 0,
