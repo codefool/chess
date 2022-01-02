@@ -81,15 +81,15 @@ bool Board::isBlackSquare(short r, short f) {
 }
 
 // collect all moves for the existing pieces for side onmove
-void Board::get_all_moves(Side onmove, MoveList& moves) {
+void Board::get_all_moves(Side side, MoveList& moves) {
     for( auto p = _p.begin(); p != _p.end(); ++p ) {
-        if ( p->second->getSide() == onmove ) {
+        if ( p->second->getSide() == side ) {
             get_moves(p->second, moves);
         }
     }
     // remove any moves that put the king in check
     for ( auto itr = moves.begin(); itr != moves.end();) {
-        if( !validate_move(*itr, onmove) )
+        if( !validate_move(*itr, side) )
             moves.erase(itr);
         else
             ++itr;
@@ -161,7 +161,7 @@ void Board::get_moves(PiecePtr p, MoveList& moves) {
         // AND the pawn has not moved off its own rank (is not of type PT_PAWN_OFF)
         // AND pawn is on its fifth rank.
         // AND if target pawn is adjacent to this pawn
-        if ( _gi.enPassantExists() && pt == PT_PAWN_OFF ) {
+        if ( _gi.enPassantExists() && pt == PT_PAWN ) {
             // an en passant candidate exists
             Rank r_pawn = (isBlack) ? R4 : R5;      // where the pawns are
             Rank r_move = (isBlack) ? R3 : R6;      // the space where our pawn moves
@@ -177,17 +177,20 @@ void Board::get_moves(PiecePtr p, MoveList& moves) {
     } else {
         short range = (pt == PT_KING) ? 1 : 7;
         // get DIAGS for KING, QUEEN, or BISHOP
-        if (pt == PT_KING || pt == PT_QUEEN || pt == PT_BISHOP) {
+        if ( pt == PT_KING || pt == PT_QUEEN || pt == PT_BISHOP ) {
             dirs.assign({UPL, UPR, DNL, DNR});
             gather_moves(p, dirs, range, moves);
         }
         // get AXES for KING, QUEEN, or ROOK
-        if (pt == PT_KING || pt == PT_QUEEN || pt == PT_ROOK) {
+        if ( pt == PT_KING || pt == PT_QUEEN || pt == PT_ROOK ) {
             dirs.assign({UP, DN, LFT, RGT});
             gather_moves(p, dirs, range, moves);
         }
-        if (pt == PT_KING) {
+        if ( pt == PT_KING ) {
             // TODO: check for casteling, which is a real bitch.
+            // For casteling to be possible, the king must not have moved,
+            // nor the matching rook, the spaces between must be vacant AND
+            // cannot be under attack.
             ;
         }
     }
@@ -238,17 +241,22 @@ Move* Board::check_square(PiecePtr p, Pos pos, bool occupied) {
 // For axes finding a rook or queen
 // For kight can only be a knight.
 bool Board::test_for_check(PiecePtr king) {
-    Pos src = king->getPos();
-    Side side = king->getSide();
+    return test_for_attack(king->getPos(), king->getSide());
+}
+
+bool Board::test_for_attack(Pos src, Side side) {
+    // Step 1. Check axes for rooks or queens.
     std::vector<Dir> dirs = {UP,  DN,LFT,RGT};
     std::vector<PieceType> pts = {PT_ROOK,  PT_QUEEN};
     bool ret = check_ranges( src, dirs, 7, pts, side);
     if (!ret) {
+        // Step 2. Check diags for bishops or queens.
         dirs.assign({UPL,UPR,DNL,DNR});
         pts .assign({PT_BISHOP, PT_QUEEN});
         ret = check_ranges(src, dirs, 7, pts, side);
     }
     if (!ret) {
+        // Step 3. Check for attacking knights
         pts.assign({PT_KNIGHT});
         for(Offset o : s_ko) {
             Pos pos = src + o;
@@ -259,7 +267,7 @@ bool Board::test_for_check(PiecePtr king) {
         }
     }
     if (!ret) {
-        // pawns are filthy animals.
+        // Step 4. Check for pawn attacks.
         // if we're white, then pawns can be UPL and UPR
         // if we're black, then pawns can be DNL and DNR
         pts.assign({PT_PAWN});
