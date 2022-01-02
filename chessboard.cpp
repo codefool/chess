@@ -123,8 +123,7 @@ int main() {
 
 	GameInfo g;
 	g.setEndGameReason(EGR_14D3_KWBVKWB);
-	g.setEnPassantLatch(true);
-	g.setEnPassantFile(Fg);
+	g.setEnPassant(EP_FG);
 
 	Board b;
 

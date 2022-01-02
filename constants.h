@@ -51,6 +51,21 @@ enum File {
 	Fh = 0x07
 };
 
+enum EnPassant {
+	EP_NONE = 0x00,
+	EP_FA   = 0x08,
+	EP_FB   = 0x09,
+	EP_FC   = 0x0A,
+	EP_FD   = 0x0B,
+	EP_FE   = 0x0C,
+	EP_FF   = 0x0D,
+	EP_FG   = 0x0E,
+	EP_FH   = 0x0F
+};
+
+#define EP_MASK 0x08
+#define EP_FILE 0x07
+
 enum PieceType {
 	PT_EMPTY     = 0x00,
 	PT_KING      = 0x01,
