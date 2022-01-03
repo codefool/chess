@@ -40,7 +40,6 @@ public:
 	void gather_moves(PiecePtr p, std::vector<Dir> dirs, int range, std::vector<Move>& moves, bool occupied = false);
 	Move* check_square(PiecePtr p, Pos pos, bool occupied = false);
 
-	bool test_for_check(PiecePtr king);
 	bool test_for_attack(Pos src, Side side);
 	bool check_ranges(Pos& src, std::vector<Dir>& dirs, int range, std::vector<PieceType>& pts, Side side);
 	bool check_piece(uint8_t pi, std::vector<PieceType>& trg, Side side);

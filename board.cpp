@@ -82,6 +82,8 @@ bool Board::isBlackSquare(short r, short f) {
 
 // collect all moves for the existing pieces for side onmove
 void Board::get_all_moves(Side side, MoveList& moves) {
+    // TODO: if the king is in check, then only moves that
+    // get the king out of check are permissable.
     for( auto p = _p.begin(); p != _p.end(); ++p ) {
         if ( p->second->getSide() == side ) {
             get_moves(p->second, moves);
@@ -185,7 +187,7 @@ void Board::get_moves(PiecePtr p, MoveList& moves) {
             dirs.assign({UP, DN, LFT, RGT});
             gather_moves(p, dirs, range, moves);
         }
-        if ( pt == PT_KING ) {
+        if ( pt == PT_KING && !test_for_attack(_k[side]->getPos(), side)) {
             // For casteling to be possible, the king must not have moved,
             // nor the matching rook, the spaces between must be vacant AND
             // cannot be under attack.
@@ -208,7 +210,7 @@ void Board::get_moves(PiecePtr p, MoveList& moves) {
 
 void Board::check_castle(Side side, MoveAction ma, MoveList& moves) {
     // get here if neither the king nor the rook have moved.
-    // 1. The squares between the kingand the rook have to be empty [8A4b],
+    // 1. The squares between the king and the rook have to be empty [8A4b],
     // 2. The king cannot be in check [8A4a], and
     // 3. The king cannot move over check [8A4a].
     // So, check that the spaces between the king and rook (excluded)
@@ -224,6 +226,8 @@ void Board::check_castle(Side side, MoveAction ma, MoveList& moves) {
     // This logic is rather straighforward, though rather torturned, because
     // the positions of the pieces are defined by the Rules, and hence
     // generating locations can be hardcoded.
+    //
+    // We assume that the king is not already in check.
     //
     Rank rank = (side == SIDE_WHITE) ? R1 : R8;
     bool isQueenSide = (ma == MV_CASTLE_QUEENSIDE);
@@ -290,11 +294,7 @@ Move* Board::check_square(PiecePtr p, Pos pos, bool occupied) {
 //
 // For diags finding a bishop or queen (or pawn at range 1 on opponent side.)
 // For axes finding a rook or queen
-// For kight can only be a knight.
-bool Board::test_for_check(PiecePtr king) {
-    return test_for_attack(king->getPos(), king->getSide());
-}
-
+// For knight can only be a knight.
 bool Board::test_for_attack(Pos src, Side side) {
     // Step 1. Check axes for rooks or queens.
     std::vector<Dir> dirs = {UP,  DN,LFT,RGT};
@@ -400,11 +400,15 @@ bool Board::validate_move(Move mov, Side side) {
     // king, which can only be done if the board is actually adjusted.
     Pos src = mov.getSource();
     Pos trg = mov.getTarget();
+    uint8_t piece = piece_info(src);
+    // if the actual piece that is moving is the king, then use the
+    // new position to test for check. Otherwise, use the saved position.
+    Pos king_pos = ( (piece & PIECE_MASK) == PT_KING) ? trg : _k[side]->getPos();
 
     _b[trg.r()][trg.f()] = _b[src.r()][src.f()];  // copy the source piece to the target square
     _b[src.r()][src.f()] = PT_EMPTY;                       // vacate the source square
 
-    bool in_check = !test_for_check( _k[side] );
+    bool in_check = !test_for_attack( king_pos, side );
 
     memcpy(_b, bup, sizeof(BoardBuffer));
 

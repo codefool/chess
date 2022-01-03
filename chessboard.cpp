@@ -134,8 +134,8 @@ int main() {
   // auto pawn = b.place_piece(PT_PAWN, SIDE_WHITE, R2, Fa);
 
   b.place_piece(PT_KING, SIDE_WHITE, R1, Fe);
-  b.place_piece(PT_ROOK, SIDE_WHITE, R1, Fa);
-  b.place_piece(PT_QUEEN, SIDE_BLACK, R8, Ff);
+  b.place_piece(PT_ROOK, SIDE_WHITE, R2, Fa);
+  b.place_piece(PT_QUEEN, SIDE_BLACK, R4, Fh);
 
   b.dump();
  	// b.gi().setEnPassantLatch(true);
