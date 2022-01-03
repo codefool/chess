@@ -75,6 +75,13 @@ private:
 	bool          bks_castle_enabled;
 	bool          bqs_castle_enabled;
 public:
+	GameInfo() {
+		wks_castle_enabled = true;
+		wqs_castle_enabled = true;
+		bks_castle_enabled = true;
+		bqs_castle_enabled = true;
+	}
+
 	short getPieceCnt() { return piece_cnt; }
 	void setPieceCnt(short cnt) { piece_cnt = cnt; }
 	Side getOnMove() { return on_move; }

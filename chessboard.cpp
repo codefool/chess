@@ -125,20 +125,25 @@ int main() {
 	g.setEndGameReason(EGR_14D3_KWBVKWB);
 	g.setEnPassant(EP_FG);
 
-	Board b;
+	Board b(false);
 
   //auto king = b.place_piece(PT_KING, SIDE_WHITE, R3, Fc);
   // auto knight = b.place_piece(PT_KNIGHT, SIDE_BLACK, R3, Fc);
   // b.place_piece(PT_PAWN, SIDE_BLACK, R2, Fa);
   // b.place_piece(PT_PAWN, SIDE_BLACK, R6, Fe);
   // auto pawn = b.place_piece(PT_PAWN, SIDE_WHITE, R2, Fa);
+
+  b.place_piece(PT_KING, SIDE_WHITE, R1, Fe);
+  b.place_piece(PT_ROOK, SIDE_WHITE, R1, Fa);
+  b.place_piece(PT_QUEEN, SIDE_BLACK, R8, Ff);
+
   b.dump();
  	// b.gi().setEnPassantLatch(true);
 	// b.gi().setEnPassantFile(Fc);
 
   MoveList moves;
   //b.get_moves(pawn, moves);
-  b.get_all_moves(SIDE_BLACK, moves);
+  b.get_all_moves(SIDE_WHITE, moves);
 
   for (auto m : moves) {
     std::cout << m << std::endl;
