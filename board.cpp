@@ -186,38 +186,65 @@ void Board::get_moves(PiecePtr p, MoveList& moves) {
             gather_moves(p, dirs, range, moves);
         }
         if ( pt == PT_KING ) {
-            // TODO: check for casteling, which is a real bitch.
             // For casteling to be possible, the king must not have moved,
             // nor the matching rook, the spaces between must be vacant AND
             // cannot be under attack.
             if (isBlack) {
-                if(_gi.isBksCastleEnabled()) {
-                    check_castle(Pos(R8,Fe), Pos(R8,Fh));
-                }
-                if(_gi.isBqsCastleEnabled()) {
-                    check_castle(Pos(R8,Fe), Pos(R8,Fa));
-                }
+                if(_gi.isBksCastleEnabled())
+                    check_castle(side, MV_CASTLE_KINGSIDE, moves);
+
+                if(_gi.isBqsCastleEnabled())
+                    check_castle(side, MV_CASTLE_QUEENSIDE, moves);
             } else {
-                if(_gi.isWksCastleEnabled()) {
-                    check_castle(Pos(R1,Fe), Pos(R1,Fh));
-                }
-                if(_gi.isWqsCastleEnabled()) {
-                    check_castle(Pos(R8,Fe), Pos(R8,Fa));
-                }
+                if(_gi.isWksCastleEnabled())
+                    check_castle(side, MV_CASTLE_KINGSIDE, moves);
+
+                if(_gi.isWqsCastleEnabled())
+                    check_castle(side, MV_CASTLE_QUEENSIDE, moves);
             }
         }
     }
 }
 
-bool Board::check_castle(Pos king, Pos rook) {
+void Board::check_castle(Side side, MoveAction ma, MoveList& moves) {
     // get here if neither the king nor the rook have moved.
-    // check that all the spaces between king and rook are empty.
-    // and that none of them are under attack [8A2]. Because of this
-    // we do not need to validate the move to see if the king is 
-    // moving into check.
+    // 1. The squares between the kingand the rook have to be empty [8A4b],
+    // 2. The king cannot be in check [8A4a], and
+    // 3. The king cannot move over check [8A4a].
+    // So, check that the spaces between the king and rook (excluded)
+    // are PT_EMPTY.
+    //
+    // Also, check the first two squares from the king toward the rook are
+    // not under attack.
+    //                queenside    kingside
+    //                R  N  B  Q  K  B  N  R
+    //                      <-->     <-->       check for attack
+    //                   <----->     <-->       check for empty
+    //
+    // This logic is rather straighforward, though rather torturned, because
+    // the positions of the pieces are defined by the Rules, and hence
+    // generating locations can be hardcoded.
+    //
+    Rank rank = (side == SIDE_WHITE) ? R1 : R8;
+    bool isQueenSide = (ma == MV_CASTLE_QUEENSIDE);
+    std::vector<Pos> emptyCheck;
+    if (isQueenSide) {
+        emptyCheck.assign({Pos(rank, Fc), Pos(rank, Fd)});
+    } else {
+        emptyCheck.assign({Pos(rank, Ff), Pos(rank, Fg)});
+    }
 
-    
-    return false;
+    for (auto p : emptyCheck)
+        if (piece_info(p) != PT_EMPTY || test_for_attack(p, side))
+            // square not empty or under attack - can't castle
+            return;
+
+    // make additional empty check for queenside castle
+    if (isQueenSide && piece_info(Pos(rank,Fb)) != PT_EMPTY)
+        return;
+
+    // get here if no reason found not to castle.
+    moves.push_back(Move(ma, Pos(rank,Fe), Pos(rank,(isQueenSide)?Fa:Fh)));
 }
 
 void Board::gather_moves(PiecePtr p, std::vector<Dir> dirs, int range, MoveList& moves, bool occupied) {

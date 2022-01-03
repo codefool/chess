@@ -18,27 +18,46 @@ std::ostream& operator<<(std::ostream& os, const Pos& p) {
 
 // the idea will be to display the move in alebraic notation [38]
 std::ostream& operator<<(std::ostream& os, const Move& m) {
-	os << m._s;
+	// special cases
+	if (m._a == MV_CASTLE_KINGSIDE)
+		os << "O-O";
+	else if( m._a == MV_CASTLE_QUEENSIDE)
+		os << "O-O-O";
+	else {
+		os << m._s;
 
-	switch(m._a) {
-		case MV_CAPTURE:
-		case MV_EN_PASSANT:
-			os << 'x';
-			break;
-	}
+		switch(m._a) {
+			case MV_CAPTURE:
+			case MV_EN_PASSANT:
+				os << 'x';
+				break;
+		}
 
-	os << m._t;
+		os << m._t;
 
-	switch(m._a) {
-		case MV_EN_PASSANT:
-			os << " e.p.";
-			break;
-		case MV_CHECK:
-			os << '+';
-			break;
-		case MV_CHECKMATE:
-			os << "++";
-			break;
+		switch(m._a) {
+			case MV_EN_PASSANT:
+				os << " e.p.";
+				break;
+			case MV_CHECK:
+				os << '+';
+				break;
+			case MV_CHECKMATE:
+				os << "++";
+				break;
+			case MV_PROMOTION_BISHOP:
+				os << "=B";
+				break;
+			case MV_PROMOTION_KNIGHT:
+				os << "=N";
+				break;
+			case MV_PROMOTION_ROOK:
+				os << "=R";
+				break;
+			case MV_PROMOTION_QUEEN:
+				os << "=Q";
+				break;
+		}
 	}
 
 	return os;

@@ -36,7 +36,7 @@ public:
 
 	void get_all_moves(Side onmove, MoveList& moves);
 	void get_moves(PiecePtr p, MoveList& moves);
-	bool check_castle(Pos king, Pos rook);
+	void check_castle(Side side, MoveAction ma, MoveList& moves);
 	void gather_moves(PiecePtr p, std::vector<Dir> dirs, int range, std::vector<Move>& moves, bool occupied = false);
 	Move* check_square(PiecePtr p, Pos pos, bool occupied = false);
 

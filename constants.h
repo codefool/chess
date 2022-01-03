@@ -170,6 +170,18 @@ public:
 		return *this;
 	}
 
+	bool operator<(const Pos& o) {
+		if (_r == o._r)
+			return _f < o._f;
+		return _r < o._r;
+	}
+
+	bool operator<=(const Pos& o) {
+		if (_r == o._r)
+			return _f <= o._f;
+		return _r <= o._r;
+	}
+
 	Pos offset(Offset& o) {
 		return Pos(_r + o.dr, _f + o.df);
 	}
