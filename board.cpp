@@ -97,7 +97,8 @@ void Board::get_all_moves(Side side, MoveList& moves) {
 }
 
 void Board::get_moves(PiecePtr p, MoveList& moves) {
-    Side onmove = p->getSide();
+    Side side = p->getSide();
+    bool isBlack = (side == SIDE_BLACK);
     PieceType pt = p->getType();
     std::vector<Dir> dirs;
 
@@ -122,8 +123,6 @@ void Board::get_moves(PiecePtr p, MoveList& moves) {
         // 5. A pawn that reaches the eighth rank is promoted.
         //
         // Directions are, of course, side dependent.
-        Side s = p->getSide();
-        bool isBlack = (s == SIDE_BLACK);
         // Case 1: pawns can only move one square forwad.
         Pos ppos  = p->getPos();
         Dir updn  = (isBlack)?DN:UP;
@@ -191,9 +190,34 @@ void Board::get_moves(PiecePtr p, MoveList& moves) {
             // For casteling to be possible, the king must not have moved,
             // nor the matching rook, the spaces between must be vacant AND
             // cannot be under attack.
-            ;
+            if (isBlack) {
+                if(_gi.isBksCastleEnabled()) {
+                    check_castle(Pos(R8,Fe), Pos(R8,Fh));
+                }
+                if(_gi.isBqsCastleEnabled()) {
+                    check_castle(Pos(R8,Fe), Pos(R8,Fa));
+                }
+            } else {
+                if(_gi.isWksCastleEnabled()) {
+                    check_castle(Pos(R1,Fe), Pos(R1,Fh));
+                }
+                if(_gi.isWqsCastleEnabled()) {
+                    check_castle(Pos(R8,Fe), Pos(R8,Fa));
+                }
+            }
         }
     }
+}
+
+bool Board::check_castle(Pos king, Pos rook) {
+    // get here if neither the king nor the rook have moved.
+    // check that all the spaces between king and rook are empty.
+    // and that none of them are under attack [8A2]. Because of this
+    // we do not need to validate the move to see if the king is 
+    // moving into check.
+
+    
+    return false;
 }
 
 void Board::gather_moves(PiecePtr p, std::vector<Dir> dirs, int range, MoveList& moves, bool occupied) {
