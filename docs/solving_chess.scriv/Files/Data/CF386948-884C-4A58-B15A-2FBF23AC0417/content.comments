@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Comments Version="1.0">
+    <Comment ID="996EC668-6868-4183-A7AD-DB5A9301007A" Collapsed="No" Color="1.000000 0.850980 0.850980"><![CDATA[{\rtf1\ansi\ansicpg1252\uc1\deff0
+{\fonttbl{\f0\fnil\fcharset0\fprq2 Sitka Small;}{\f1\fnil\fcharset0\fprq2 Sitka Small;}}
+{\colortbl;\red0\green0\blue0;\red255\green255\blue255;\red128\green128\blue128;}
+\paperw12240\paperh15840\margl1800\margr1800\margt1440\margb1440\deftab1200\f0\fs20\cf0
+\pard\plain \ltrch\loch {\f1\fs20\b1\i0 BUG: }{\f0\fs20\b0\i0 Note that at the time of this writing, there is a bug in the compiler that causes this \loch\af0\hich\af0\dbch\af0\uc1\u8220\'93anonymous\u8221\'94 section to print a section heading. The intended effect is for it to be two paragraphs of text following the chapter break.}}]]></Comment>
+</Comments>
