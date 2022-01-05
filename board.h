@@ -28,6 +28,8 @@ public:
 
 public:
 	Board(bool init=true);
+	Board(Board& other);
+
 	GameInfo& gi() { return _gi; }
 
 	PiecePtr place_piece(PieceType t, Side s, Rank r, File f);
@@ -46,10 +48,17 @@ public:
 	uint8_t search_not_empty(Pos& start, Dir dir, int range);
 
 	bool validate_move(Move mov, Side side);
+	void process_move(Move mov, Side side);
 
 	uint8_t piece_info(Pos p) {
 		return _b[p.r()][p.f()];
 	}
+
+	void set_piece_info(Pos p, uint8_t i) {
+		_b[p.r()][p.f()] = i;
+	}
+
+	void move_piece(PiecePtr ptr, Pos pos);
 
 	// a property of the physical chessboard is that
 	// if the odd'ness of the rank and file are the

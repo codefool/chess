@@ -31,7 +31,6 @@ std::vector<Offset> Board::s_ko = {
 	{-1,-2}, {-1,+2}
 };
 
-
 Board::Board(bool init)
 {
     // set the initial position.
@@ -51,6 +50,13 @@ Board::Board(bool init)
             place_piece(pt,      SIDE_BLACK, R8, fi);    // black court piece
         }
     }
+}
+
+Board::Board(Board& o)
+: _gi(o._gi), _p(o._p.begin(), o._p.end())
+{
+    memcpy(&_k, o._k, sizeof(_k));
+    memcpy(_b, o._b, sizeof(BoardBuffer));
 }
 
 PiecePtr Board::place_piece(PieceType t, Side s, Rank r, File f) {
@@ -189,8 +195,8 @@ void Board::get_moves(PiecePtr p, MoveList& moves) {
         }
         if ( pt == PT_KING && !test_for_attack(_k[side]->getPos(), side)) {
             // For casteling to be possible, the king must not have moved,
-            // nor the matching rook, the spaces between must be vacant AND
-            // cannot be under attack.
+            // nor the matching rook, the king must not be in check, the
+            // spaces between must be vacant AND cannot be under attack.
             if (isBlack) {
                 if(_gi.isBksCastleEnabled())
                     check_castle(side, MV_CASTLE_KINGSIDE, moves);
@@ -414,3 +420,81 @@ bool Board::validate_move(Move mov, Side side) {
 
     return in_check;
 }
+
+void Board::move_piece(PiecePtr ptr, Pos pos) {
+    uint8_t  pi   = piece_info(ptr->getPos());
+    Pos      p    = ptr->getPos();
+    set_piece_info( p, PT_EMPTY );
+    set_piece_info( pos, pi );
+    ptr->setPos(pos);
+}
+
+void Board::process_move(Move mov, Side side) {
+    // Board *ret = new Board(*this);
+    PiecePtr ptr = _p[mov.getSource().toByte()];
+
+    MoveAction ma = mov.getAction();
+    // if( MV_CASTLE_KINGSIDE == ma) {
+    //     // mov.getSource() is the location of the king,
+    //     // mov.getTarget() is the location of the rook
+    //     // Move king to file g, rook to file f
+    //     move_piece( ptr, Pos(ptr->getPos().rank(), Fg));
+    //     PiecePtr rook = _p[mov.getTarget().toByte()];
+    //     move_piece( rook, Pos(rook->getPos().rank(), Ff));
+    // } else if (MV_CASTLE_QUEENSIDE == ma) {
+    //     // mov.getSource() is the location of the king,
+    //     // mov.getTarget() is the location of the rook
+    //     // Move king to file c, rook to file d
+    //     move_piece( ptr, Pos(ptr->getPos().rank(), Fc));
+    //     PiecePtr rook = _p[mov.getTarget().toByte()];
+    //     move_piece( rook, Pos(rook->getPos().rank(), Fd));
+    // } else if (MV_PROMOTION_QUEEN <= ma && ma <= MV_PROMOTION_ROOK) {
+    //     // in promotion, we change the piece type itself.
+    //     uint8_t
+
+
+
+    // } else {
+    //     // all remaining move types are simple move
+    //     move_piece( ptr, mov.getTarget());
+    // }
+
+    switch(mov.getAction()) {
+    case MV_CASTLE_KINGSIDE: {
+        // mov.getSource() is the location of the king,
+        // mov.getTarget() is the location of the rook
+        // Move king to file g, rook to file f
+        move_piece( ptr, Pos(ptr->getPos().rank(), Fg));
+        PiecePtr rook = _p[mov.getTarget().toByte()];
+        move_piece( rook, Pos(rook->getPos().rank(), Ff));
+        }
+        break;
+    case MV_CASTLE_QUEENSIDE: {
+        // mov.getSource() is the location of the king,
+        // mov.getTarget() is the location of the rook
+        // Move king to file c, rook to file d
+        move_piece( ptr, Pos(ptr->getPos().rank(), Fc));
+        PiecePtr rook = _p[mov.getTarget().toByte()];
+        move_piece( rook, Pos(rook->getPos().rank(), Fd));
+        }
+        break;
+    case MV_PROMOTION_QUEEN:
+    case MV_PROMOTION_BISHOP:
+    case MV_PROMOTION_KNIGHT:
+    case MV_PROMOTION_ROOK: {
+        PieceType newType = static_cast<PieceType>(ma - MV_PROMOTION_QUEEN + PT_QUEEN);
+        ptr->setType(newType);
+        }
+        [[fallthrough]];
+    case MV_MOVE:
+    case MV_CAPTURE:
+    case MV_CHECK:
+    case MV_CHECKMATE:
+        move_piece( ptr, mov.getTarget());
+    case MV_EN_PASSANT:
+        // move the piece, but remove the pawn indicated by
+        break;
+    }
+    // return *ret;
+}
+

@@ -35,6 +35,7 @@ public:
 	bool is_on_move(Side m) { return _s == m; }
 
 	PieceType getType() { return _t; }
+	void setType(PieceType t) { _t = t; }
 
 	const char getPieceGlyph() const { return _c; }
 

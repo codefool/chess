@@ -57,9 +57,10 @@ union GameInfoPacked {
 
 class GameInfo {
 private:
+	GameInfoPacked	_p;
 	// number of active pieces on the board (1..31)
-	short         piece_cnt;
-	Side          on_move; // 0=white on move, 1=black
+	short           piece_cnt;
+	Side            on_move; // 0=white on move, 1=black
 	//
 	EndGameReason end_game_reason;
 	// en passant
@@ -82,6 +83,11 @@ public:
 		bqs_castle_enabled = true;
 	}
 
+	GameInfo(GameInfo& o)
+	{
+		decode(o.encode());
+	}
+
 	short getPieceCnt() { return piece_cnt; }
 	void setPieceCnt(short cnt) { piece_cnt = cnt; }
 	Side getOnMove() { return on_move; }
@@ -102,7 +108,7 @@ public:
 	void setEnPassant(EnPassant ep) { en_passant = ep; }
 	short getEnPassantFile() { return en_passant & EP_FILE; }
 
-	GameInfo decode(GameInfoPacked p) {
+	GameInfo& decode(const GameInfoPacked& p) {
 		setPieceCnt(static_cast<short>(p.f.piece_cnt));
 		setOnMove(static_cast<Side>(p.f.on_move));
 		setEndGameReason(static_cast<EndGameReason>(p.f.end_game_reason));
@@ -114,20 +120,18 @@ public:
 		return *this;
 	}
 
-	GameInfoPacked encode() {
-		GameInfoPacked p;
+	GameInfoPacked& encode() {
+		_p.i                    = 0;
+	    _p.f.piece_cnt          = static_cast<uint32_t>(piece_cnt);
+		_p.f.on_move            = static_cast<uint32_t>(on_move);
+		_p.f.end_game_reason    = static_cast<short>(end_game_reason);
+		_p.f.wks_castle_enabled = static_cast<uint32_t>(wks_castle_enabled);
+		_p.f.wqs_castle_enabled = static_cast<uint32_t>(wqs_castle_enabled);
+		_p.f.bks_castle_enabled = static_cast<uint32_t>(bks_castle_enabled);
+		_p.f.bqs_castle_enabled = static_cast<uint32_t>(bqs_castle_enabled);
+		_p.f.en_passant         = static_cast<uint32_t>(en_passant);
 
-		p.i                    = 0;
-	    p.f.piece_cnt          = static_cast<uint32_t>(piece_cnt);
-		p.f.on_move            = static_cast<uint32_t>(on_move);
-		p.f.end_game_reason    = static_cast<short>(end_game_reason);
-		p.f.wks_castle_enabled = static_cast<uint32_t>(wks_castle_enabled);
-		p.f.wqs_castle_enabled = static_cast<uint32_t>(wqs_castle_enabled);
-		p.f.bks_castle_enabled = static_cast<uint32_t>(bks_castle_enabled);
-		p.f.bqs_castle_enabled = static_cast<uint32_t>(bqs_castle_enabled);
-		p.f.en_passant         = static_cast<uint32_t>(en_passant);
-
-		return p;
+		return _p;
 	}
 };
 # pragma pack()

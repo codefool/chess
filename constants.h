@@ -110,6 +110,7 @@ union Nibbles {
 	} f;
 };
 
+// the MoveAction is packed to 4 bits, so 0..15
 enum MoveAction {
 	MV_MOVE = 0,
 	MV_CAPTURE = 1,
@@ -123,6 +124,10 @@ enum MoveAction {
 	MV_PROMOTION_BISHOP = 9,
 	MV_PROMOTION_KNIGHT = 10,
 	MV_PROMOTION_ROOK = 11
+	// UNUSED = 12
+	// UNUSED = 13
+	// UNUSED = 14
+	// UNUSED = 15
 };
 
 
@@ -149,6 +154,14 @@ public:
 
 	void set(short ra, short fi) {
 		_r = ra;
+		_f = fi;
+	}
+
+	void setRank(short ra) {
+		_r = ra;
+	}
+
+	void setFile(short fi) {
 		_f = fi;
 	}
 
