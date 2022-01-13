@@ -67,4 +67,5 @@ public:
 	bool isBlackSquare(short r, short f);
 
 	void dump();
+	friend std::ostream& operator<<(std::ostream& os, const Board& b);
 };

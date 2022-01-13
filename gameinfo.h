@@ -99,6 +99,7 @@ public:
 	void setEnPassantFile(EnPassantFile ep) { en_passant_file = ep; }
 
 	GameInfo& decode(const GameInfoPacked& p);
+	const GameInfoPacked encode_c() const;
 
 	GameInfoPacked& encode();
 };

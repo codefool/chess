@@ -506,3 +506,20 @@ void Board::process_move(Move mov, Side side) {
     // return *ret;
 }
 
+
+std::ostream& operator<<(std::ostream& os, const Board& b) {
+	// the purpose here is to write the game and board information as a series of hex digits
+    // first the gameinfo
+    os << std::hex;
+    os.fill('0');
+    os.width(4);
+    os << (short)b._gi.encode_c().i;
+    os.width(2);
+    for (int r = 0; r < 8; r++) {
+        for (int f = 0; f < 8; f++) {
+            os << static_cast<char>(b._b[r][f]);
+        }
+    }
+    os.flush();
+	return os;
+}

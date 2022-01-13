@@ -138,6 +138,7 @@ int main() {
   b.place_piece(PT_QUEEN, SIDE_BLACK, R4, Fh);
 
   b.dump();
+  std::cout << b << std::endl;
  	// b.gi().setEnPassantLatch(true);
 	// b.gi().setEnPassantFile(Fc);
 
@@ -150,6 +151,7 @@ int main() {
   }
 
   b.validate_move(moves.front(), SIDE_WHITE);
+
 
 	return 0;
 }
