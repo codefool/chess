@@ -37,7 +37,7 @@ union GameInfoPacked {
 		// positions. This signals that a pawn subject to en passant capture
 		// exists, and does not mean that there is an opposing pawn that can
 		// affect it.
-		uint32_t en_passant        :  4; // file number where pawn rests
+		uint32_t en_passant_file   :  4; // file number where pawn rests
 		// Castling is possible only if the participating pieces have not
 		// moved (among other rules, but have nothing to do with prior movement.)
 		uint32_t wks_castle_enabled:  1; // neither WK or WKR has moved
@@ -47,13 +47,9 @@ union GameInfoPacked {
 		//
 		uint32_t unused             : 14; // for future use
 	} f;
-	GameInfoPacked() : i{0} {
-		f.wks_castle_enabled =
-		f.wqs_castle_enabled =
-		f.bks_castle_enabled =
-		f.bqs_castle_enabled = 1;
-	}
+	GameInfoPacked();
 };
+# pragma pack()
 
 class GameInfo {
 private:
@@ -68,7 +64,7 @@ private:
 	// positions. This signals that a pawn subject to en passant capture
 	// exists, and does not mean that there is an opposing pawn that can
 	// affect it.
-	EnPassant     en_passant;
+	EnPassantFile en_passant_file;
 	// Castling is possible only if the participating pieces have not
 	// moved (among other rules, but have nothing to do with prior movement.)
 	bool          wks_castle_enabled;
@@ -76,12 +72,7 @@ private:
 	bool          bks_castle_enabled;
 	bool          bqs_castle_enabled;
 public:
-	GameInfo() {
-		wks_castle_enabled = true;
-		wqs_castle_enabled = true;
-		bks_castle_enabled = true;
-		bqs_castle_enabled = true;
-	}
+	GameInfo();
 
 	GameInfo(GameInfo& o)
 	{
@@ -103,35 +94,11 @@ public:
 	void setBksCastleEnabled(bool s) { bks_castle_enabled = s;}
 	bool isBqsCastleEnabled() { return bqs_castle_enabled; }
 	void setBqsCastleEnabled(bool s) { bqs_castle_enabled = s;}
-	bool enPassantExists() { return en_passant != EP_NONE;}
-	EnPassant getEnPassant() { return en_passant; }
-	void setEnPassant(EnPassant ep) { en_passant = ep; }
-	short getEnPassantFile() { return en_passant & EP_FILE; }
+	bool enPassantExists() { return (en_passant_file & EP_HERE_MASK) == 1;}
+	File getEnPassantFile() { return static_cast<File>(en_passant_file & EP_FILE_MASK); }
+	void setEnPassantFile(EnPassantFile ep) { en_passant_file = ep; }
 
-	GameInfo& decode(const GameInfoPacked& p) {
-		setPieceCnt(static_cast<short>(p.f.piece_cnt));
-		setOnMove(static_cast<Side>(p.f.on_move));
-		setEndGameReason(static_cast<EndGameReason>(p.f.end_game_reason));
-		setEnPassant(static_cast<EnPassant>(en_passant));
-		setWksCastleEnabled(p.f.wks_castle_enabled == 1);
-		setWqsCastleEnabled(p.f.wqs_castle_enabled == 1);
-		setBksCastleEnabled(p.f.bks_castle_enabled == 1);
-		setBqsCastleEnabled(p.f.bqs_castle_enabled == 1);
-		return *this;
-	}
+	GameInfo& decode(const GameInfoPacked& p);
 
-	GameInfoPacked& encode() {
-		_p.i                    = 0;
-	    _p.f.piece_cnt          = static_cast<uint32_t>(piece_cnt);
-		_p.f.on_move            = static_cast<uint32_t>(on_move);
-		_p.f.end_game_reason    = static_cast<short>(end_game_reason);
-		_p.f.wks_castle_enabled = static_cast<uint32_t>(wks_castle_enabled);
-		_p.f.wqs_castle_enabled = static_cast<uint32_t>(wqs_castle_enabled);
-		_p.f.bks_castle_enabled = static_cast<uint32_t>(bks_castle_enabled);
-		_p.f.bqs_castle_enabled = static_cast<uint32_t>(bqs_castle_enabled);
-		_p.f.en_passant         = static_cast<uint32_t>(en_passant);
-
-		return _p;
-	}
+	GameInfoPacked& encode();
 };
-# pragma pack()

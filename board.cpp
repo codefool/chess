@@ -491,8 +491,16 @@ void Board::process_move(Move mov, Side side) {
     case MV_CHECK:
     case MV_CHECKMATE:
         move_piece( ptr, mov.getTarget());
-    case MV_EN_PASSANT:
-        // move the piece, but remove the pawn indicated by
+        break;
+    case MV_EN_PASSANT: {
+        // move the piece, but remove the pawn "passed by"
+        move_piece( ptr, mov.getTarget());
+        // the pawn 'passed by' will be one square toward on side
+        Dir d = (side == SIDE_BLACK) ? UP : DN;
+        Pos p = mov.getTarget() + s_os[d];
+        // remove the piece from the board, but prob. need to record this somewhere.
+        set_piece_info(p, PT_EMPTY);
+        }
         break;
     }
     // return *ret;
