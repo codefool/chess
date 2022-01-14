@@ -108,6 +108,13 @@ union Nibbles {
 		uint8_t lo : 4;
 		uint8_t hi : 4;
 	} f;
+	Nibbles(short l, short h) {
+		f.lo = static_cast<uint8_t>(l & 0x0f);
+		f.hi = static_cast<uint8_t>(h & 0x0f);
+	}
+	Nibbles(uint8_t by)
+	: b(by)
+	{}
 };
 
 // the MoveAction is packed to 4 bits, so 0..15
@@ -272,3 +279,4 @@ typedef std::vector<Move>   MoveList;
 typedef MoveList::iterator  MoveListItr;
 
 typedef uint8_t BoardBuffer[8][8];
+typedef uint8_t PackedBoardBuffer[32];

@@ -506,19 +506,43 @@ void Board::process_move(Move mov, Side side) {
     // return *ret;
 }
 
+void packBoardBuffer(const BoardBuffer& b, PackedBoardBuffer ppb) {
+	uint8_t *p = ppb;
+	for(int i = 0; i < 8; ++i) {
+		for(int j = 0; j < 8; j+=2) {
+			Nibbles n(b[i][j+1], b[i][j]);
+			*p++ = n.b;
+		}
+	}
+}
+
+void unpackBoardBuffer(const PackedBoardBuffer ppb, BoardBuffer& b) {
+	const uint8_t *p = ppb;
+	for(int i = 0; i < 8; ++i) {
+		for(int j = 0; j < 8; j+=2) {
+            Nibbles n(*p++);
+            b[i][j+1] = n.f.hi;
+            b[i][j]   = n.f.lo;
+		}
+	}
+}
 
 std::ostream& operator<<(std::ostream& os, const Board& b) {
 	// the purpose here is to write the game and board information as a series of hex digits
     // first the gameinfo
+    PackedBoardBuffer ppb;
+    packBoardBuffer(b._b, ppb);
+
     os << std::hex;
     os.fill('0');
-    os.width(4);
-    os << (short)b._gi.encode_c().i;
-    os.width(2);
-    for (int r = 0; r < 8; r++) {
-        for (int f = 0; f < 8; f++) {
-            os << static_cast<char>(b._b[r][f]);
-        }
+    os.width(8);
+    os << unsigned(b._gi.encode_c().i) << ' ';
+
+    uint8_t *p = ppb;
+    for (int i = 0; i < 32; i++, ++p) {
+        os.fill('0');
+        os.width(2);
+        os << +(*p) << ' ';
     }
     os.flush();
 	return os;
