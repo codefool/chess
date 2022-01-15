@@ -49,6 +49,7 @@ Board::Board(bool init)
             place_piece(PT_PAWN, SIDE_BLACK, R7, fi);    // black pawn
             place_piece(pt,      SIDE_BLACK, R8, fi);    // black court piece
         }
+        _gi.init();
     }
 }
 
@@ -427,39 +428,45 @@ void Board::move_piece(PiecePtr ptr, Pos pos) {
     set_piece_info( p, PT_EMPTY );
     set_piece_info( pos, pi );
     ptr->setPos(pos);
+    _p.erase(p.toByte());
+    _p[pos.toByte()] = ptr;
+    // check for key piece moves and set state
+    PieceType pt = ptr->getType();
+    Side      s  = ptr->getSide();
+    switch(pt)
+    {
+    case PT_KING:
+        // king moved - casteling is not longer possible
+        if (s == SIDE_WHITE) {
+            _gi.setWksCastleEnabled(false);
+            _gi.setWqsCastleEnabled(false);
+        } else {
+            _gi.setBksCastleEnabled(false);
+            _gi.setBqsCastleEnabled(false);
+        }
+        break;
+    case PT_ROOK:
+        // rook moved - casteling to that side is no long possible
+        if (s == SIDE_WHITE) {
+            if( p == Pos(R1,Fa) )
+                _gi.setWqsCastleEnabled(false);
+            else if( p == Pos(R1,Fh))
+                _gi.setWksCastleEnabled(false);
+        } else if( p == Pos(R8,Fa))
+            _gi.setBqsCastleEnabled(false);
+        else if( p == Pos(R8,Fh))
+            _gi.setBksCastleEnabled(false);
+    }
+
 }
 
 void Board::process_move(Move mov, Side side) {
     // Board *ret = new Board(*this);
-    PiecePtr ptr = _p[mov.getSource().toByte()];
+    PiecePtr   ptr = _p[mov.getSource().toByte()];
+    MoveAction ma  = mov.getAction();
 
-    MoveAction ma = mov.getAction();
-    // if( MV_CASTLE_KINGSIDE == ma) {
-    //     // mov.getSource() is the location of the king,
-    //     // mov.getTarget() is the location of the rook
-    //     // Move king to file g, rook to file f
-    //     move_piece( ptr, Pos(ptr->getPos().rank(), Fg));
-    //     PiecePtr rook = _p[mov.getTarget().toByte()];
-    //     move_piece( rook, Pos(rook->getPos().rank(), Ff));
-    // } else if (MV_CASTLE_QUEENSIDE == ma) {
-    //     // mov.getSource() is the location of the king,
-    //     // mov.getTarget() is the location of the rook
-    //     // Move king to file c, rook to file d
-    //     move_piece( ptr, Pos(ptr->getPos().rank(), Fc));
-    //     PiecePtr rook = _p[mov.getTarget().toByte()];
-    //     move_piece( rook, Pos(rook->getPos().rank(), Fd));
-    // } else if (MV_PROMOTION_QUEEN <= ma && ma <= MV_PROMOTION_ROOK) {
-    //     // in promotion, we change the piece type itself.
-    //     uint8_t
-
-
-
-    // } else {
-    //     // all remaining move types are simple move
-    //     move_piece( ptr, mov.getTarget());
-    // }
-
-    switch(mov.getAction()) {
+    switch(mov.getAction()) 
+    {
     case MV_CASTLE_KINGSIDE: {
         // mov.getSource() is the location of the king,
         // mov.getTarget() is the location of the rook
@@ -503,10 +510,9 @@ void Board::process_move(Move mov, Side side) {
         }
         break;
     }
-    // return *ret;
 }
 
-void packBoardBuffer(const BoardBuffer& b, PackedBoardBuffer ppb) {
+void packBoardBuffer(const BoardBuffer& b, BoardBufferPacked ppb) {
 	uint8_t *p = ppb;
 	for(int i = 0; i < 8; ++i) {
 		for(int j = 0; j < 8; j+=2) {
@@ -516,7 +522,7 @@ void packBoardBuffer(const BoardBuffer& b, PackedBoardBuffer ppb) {
 	}
 }
 
-void unpackBoardBuffer(const PackedBoardBuffer ppb, BoardBuffer& b) {
+void unpackBoardBuffer(const BoardBufferPacked ppb, BoardBuffer& b) {
 	const uint8_t *p = ppb;
 	for(int i = 0; i < 8; ++i) {
 		for(int j = 0; j < 8; j+=2) {
@@ -530,7 +536,7 @@ void unpackBoardBuffer(const PackedBoardBuffer ppb, BoardBuffer& b) {
 std::ostream& operator<<(std::ostream& os, const Board& b) {
 	// the purpose here is to write the game and board information as a series of hex digits
     // first the gameinfo
-    PackedBoardBuffer ppb;
+    BoardBufferPacked ppb;
     packBoardBuffer(b._b, ppb);
 
     os << std::hex;

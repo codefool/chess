@@ -12,10 +12,20 @@ GameInfoPacked::GameInfoPacked()
 
 GameInfo::GameInfo()
 {
-    wks_castle_enabled = true;
-    wqs_castle_enabled = true;
-    bks_castle_enabled = true;
-    bqs_castle_enabled = true;
+    init();
+}
+
+void GameInfo::init()
+{
+	setPieceCnt(32);
+	setOnMove(SIDE_WHITE);
+	setEndGameReason(EGR_NONE);
+	setWksCastleEnabled(true);
+	setWqsCastleEnabled(true);
+	setBksCastleEnabled(true);
+	setBqsCastleEnabled(true);
+	setEnPassantFile(EP_NONE);
+    encode();
 }
 
 GameInfo& GameInfo::decode(const GameInfoPacked& p)
@@ -43,7 +53,7 @@ const GameInfoPacked GameInfo::encode_c() const
     p.i                    = 0;
     p.f.piece_cnt          = static_cast<uint32_t>(piece_cnt);
     p.f.on_move            = static_cast<uint32_t>(on_move);
-    p.f.end_game_reason    = static_cast<short>(end_game_reason);
+    p.f.end_game_reason    = static_cast<uint32_t>(end_game_reason);
     p.f.wks_castle_enabled = static_cast<uint32_t>(wks_castle_enabled);
     p.f.wqs_castle_enabled = static_cast<uint32_t>(wqs_castle_enabled);
     p.f.bks_castle_enabled = static_cast<uint32_t>(bks_castle_enabled);

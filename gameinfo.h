@@ -27,11 +27,9 @@ It is imperitive that all unused bits - or bits that are out of scope - be set t
 union GameInfoPacked {
 	uint32_t i;
 	struct {
-		// number of active pieces on the board (1..31)
-		uint32_t piece_cnt        :  5;
-		uint32_t on_move          :  1; // 0=white on move, 1=black
+		uint32_t unused            : 11; // for future use
 		//
-		uint32_t end_game_reason  :  4;
+		uint32_t end_game_reason   :  4;
 		// en passant
 		// If set, the pawn that rests on file en_passant_file moved two
 		// positions. This signals that a pawn subject to en passant capture
@@ -45,7 +43,9 @@ union GameInfoPacked {
 		uint32_t bks_castle_enabled:  1; // neither BK or BKR has moved
 		uint32_t bqs_castle_enabled:  1; // neither BK or BQR has moved
 		//
-		uint32_t unused             : 14; // for future use
+		// number of active pieces on the board (2..32)
+		uint32_t on_move           :  1; // 0=white on move, 1=black
+		uint32_t piece_cnt         :  8;
 	} f;
 	GameInfoPacked();
 };
@@ -78,6 +78,8 @@ public:
 	{
 		decode(o.encode());
 	}
+
+	void init();
 
 	short getPieceCnt() { return piece_cnt; }
 	void setPieceCnt(short cnt) { piece_cnt = cnt; }

@@ -202,6 +202,10 @@ public:
 		return _r <= o._r;
 	}
 
+	bool operator==(const Pos& o) {
+		return _r == o._r && _f == o._f;
+	}
+
 	Pos offset(Offset& o) {
 		return Pos(_r + o.dr, _f + o.df);
 	}
@@ -279,4 +283,4 @@ typedef std::vector<Move>   MoveList;
 typedef MoveList::iterator  MoveListItr;
 
 typedef uint8_t BoardBuffer[8][8];
-typedef uint8_t PackedBoardBuffer[32];
+typedef uint8_t BoardBufferPacked[32];

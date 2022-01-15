@@ -125,7 +125,7 @@ int main() {
 	g.setEndGameReason(EGR_14D3_KWBVKWB);
 	g.setEnPassantFile(EP_FG);
 
-	Board b(false);
+	Board b(true);
 
   //auto king = b.place_piece(PT_KING, SIDE_WHITE, R3, Fc);
   // auto knight = b.place_piece(PT_KNIGHT, SIDE_BLACK, R3, Fc);
@@ -133,9 +133,9 @@ int main() {
   // b.place_piece(PT_PAWN, SIDE_BLACK, R6, Fe);
   // auto pawn = b.place_piece(PT_PAWN, SIDE_WHITE, R2, Fa);
 
-  b.place_piece(PT_KING, SIDE_WHITE, R1, Fe);
-  b.place_piece(PT_ROOK, SIDE_WHITE, R2, Fa);
-  b.place_piece(PT_QUEEN, SIDE_BLACK, R4, Fh);
+  // b.place_piece(PT_KING, SIDE_WHITE, R1, Fe);
+  // b.place_piece(PT_ROOK, SIDE_WHITE, R2, Fa);
+  // b.place_piece(PT_QUEEN, SIDE_BLACK, R4, Fh);
 
   b.dump();
   std::cout << b << std::endl;
