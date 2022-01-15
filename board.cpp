@@ -422,22 +422,21 @@ bool Board::validate_move(Move mov, Side side) {
     return in_check;
 }
 
-void Board::move_piece(PiecePtr ptr, Pos pos) {
+void Board::move_piece(PiecePtr ptr, Pos dst) {
     uint8_t  pi   = piece_info(ptr->getPos());
-    Pos      p    = ptr->getPos();
-    set_piece_info( p, PT_EMPTY );
-    set_piece_info( pos, pi );
-    ptr->setPos(pos);
-    _p.erase(p.toByte());
-    _p[pos.toByte()] = ptr;
+    Pos      org  = ptr->getPos();
+    set_piece_info( org, PT_EMPTY );
+    set_piece_info( dst, pi );
+    ptr->setPos(dst);
+    _p.erase(org.toByte());
+    _p[dst.toByte()] = ptr;
+
     // check for key piece moves and set state
-    PieceType pt = ptr->getType();
-    Side      s  = ptr->getSide();
-    switch(pt)
+    switch(ptr->getType())
     {
     case PT_KING:
         // king moved - casteling is not longer possible
-        if (s == SIDE_WHITE) {
+        if (ptr->getSide() == SIDE_WHITE) {
             _gi.setWksCastleEnabled(false);
             _gi.setWqsCastleEnabled(false);
         } else {
@@ -446,16 +445,25 @@ void Board::move_piece(PiecePtr ptr, Pos pos) {
         }
         break;
     case PT_ROOK:
-        // rook moved - casteling to that side is no long possible
-        if (s == SIDE_WHITE) {
-            if( p == Pos(R1,Fa) )
+        // rook moved - casteling to that side is no longer possible
+        if (ptr->getSide() == SIDE_WHITE) {
+            if( org == POS_WQR )       // White Queen's Rook
                 _gi.setWqsCastleEnabled(false);
-            else if( p == Pos(R1,Fh))
+            else if( org == POS_WKR)   // White King's Rook
                 _gi.setWksCastleEnabled(false);
-        } else if( p == Pos(R8,Fa))
+        } else if( org == POS_BQR)     // Black Queen's Rook
             _gi.setBqsCastleEnabled(false);
-        else if( p == Pos(R8,Fh))
+        else if( org == POS_BKR)       // Black King's Rook
             _gi.setBksCastleEnabled(false);
+        break;
+    case PT_PAWN:
+        // in this case, if the source file and target file differ,
+        // then the pawn moved off it's home file. Change it's
+        // piece type to reflect this
+        if (org.file() != dst.file()) {
+            ptr->setType(PT_PAWN_OFF);
+        }
+        break;
     }
 
 }
@@ -465,7 +473,7 @@ void Board::process_move(Move mov, Side side) {
     PiecePtr   ptr = _p[mov.getSource().toByte()];
     MoveAction ma  = mov.getAction();
 
-    switch(mov.getAction()) 
+    switch(mov.getAction())
     {
     case MV_CASTLE_KINGSIDE: {
         // mov.getSource() is the location of the king,
@@ -501,6 +509,13 @@ void Board::process_move(Move mov, Side side) {
         break;
     case MV_EN_PASSANT: {
         // move the piece, but remove the pawn "passed by"
+        //    a  b  c         a  b  c
+        //   +--+--+--+      +--+--+--+
+        // 5 |  | P|  |    4 | p| P|  |
+        //   +--/--+--+      +--\--+--+
+        // 4 | P| p|  |    3 |  | p|  |
+        //   +--+--+--+      +--+--+--+
+        //
         move_piece( ptr, mov.getTarget());
         // the pawn 'passed by' will be one square toward on side
         Dir d = (side == SIDE_BLACK) ? UP : DN;

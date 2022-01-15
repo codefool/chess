@@ -7,6 +7,11 @@
 //
 #include "constants.h"
 
+const Pos POS_WQR(R1,Fa);
+const Pos POS_WKR(R1,Fh);
+const Pos POS_BQR(R8,Fa);
+const Pos POS_BKR(R8,Fh);
+
 std::ostream& operator<<(std::ostream& os, const Pos& p) {
 	char r = "12345678"[p.r()];
 	char f = "abcdefgh"[p.f()];

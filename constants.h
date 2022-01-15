@@ -228,6 +228,13 @@ public:
 	friend std::ostream& operator<<(std::ostream& os, const Pos& p);
 };
 
+
+extern const Pos POS_WQR;
+extern const Pos POS_WKR;
+extern const Pos POS_BQR;
+extern const Pos POS_BKR;
+
+
 class Piece;
 typedef std::shared_ptr<Piece> PiecePtr;
 
