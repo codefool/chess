@@ -423,19 +423,27 @@ bool Board::validate_move(Move mov, Side side) {
 }
 
 void Board::move_piece(PiecePtr ptr, Pos dst) {
-    uint8_t  pi   = piece_info(ptr->getPos());
-    Pos      org  = ptr->getPos();
+    // first, see if we're capturing a piece. We know this if
+    // destination is not empty.
+    uint8_t  pi = piece_info(dst);
+    if (pi != PT_EMPTY) {
+        _p.erase(dst.toByte());     // remove piece from game
+        _gi.setPieceCnt(_p.size()); // update the piece count
+    }
+    // next, move the piece to the new square and vacate the old one
+    pi = piece_info(ptr->getPos());
+    Pos org = ptr->getPos();
     set_piece_info( org, PT_EMPTY );
     set_piece_info( dst, pi );
     ptr->setPos(dst);
     _p.erase(org.toByte());
     _p[dst.toByte()] = ptr;
 
-    // check for key piece moves and set state
+    // finally, check for key piece moves and update state
     switch(ptr->getType())
     {
     case PT_KING:
-        // king moved - casteling is not longer possible
+        // king moved - casteling is no longer possible
         if (ptr->getSide() == SIDE_WHITE) {
             _gi.setWksCastleEnabled(false);
             _gi.setWqsCastleEnabled(false);
@@ -447,13 +455,13 @@ void Board::move_piece(PiecePtr ptr, Pos dst) {
     case PT_ROOK:
         // rook moved - casteling to that side is no longer possible
         if (ptr->getSide() == SIDE_WHITE) {
-            if( org == POS_WQR )       // White Queen's Rook
+            if( org == POS_WQR )
                 _gi.setWqsCastleEnabled(false);
-            else if( org == POS_WKR)   // White King's Rook
+            else if( org == POS_WKR)
                 _gi.setWksCastleEnabled(false);
-        } else if( org == POS_BQR)     // Black Queen's Rook
+        } else if( org == POS_BQR)
             _gi.setBqsCastleEnabled(false);
-        else if( org == POS_BKR)       // Black King's Rook
+        else if( org == POS_BKR)
             _gi.setBksCastleEnabled(false);
         break;
     case PT_PAWN:
@@ -465,7 +473,6 @@ void Board::move_piece(PiecePtr ptr, Pos dst) {
         }
         break;
     }
-
 }
 
 void Board::process_move(Move mov, Side side) {

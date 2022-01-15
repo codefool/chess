@@ -143,87 +143,29 @@ private:
 	short _r;
 	short _f;
 public:
-	Pos() : _r{0}, _f{0} {}
+	Pos();
+	Pos(Rank ra, File fi);
+	Pos(short ra, short fi);
+	Pos(uint8_t b);
+	void set(short ra, short fi);
+	void setRank(short ra);
+	void setFile(short fi);
+	void set(Rank ra, File fi);
+	void set(uint8_t b);
+	Pos operator+(const Offset& o);
+	Pos operator+=(const Offset& o);
+	bool operator<(const Pos& o);
+	bool operator<=(const Pos& o);
+	bool operator==(const Pos& o);
+	Pos offset(Offset& o);
+	uint8_t toByte();
+	void fromByte(uint8_t b);
+	const short r() const;
+	const short f() const;
 
-	Pos(Rank ra, File fi)
-	{
-		set(ra,fi);
-	}
+	inline const Rank rank() const;
+	inline const File file() const;
 
-	Pos(short ra, short fi)
-	: _r(ra), _f(fi)
-	{}
-
-	Pos(uint8_t b)
-	{
-		fromByte(b);
-	}
-
-	void set(short ra, short fi) {
-		_r = ra;
-		_f = fi;
-	}
-
-	void setRank(short ra) {
-		_r = ra;
-	}
-
-	void setFile(short fi) {
-		_f = fi;
-	}
-
-	void set(Rank ra, File fi) {
-		set(static_cast<short>(ra), static_cast<short>(fi));
-	}
-
-	void set(uint8_t b) {
-		fromByte(b);
-	}
-
-	inline Pos operator+(const Offset& o) {
-		return Pos(_r + o.dr, _f + o.df);
-	}
-
-	inline Pos operator+=(const Offset& o) {
-		_r += o.dr;
-		_f += o.df;
-		return *this;
-	}
-
-	bool operator<(const Pos& o) {
-		if (_r == o._r)
-			return _f < o._f;
-		return _r < o._r;
-	}
-
-	bool operator<=(const Pos& o) {
-		if (_r == o._r)
-			return _f <= o._f;
-		return _r <= o._r;
-	}
-
-	bool operator==(const Pos& o) {
-		return _r == o._r && _f == o._f;
-	}
-
-	Pos offset(Offset& o) {
-		return Pos(_r + o.dr, _f + o.df);
-	}
-
-	uint8_t toByte() {
-		return (uint8_t)(_r << 3 | _f);
-	}
-
-	void fromByte(uint8_t b) {
-		_f = static_cast<short>(b & 0x07);
-		_r = static_cast<short>((b >> 3) & 0x07);
-	}
-
-	const short r() const { return _r; }
-	const short f() const { return _f; }
-
-	inline const Rank rank() const { return static_cast<Rank>(_r); }
-	inline const File file() const { return static_cast<File>(_f); }
 
 	friend std::ostream& operator<<(std::ostream& os, const Pos& p);
 };
@@ -256,32 +198,15 @@ private:
 	Pos         _t;
 
 public:
-	Move(MoveAction a, Pos from, Pos to)
-	: _a{a}, _s{from}, _t{to}
-	{}
+	Move(MoveAction a, Pos from, Pos to);
+	void setAction(MoveAction a);
+	MoveAction getAction();
 
-	void setAction(MoveAction a) { _a = a; }
-	MoveAction getAction() { return _a; }
+	Pos getSource();
+	Pos getTarget();
 
-	Pos getSource() { return _s; }
-	Pos getTarget() { return _t; }
-
-	Move decode(MovePacked& p) {
-		_a = static_cast<MoveAction>( p.f.action );
-		_s.set(p.f.source);
-		_t.set(p.f.target);
-
-		return *this;
-	}
-
-	MovePacked encode() {
-		MovePacked p;
-		p.f.action = static_cast<uint8_t>(_a);
-		p.f.source = _s.toByte();
-		p.f.target = _t.toByte();
-
-		return p;
-	}
+	Move decode(MovePacked& p);
+	MovePacked encode();
 
 	friend std::ostream& operator<<(std::ostream& os, const Move& p);
 };
