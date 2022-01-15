@@ -12,17 +12,18 @@ const Pos POS_WKR(R1,Fh);
 const Pos POS_BQR(R8,Fa);
 const Pos POS_BKR(R8,Fh);
 
-std::ostream& operator<<(std::ostream& os, const Pos& p) {
-	char r = "12345678"[p.r()];
-	char f = "abcdefgh"[p.f()];
+const char g_rank(const Rank r) { return '1' + r; }
+const char g_file(const File f) { return 'a' + f; }
 
-	os << f << r;
+std::ostream& operator<<(std::ostream& os, const Pos& p) {
+	os << g_file(p.file()) << g_rank(p.rank());
 
 	return os;
 }
 
 // the idea will be to display the move in alebraic notation [38]
 std::ostream& operator<<(std::ostream& os, const Move& m) {
+	os << static_cast<int>(m._a) << ' ';
 	// special cases
 	if (m._a == MV_CASTLE_KINGSIDE)
 		os << "O-O";

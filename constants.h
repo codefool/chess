@@ -222,8 +222,8 @@ public:
 	const short r() const { return _r; }
 	const short f() const { return _f; }
 
-	inline Rank rank() { return static_cast<Rank>(_r); }
-	inline File file() { return static_cast<File>(_f); }
+	inline const Rank rank() const { return static_cast<Rank>(_r); }
+	inline const File file() const { return static_cast<File>(_f); }
 
 	friend std::ostream& operator<<(std::ostream& os, const Pos& p);
 };
