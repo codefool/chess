@@ -93,3 +93,22 @@ Which pieces do we need to know if they have moved or not?
   - king is not in check (cannot castle out of check)
   - king does not pass through check
   - no pieces between the king and rook
+
+The "order" of a position is the number of pieces in the position. Since chess games
+must naturally lose material as the game progresses, then once all possible edges from
+P(32) are known, then only those less than P(32) remain. So, we exhaust all P(32) positions,
+which will generate some number of P(31) positions. Then repeat with P(31) all the way down theoretically to P(2), but drawn games will be determined before then. 
+
+P(32) - initial position
+    move 1 - 20 white moves,  21 total positions, 0 collisions
+    move 2 - 20 black moves, 401 total positions, 0 collisions
+    move 3 - 
+
+For each position P:
+1. Marked P as WIP
+2. Determine the complete list of legal moves for the side on-move.
+3. For each move
+   a. Generate a new position P'
+   b. Check if P' exists.
+   c. If not, add to table with state UNRESOLVED.
+4. Mark P as RESOLVED

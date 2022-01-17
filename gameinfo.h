@@ -48,6 +48,9 @@ union GameInfoPacked {
 		uint32_t piece_cnt         :  8;
 	} f;
 	GameInfoPacked();
+	GameInfoPacked(uint32_t v)
+	: i{v}
+	{}
 };
 # pragma pack()
 
@@ -99,6 +102,9 @@ public:
 	bool enPassantExists() const { return (en_passant_file & EP_HERE_MASK) != 0;}
 	File getEnPassantFile() const { return static_cast<File>(en_passant_file & EP_FILE_MASK); }
 	void setEnPassantFile(EnPassantFile ep) { en_passant_file = ep; }
+	void setEnPassantFile(File f) {
+		setEnPassantFile(static_cast<EnPassantFile>(EP_HERE_MASK | f));
+	}
 
 	GameInfo& unpack(const GameInfoPacked& p);
 	const GameInfoPacked pack_c() const;

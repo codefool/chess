@@ -134,7 +134,7 @@ int main() {
   // b.place_piece(PT_QUEEN, SIDE_BLACK, R4, Fh);
   b.process_move(Move(MV_MOVE, Pos(R2,Fc), Pos(R5,Fc)), SIDE_WHITE);
   b.process_move(Move(MV_MOVE, Pos(R7,Fb), Pos(R5,Fb)), SIDE_BLACK);
-	b.gi().setEnPassantFile(EP_FB);
+	// b.gi().setEnPassantFile(EP_FB);
 
   b.dump();
   std::cout << b << std::endl;

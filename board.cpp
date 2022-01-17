@@ -464,12 +464,17 @@ void Board::move_piece(PiecePtr ptr, Pos dst) {
         else if( org == POS_BKR)
             _gi.setBksCastleEnabled(false);
         break;
-    case PT_PAWN:
+    case PT_PAWN: {
         // in this case, if the source file and target file differ,
         // then the pawn moved off it's home file. Change it's
         // piece type to reflect this
         if (org.file() != dst.file()) {
             ptr->setType(PT_PAWN_OFF);
+        } else if ( org.rank() == ((ptr->getSide())?R7:R2) &&
+                    dst.rank() == ((ptr->getSide())?R5:R4)
+        )
+            // pawn moved from it's home rank forward two spaces
+             _gi.setEnPassantFile(org.file());
         }
         break;
     }
