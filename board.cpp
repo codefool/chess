@@ -169,7 +169,7 @@ void Board::get_moves(PiecePtr p, MoveList& moves) {
         // AND the pawn has not moved off its own rank (is not of type PT_PAWN_OFF)
         // AND pawn is on its fifth rank.
         // AND if target pawn is adjacent to this pawn
-        if ( _gi.enPassantExists() && pt == PT_PAWN ) {
+        if ( pt == PT_PAWN && _gi.enPassantExists() ) {
             // an en passant candidate exists
             Rank r_pawn = (isBlack) ? R4 : R5;      // where the pawns are
             Rank r_move = (isBlack) ? R3 : R6;      // the space where our pawn moves
@@ -178,7 +178,7 @@ void Board::get_moves(PiecePtr p, MoveList& moves) {
                 // If so, then en passant is possible.
                 Pos epos(r_move, _gi.getEnPassantFile()); // pos of target square
                 if ( piece_info(epos) == PT_EMPTY) {
-                    moves.push_back(Move(MV_EN_PASSANT, pos, epos));
+                    moves.push_back(Move(MV_EN_PASSANT, ppos, epos));
                 }
             }
         }

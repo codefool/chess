@@ -96,7 +96,7 @@ public:
 	void setBksCastleEnabled(bool s) { bks_castle_enabled = s;}
 	bool isBqsCastleEnabled() { return bqs_castle_enabled; }
 	void setBqsCastleEnabled(bool s) { bqs_castle_enabled = s;}
-	bool enPassantExists() { return (en_passant_file & EP_HERE_MASK) == 1;}
+	bool enPassantExists() { return (en_passant_file & EP_HERE_MASK) != 0;}
 	File getEnPassantFile() { return static_cast<File>(en_passant_file & EP_FILE_MASK); }
 	void setEnPassantFile(EnPassantFile ep) { en_passant_file = ep; }
 

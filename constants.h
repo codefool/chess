@@ -163,8 +163,8 @@ public:
 	const short r() const;
 	const short f() const;
 
-	inline const Rank rank() const;
-	inline const File file() const;
+	const Rank rank() const;
+	const File file() const;
 
 
 	friend std::ostream& operator<<(std::ostream& os, const Pos& p);

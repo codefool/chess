@@ -94,8 +94,8 @@ void Pos::fromByte(uint8_t b) {
 const short Pos::r() const { return _r; }
 const short Pos::f() const { return _f; }
 
-inline const Rank Pos::rank() const { return static_cast<Rank>(_r); }
-inline const File Pos::file() const { return static_cast<File>(_f); }
+const Rank Pos::rank() const { return static_cast<Rank>(_r); }
+const File Pos::file() const { return static_cast<File>(_f); }
 
 Move::Move(MoveAction a, Pos from, Pos to)
 : _a{a}, _s{from}, _t{to}

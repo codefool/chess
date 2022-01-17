@@ -121,10 +121,6 @@ int main() {
 		std::cout << x << ' ' << std::hex << (x < 8) << std::endl;
 	}
 
-	GameInfo g;
-	g.setEndGameReason(EGR_14D3_KWBVKWB);
-	g.setEnPassantFile(EP_FG);
-
 	Board b(true);
 
   //auto king = b.place_piece(PT_KING, SIDE_WHITE, R3, Fc);
@@ -136,11 +132,12 @@ int main() {
   // b.place_piece(PT_KING, SIDE_WHITE, R1, Fe);
   // b.place_piece(PT_ROOK, SIDE_WHITE, R2, Fa);
   // b.place_piece(PT_QUEEN, SIDE_BLACK, R4, Fh);
+  b.process_move(Move(MV_MOVE, Pos(R2,Fa), Pos(R5,Fa)), SIDE_WHITE);
+  b.process_move(Move(MV_MOVE, Pos(R7,Fb), Pos(R5,Fb)), SIDE_BLACK);
+	b.gi().setEnPassantFile(EP_FB);
 
   b.dump();
   std::cout << b << std::endl;
- 	// b.gi().setEnPassantLatch(true);
-	// b.gi().setEnPassantFile(Fc);
 
   MoveList moves;
   //b.get_moves(pawn, moves);
