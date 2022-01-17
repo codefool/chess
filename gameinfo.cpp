@@ -25,10 +25,10 @@ void GameInfo::init()
 	setBksCastleEnabled(true);
 	setBqsCastleEnabled(true);
 	setEnPassantFile(EP_NONE);
-    encode();
+    pack();
 }
 
-GameInfo& GameInfo::decode(const GameInfoPacked& p)
+GameInfo& GameInfo::unpack(const GameInfoPacked& p)
 {
     setPieceCnt(static_cast<short>(p.f.piece_cnt));
     setOnMove(static_cast<Side>(p.f.on_move));
@@ -41,13 +41,13 @@ GameInfo& GameInfo::decode(const GameInfoPacked& p)
     return *this;
 }
 
-GameInfoPacked& GameInfo::encode()
+GameInfoPacked& GameInfo::pack()
 {
-    _p = encode_c();
+    _p = pack_c();
     return _p;
 }
 
-const GameInfoPacked GameInfo::encode_c() const
+const GameInfoPacked GameInfo::pack_c() const
 {
     GameInfoPacked p;
     p.i                    = 0;
@@ -61,4 +61,19 @@ const GameInfoPacked GameInfo::encode_c() const
     p.f.en_passant_file    = static_cast<uint32_t>(en_passant_file);
 
     return p;
+}
+
+std::ostream& operator<<(std::ostream& os, const GameInfo& o) {
+    os << o.getPieceCnt() << ' '
+       << "WB"[o.getOnMove()] << ' '
+       << "CW" << "Kx"[o.isWksCastleEnabled()] << "Qx"[o.isWqsCastleEnabled()] << ' '
+       << "CB" << "Kx"[o.isBksCastleEnabled()] << "Qx"[o.isBqsCastleEnabled()] << ' '
+       << "EP ";
+       if (o.enPassantExists()) {
+           os << g_file(o.getEnPassantFile());
+       } else {
+           os << "x";
+       }
+
+    return os;
 }

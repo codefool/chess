@@ -28,7 +28,7 @@ P -  1 * 8 =  8
             142
 
 <position><possible moves up to 141 for side on move>
-Encode in a byte. Hi nibble is piece id 0-31, and lo nibble is target square.
+Packed in a byte. Hi nibble is piece id 0-31, and lo nibble is target square.
 If target square is occupied capture is inferred.
 xxxx .... .... .... - action
 .... xxxx xx.. .... - Source square
@@ -52,7 +52,7 @@ Action:
 0x1110 unused
 0x1111 unused
 
-Pieces are encoded in nibbles of a 32-byte array, as follows:
+Pieces are packed in nibbles of a 32-byte array, as follows:
 x... - side 0=white, 1=black
 .xxx - piece type
 .001 - King
@@ -132,12 +132,13 @@ int main() {
   // b.place_piece(PT_KING, SIDE_WHITE, R1, Fe);
   // b.place_piece(PT_ROOK, SIDE_WHITE, R2, Fa);
   // b.place_piece(PT_QUEEN, SIDE_BLACK, R4, Fh);
-  b.process_move(Move(MV_MOVE, Pos(R2,Fa), Pos(R5,Fa)), SIDE_WHITE);
+  b.process_move(Move(MV_MOVE, Pos(R2,Fc), Pos(R5,Fc)), SIDE_WHITE);
   b.process_move(Move(MV_MOVE, Pos(R7,Fb), Pos(R5,Fb)), SIDE_BLACK);
 	b.gi().setEnPassantFile(EP_FB);
 
   b.dump();
   std::cout << b << std::endl;
+  std::cout << b.gi() << std::endl;
 
   MoveList moves;
   //b.get_moves(pawn, moves);

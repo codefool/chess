@@ -170,12 +170,13 @@ public:
 	friend std::ostream& operator<<(std::ostream& os, const Pos& p);
 };
 
-
 extern const Pos POS_WQR;
 extern const Pos POS_WKR;
 extern const Pos POS_BQR;
 extern const Pos POS_BKR;
 
+#define g_rank(r) static_cast<char>('1' + r)
+#define g_file(f) static_cast<char>('a' + f)
 
 class Piece;
 typedef std::shared_ptr<Piece> PiecePtr;
@@ -205,8 +206,8 @@ public:
 	Pos getSource();
 	Pos getTarget();
 
-	Move decode(MovePacked& p);
-	MovePacked encode();
+	Move unpack(MovePacked& p);
+	MovePacked pack();
 
 	friend std::ostream& operator<<(std::ostream& os, const Move& p);
 };

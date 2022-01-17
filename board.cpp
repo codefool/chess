@@ -564,7 +564,7 @@ std::ostream& operator<<(std::ostream& os, const Board& b) {
     os << std::hex;
     os.fill('0');
     os.width(8);
-    os << unsigned(b._gi.encode_c().i) << ' ';
+    os << unsigned(b._gi.pack_c().i) << ' ';
 
     uint8_t *p = ppb;
     for (int i = 0; i < 32; i++, ++p) {

@@ -12,9 +12,6 @@ const Pos POS_WKR(R1,Fh);
 const Pos POS_BQR(R8,Fa);
 const Pos POS_BKR(R8,Fh);
 
-const char g_rank(const Rank r) { return '1' + r; }
-const char g_file(const File f) { return 'a' + f; }
-
 Pos::Pos() : _r{0}, _f{0} {}
 
 Pos::Pos(Rank ra, File fi)
@@ -107,7 +104,7 @@ MoveAction Move::getAction() { return _a; }
 Pos Move::getSource() { return _s; }
 Pos Move::getTarget() { return _t; }
 
-Move Move::decode(MovePacked& p) {
+Move Move::unpack(MovePacked& p) {
 	_a = static_cast<MoveAction>( p.f.action );
 	_s.set(p.f.source);
 	_t.set(p.f.target);
@@ -115,7 +112,7 @@ Move Move::decode(MovePacked& p) {
 	return *this;
 }
 
-MovePacked Move::encode() {
+MovePacked Move::pack() {
 	MovePacked p;
 	p.f.action = static_cast<uint8_t>(_a);
 	p.f.source = _s.toByte();

@@ -12,7 +12,7 @@ Maximum possible moves for any given position
              142
 ```
 
-Encode in a byte. Hi nibble is piece id 0-31, and lo nibble is target square.
+Pack in a byte. Hi nibble is piece id 0-31, and lo nibble is target square.
 If target square is occupied capture is inferred.
 ```
 xxxx .... .... .... - action
@@ -37,7 +37,7 @@ Action:
 0x1110 unused
 0x1111 unused
 ```
-Pieces are encoded in nibbles of a 32-byte array, as follows:
+Pieces are packed in nibbles of a 32-byte array, as follows:
 ```
 x... - side 0=white, 1=black
 .xxx - piece type

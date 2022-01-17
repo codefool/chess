@@ -51,7 +51,7 @@ public:
 
 	Side getSide() { return _s; }
 
-	// encode piece type and side into 4-bit value
+	// pack piece type and side into 4-bit value
 	uint8_t toByte();
 
 	static PiecePtr create(PieceType pt, Side s);

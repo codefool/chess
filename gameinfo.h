@@ -76,32 +76,34 @@ public:
 
 	GameInfo(GameInfo& o)
 	{
-		decode(o.encode());
+		unpack(o.pack());
 	}
 
 	void init();
 
-	short getPieceCnt() { return piece_cnt; }
+	short getPieceCnt() const { return piece_cnt; }
 	void setPieceCnt(short cnt) { piece_cnt = cnt; }
-	Side getOnMove() { return on_move; }
+	Side getOnMove() const { return on_move; }
 	void setOnMove(Side m) { on_move = m; }
-	bool isGameActive() { return getEndGameReason() == EGR_NONE; }
-	EndGameReason getEndGameReason() { return end_game_reason; }
+	bool isGameActive() const { return getEndGameReason() == EGR_NONE; }
+	EndGameReason getEndGameReason() const { return end_game_reason; }
 	void setEndGameReason(EndGameReason r) { end_game_reason = r; }
-	bool isWksCastleEnabled() { return wks_castle_enabled; }
+	bool isWksCastleEnabled() const { return wks_castle_enabled; }
 	void setWksCastleEnabled(bool s) { wks_castle_enabled = s;}
-	bool isWqsCastleEnabled() { return wqs_castle_enabled; }
+	bool isWqsCastleEnabled() const { return wqs_castle_enabled; }
 	void setWqsCastleEnabled(bool s) { wqs_castle_enabled = s;}
-	bool isBksCastleEnabled() { return bks_castle_enabled; }
+	bool isBksCastleEnabled() const { return bks_castle_enabled; }
 	void setBksCastleEnabled(bool s) { bks_castle_enabled = s;}
-	bool isBqsCastleEnabled() { return bqs_castle_enabled; }
+	bool isBqsCastleEnabled() const { return bqs_castle_enabled; }
 	void setBqsCastleEnabled(bool s) { bqs_castle_enabled = s;}
-	bool enPassantExists() { return (en_passant_file & EP_HERE_MASK) != 0;}
-	File getEnPassantFile() { return static_cast<File>(en_passant_file & EP_FILE_MASK); }
+	bool enPassantExists() const { return (en_passant_file & EP_HERE_MASK) != 0;}
+	File getEnPassantFile() const { return static_cast<File>(en_passant_file & EP_FILE_MASK); }
 	void setEnPassantFile(EnPassantFile ep) { en_passant_file = ep; }
 
-	GameInfo& decode(const GameInfoPacked& p);
-	const GameInfoPacked encode_c() const;
+	GameInfo& unpack(const GameInfoPacked& p);
+	const GameInfoPacked pack_c() const;
 
-	GameInfoPacked& encode();
+	GameInfoPacked& pack();
+
+	friend std::ostream& operator<<(std::ostream& os, const GameInfo& o);
 };
