@@ -13,6 +13,7 @@
 #include <initializer_list>
 
 #include "constants.h"
+#include "db.h"
 #include "gameinfo.h"
 #include "board.h"
 #include "piece.h"
@@ -150,6 +151,9 @@ int main() {
 
   b.validate_move(moves.front(), SIDE_WHITE);
 
+  PositionPacked pp;
+  bool q = (pp == pp);
+  std::cout << q << std::endl;
 
 	return 0;
 }

@@ -5,6 +5,8 @@
 //
 // Released under the GNU General Public Licence Version 3, 29 June 2007
 //
+#include <cstring>
+
 #include "constants.h"
 
 const Pos POS_WQR(R1,Fa);
@@ -173,4 +175,8 @@ std::ostream& operator<<(std::ostream& os, const Move& m) {
 	}
 
 	return os;
+}
+
+bool equals(const BoardBufferPacked lhs, const BoardBufferPacked rhs) {
+	return std::memcmp(lhs, rhs, sizeof(BoardBufferPacked)) == 0;
 }

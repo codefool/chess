@@ -51,6 +51,9 @@ union GameInfoPacked {
 	GameInfoPacked(uint32_t v)
 	: i{v}
 	{}
+	bool operator==(const GameInfoPacked& o) const {
+		return i == o.i;
+	}
 };
 # pragma pack()
 
@@ -110,6 +113,10 @@ public:
 	const GameInfoPacked pack_c() const;
 
 	GameInfoPacked& pack();
+
+	bool operator==(const GameInfo& o) const {
+		return pack_c() == o.pack_c();
+	}
 
 	friend std::ostream& operator<<(std::ostream& os, const GameInfo& o);
 };

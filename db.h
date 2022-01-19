@@ -1,4 +1,5 @@
 #pragma once
+#include <cstring>
 
 #include "constants.h"
 #include "gameinfo.h"
@@ -16,19 +17,13 @@ struct PositionPacked {
     {}
 
 
-    PositionPacked& setGameInfo(GameInfo& gi) {
-        g = gi.pack();
-        return *this;
-    }
+    PositionPacked& setGameInfo(GameInfo& gi);
 
-    // PositionPacked& setBoardBuffer(BoardBuffer& bu) {
-    //     b = bu.pack();
-    //     return *this;
-    // }
+    // PositionPacked& setBoardBuffer(BoardBuffer& bu);
 
-    PositionPacked& setMoves(std::vector<Move> m) {
-        return *this;
-    }
+    PositionPacked& setMoves(std::vector<Move> m);
+
+    bool operator==(const PositionPacked& o) const;
 };
 
 

@@ -217,3 +217,5 @@ typedef MoveList::iterator  MoveListItr;
 
 typedef uint8_t BoardBuffer[8][8];
 typedef uint8_t BoardBufferPacked[32];
+
+bool equals(const BoardBufferPacked lhs, const BoardBufferPacked rhs);
