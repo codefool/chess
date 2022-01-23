@@ -16,15 +16,10 @@
 
 class Board {
 private:
-	BoardBuffer _b;
 	// we always need to know where the kings are
 	PiecePtr    _k[2];
 	GameInfo    _gi;
-	std::map<uint8_t,PiecePtr> _p;
-
-public:
-	static std::map<Dir,Offset> s_os;
-	static std::vector<Offset>  s_ko;
+	PiecePtr    _p[64];
 
 public:
 	Board(bool init=true);
@@ -44,18 +39,18 @@ public:
 
 	bool test_for_attack(Pos src, Side side);
 	bool check_ranges(Pos& src, std::vector<Dir>& dirs, int range, std::vector<PieceType>& pts, Side side);
-	bool check_piece(uint8_t pi, std::vector<PieceType>& trg, Side side);
-	uint8_t search_not_empty(Pos& start, Dir dir, int range);
+	bool check_piece(PiecePtr ptr, std::vector<PieceType>& trg, Side side);
+	PiecePtr search_not_empty(Pos& start, Dir dir, int range);
 
 	bool validate_move(Move mov, Side side);
 	void process_move(Move mov, Side side);
 
-	uint8_t piece_info(Pos p) {
-		return _b[p.r()][p.f()];
+	PiecePtr piece_info(Pos p) {
+		return _p[p.toByte()];
 	}
 
-	void set_piece_info(Pos p, uint8_t i) {
-		_b[p.r()][p.f()] = i;
+	void set_piece_info(Pos p, PiecePtr i) {
+		_p[p.toByte()] = i;
 	}
 
 	void move_piece(PiecePtr ptr, Pos pos);

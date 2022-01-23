@@ -92,11 +92,6 @@ enum Dir {
 	DNL
 };
 
-struct Offset {
-	short df;	// delta file
-	short dr;	// delta rank
-};
-
 struct Vector {
 	short  			 c;	// max number of moves
 	std::vector<Dir> d;
@@ -140,24 +135,19 @@ enum MoveAction {
 
 class Pos {
 private:
-	short _r;
-	short _f;
+	short _p;
 public:
 	Pos();
 	Pos(Rank ra, File fi);
-	Pos(short ra, short fi);
-	Pos(uint8_t b);
-	void set(short ra, short fi);
-	void setRank(short ra);
-	void setFile(short fi);
+	Pos(short pos);
+	void set(short pos);
 	void set(Rank ra, File fi);
 	void set(uint8_t b);
-	Pos operator+(const Offset& o);
-	Pos operator+=(const Offset& o);
+	Pos operator+(const short o);
+	Pos operator+=(const short o);
 	bool operator<(const Pos& o);
 	bool operator<=(const Pos& o);
 	bool operator==(const Pos& o);
-	Pos offset(Offset& o);
 	uint8_t toByte();
 	void fromByte(uint8_t b);
 	const short r() const;
@@ -165,7 +155,9 @@ public:
 
 	const Rank rank() const;
 	const File file() const;
-
+	operator short() const { return _p; }
+	static Pos withRank(Pos s, Rank r);
+	static Pos withFile(Pos s, File f);
 
 	friend std::ostream& operator<<(std::ostream& os, const Pos& p);
 };
@@ -214,8 +206,3 @@ public:
 
 typedef std::vector<Move>   MoveList;
 typedef MoveList::iterator  MoveListItr;
-
-typedef uint8_t BoardBuffer[8][8];
-typedef uint8_t BoardBufferPacked[32];
-
-bool equals(const BoardBufferPacked lhs, const BoardBufferPacked rhs);

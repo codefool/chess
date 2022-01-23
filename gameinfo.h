@@ -54,6 +54,9 @@ union GameInfoPacked {
 	bool operator==(const GameInfoPacked& o) const {
 		return i == o.i;
 	}
+	bool operator<(const GameInfoPacked& o) const {
+		return i < o.i;
+	}
 };
 # pragma pack()
 

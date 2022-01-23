@@ -22,7 +22,7 @@ private:
 	PieceType _t;
 	Side      _s;
 	char	  _c;
-	Pos		  _p;
+	short	  _p;
 
 private:
 	static std::map<PieceType, const char *> s_n;
@@ -39,14 +39,22 @@ public:
 
 	const char getPieceGlyph() const { return _c; }
 
-	Pos& getPos() { return _p; }
+	short getPos() { return _p; }
 
 	void setPos(Rank r, File f) {
-		_p.set(r,f);
+		_p = ((r << 3)|f);
 	}
 
-	void setPos(Pos p) {
+	void setPos(short p) {
 		_p = p;
+	}
+
+	bool isType(PieceType pt) const {
+		return _t == pt;
+	}
+
+	bool isEmpty() const {
+		return this == EMPTY.get();
 	}
 
 	Side getSide() { return _s; }
@@ -55,4 +63,5 @@ public:
 	uint8_t toByte();
 
 	static PiecePtr create(PieceType pt, Side s);
+	static PiecePtr EMPTY;
 };

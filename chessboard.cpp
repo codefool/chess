@@ -138,8 +138,6 @@ int main() {
 	// b.gi().setEnPassantFile(EP_FB);
 
   b.dump();
-  std::cout << b << std::endl;
-  std::cout << b.gi() << std::endl;
 
   MoveList moves;
   //b.get_moves(pawn, moves);

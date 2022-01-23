@@ -13,22 +13,30 @@
 #include "piece.h"
 #include "board.h"
 
-std::map<Dir,Offset> Board::s_os = {
-	{UP, {+0,+1}},
-	{DN, {+0,-1}},
-	{LFT,{-1,+0}},
-	{RGT,{+1,+0}},
-	{UPR,{+1,+1}},
-	{UPL,{-1,+1}},
-	{DNR,{+1,-1}},
-	{DNL,{-1,-1}}
+#define OFFSET(dr,df) ((dr * 8) + df)
+
+// these must be specified in the same order as
+// enum Dir
+short offs[] = {
+	OFFSET(+0,+1),  // UP
+	OFFSET(+0,-1),  // DN
+	OFFSET(-1,+0),  // LFT
+	OFFSET(+1,+0),  // RGT
+	OFFSET(+1,+1),  // UPR
+	OFFSET(-1,+1),  // UPL
+	OFFSET(+1,-1),  // DNR
+	OFFSET(-1,-1)   // DNL
 };
 
-std::vector<Offset> Board::s_ko = {
-	{+1,-2}, {+1,+2},
-	{+2,-1}, {+2,+1},
-	{-2,-1}, {-2,+1},
-	{-1,-2}, {-1,+2}
+short kn_offs[] = {
+	OFFSET(+1,-2),
+    OFFSET(+1,+2),
+	OFFSET(+2,-1),
+    OFFSET(+2,+1),
+	OFFSET(-2,-1),
+    OFFSET(-2,+1),
+	OFFSET(-1,-2),
+    OFFSET(-1,+2)
 };
 
 Board::Board(bool init)
@@ -39,7 +47,9 @@ Board::Board(bool init)
         PT_KING, PT_BISHOP, PT_KNIGHT, PT_ROOK
     };
 
-    memset(_b, PT_EMPTY, 64);
+    for( int i(0); i < 64; i++)
+        _p[i] = Piece::EMPTY;
+
     if (init) {
         int f = Fa;
         for( PieceType pt : court) {
@@ -54,17 +64,19 @@ Board::Board(bool init)
 }
 
 Board::Board(Board& o)
-: _gi(o._gi), _p(o._p.begin(), o._p.end())
+: _gi(o._gi)
 {
     memcpy(&_k, o._k, sizeof(_k));
-    memcpy(_b, o._b, sizeof(BoardBuffer));
+    // long copy because we're copying smart pointers
+    // memcpy wouldn't up the ref cnt.
+    for( int i(0); i < 64; i++)
+        _p[i] = o._p[i];
 }
 
 PiecePtr Board::place_piece(PieceType t, Side s, Rank r, File f) {
     PiecePtr ptr = Piece::create(t,s);
     ptr->setPos(r,f);
-    _p[ptr->getPos().toByte()] = ptr;
-    _b[r][f] = ptr->toByte();
+    _p[ptr->getPos()] = ptr;
     if (PT_KING == t) {
         _k[s] = ptr;
     }
@@ -91,9 +103,9 @@ bool Board::isBlackSquare(short r, short f) {
 void Board::get_all_moves(Side side, MoveList& moves) {
     // TODO: if the king is in check, then only moves that
     // get the king out of check are permissable.
-    for( auto p = _p.begin(); p != _p.end(); ++p ) {
-        if ( p->second->getSide() == side ) {
-            get_moves(p->second, moves);
+    for( auto p : _p ) {
+        if ( p->getSide() == side ) {
+            get_moves(p, moves);
         }
     }
     // remove any moves that put the king in check
@@ -105,18 +117,18 @@ void Board::get_all_moves(Side side, MoveList& moves) {
     }
 }
 
-void Board::get_moves(PiecePtr p, MoveList& moves) {
-    Side side = p->getSide();
+void Board::get_moves(PiecePtr ptr, MoveList& moves) {
+    Side side = ptr->getSide();
     bool isBlack = (side == SIDE_BLACK);
-    PieceType pt = p->getType();
+    PieceType pt = ptr->getType();
     std::vector<Dir> dirs;
 
     if (pt == PT_KNIGHT) {
-        for(Offset o : s_ko) {
-            Pos pos = p->getPos() + o;
+        for(short o : offs) {
+            short pos = ptr->getPos() + o;
             if( !in_bounds(pos))
                 continue;
-            Move *mov = check_square(p, pos);
+            Move *mov = check_square(ptr, pos);
             if(mov != nullptr)
                 moves.push_back(*mov);
         }
@@ -133,12 +145,12 @@ void Board::get_moves(PiecePtr p, MoveList& moves) {
         //
         // Directions are, of course, side dependent.
         // Case 1: pawns can only move one square forwad.
-        Pos ppos  = p->getPos();
+        Pos ppos  = ptr->getPos();
         Dir updn  = (isBlack)?DN:UP;
         Dir updnl = (isBlack)?DNL:UPL;
         Dir updnr = (isBlack)?DNR:UPR;
-        Pos pos = ppos + s_os[updn];
-        if( piece_info(pos) == PT_EMPTY ) {
+        Pos pos = ppos + offs[updn];
+        if( _p[pos]->isEmpty() ) {
             // pawn can move forward
             if ( (isBlack && pos.rank() == R1) || (pos.rank() == R8)) {
                 // Case 5. A pawn reaching its eighth rank is promoted
@@ -148,12 +160,12 @@ void Board::get_moves(PiecePtr p, MoveList& moves) {
                 for( auto action : {MV_PROMOTION_QUEEN, MV_PROMOTION_BISHOP, MV_PROMOTION_KNIGHT, MV_PROMOTION_ROOK})
                     moves.push_back(Move(action,  ppos, pos));
             } else {
-                moves.push_back(Move(MV_MOVE, p->getPos(), pos));
+                moves.push_back(Move(MV_MOVE, ptr->getPos(), pos));
             }
             // Case 2: Pawns on their home square may move two spaces.
             if ( (isBlack && ppos.rank() == R7) || ppos.rank() == R2) {
-                pos += s_os[updn];
-                if( piece_info(pos) == PT_EMPTY ) {
+                pos += offs[updn];
+                if( _p[pos]->isEmpty() ) {
                     moves.push_back(Move(MV_MOVE, ppos, pos));
                 }
             }
@@ -161,7 +173,7 @@ void Board::get_moves(PiecePtr p, MoveList& moves) {
         // Case 3: Pawns may capture directly to the UPL or UPR.
         // see if an opposing piece is UPL or UPR
         dirs.assign({updnl,updnr});
-        gather_moves(p, dirs, 1, moves, true);
+        gather_moves(ptr, dirs, 1, moves, true);
         // Case 4. A pawn on its own fifth rank may capture a neighboring pawn en passant moving
         // UPL or UPR iif the target pawn moved forward two squares on its last on move.
 
@@ -177,7 +189,7 @@ void Board::get_moves(PiecePtr p, MoveList& moves) {
                 // If so, check if the space above the target pawn is empty.
                 // If so, then en passant is possible.
                 Pos epos(r_move, _gi.getEnPassantFile()); // pos of target square
-                if ( piece_info(epos) == PT_EMPTY) {
+                if ( _p[epos]->isEmpty() ) {
                     moves.push_back(Move(MV_EN_PASSANT, ppos, epos));
                 }
             }
@@ -187,12 +199,12 @@ void Board::get_moves(PiecePtr p, MoveList& moves) {
         // get DIAGS for KING, QUEEN, or BISHOP
         if ( pt == PT_KING || pt == PT_QUEEN || pt == PT_BISHOP ) {
             dirs.assign({UPL, UPR, DNL, DNR});
-            gather_moves(p, dirs, range, moves);
+            gather_moves(ptr, dirs, range, moves);
         }
         // get AXES for KING, QUEEN, or ROOK
         if ( pt == PT_KING || pt == PT_QUEEN || pt == PT_ROOK ) {
             dirs.assign({UP, DN, LFT, RGT});
-            gather_moves(p, dirs, range, moves);
+            gather_moves(ptr, dirs, range, moves);
         }
         if ( pt == PT_KING && !test_for_attack(_k[side]->getPos(), side)) {
             // For casteling to be possible, the king must not have moved,
@@ -246,12 +258,12 @@ void Board::check_castle(Side side, MoveAction ma, MoveList& moves) {
     }
 
     for (auto p : emptyCheck)
-        if (piece_info(p) != PT_EMPTY || test_for_attack(p, side))
+        if ( !_p[p]->isEmpty() || test_for_attack(p, side) )
             // square not empty or under attack - can't castle
             return;
 
     // make additional empty check for queenside castle
-    if (isQueenSide && piece_info(Pos(rank,Fb)) != PT_EMPTY)
+    if (isQueenSide && !_p[Pos(rank,Fb)]->isEmpty())
         return;
 
     // get here if no reason found not to castle.
@@ -262,7 +274,7 @@ void Board::gather_moves(PiecePtr p, std::vector<Dir> dirs, int range, MoveList&
     Side on_move = p->getSide();
     for (auto d : dirs) {
         Pos pos = p->getPos();
-        Offset o = s_os[d];
+        short o = offs[d];
         for( int r = range; r; --r ) {
             pos += o;
             if( !in_bounds(pos) )
@@ -276,22 +288,19 @@ void Board::gather_moves(PiecePtr p, std::vector<Dir> dirs, int range, MoveList&
 }
 
 Move* Board::check_square(PiecePtr p, Pos pos, bool occupied) {
-    auto pi = piece_info(pos);
+    PiecePtr other = _p[pos];
 
-    if (pi == PT_EMPTY)
+    if ( other->isEmpty() )
         // empty square so record move and continue
         return (occupied) ? nullptr : new Move(MV_MOVE, p->getPos(), pos);
 
-    // otherwise, square is not empty.
-    // Otherwise, record capture move and leave.
-    PieceType pt = static_cast<PieceType> (pi & PIECE_MASK);
-    Side      s  = static_cast<Side>     ((pi & SIDE_MASK) == BLACK_MASK);
-    if( s == p->getSide()) {
+    // otherwise, square is not empty so record capture move and leave.
+    if( other->getSide() == p->getSide()) {
         // If friendly piece, do not record move and leave.
         return nullptr;
     }
     // if opponent piece is king, then record check
-    MoveAction ma = ( pt == PT_KING) ? MV_CHECK : MV_CAPTURE;
+    MoveAction ma = other->isType(PT_KING) ? MV_CHECK : MV_CAPTURE;
     return new Move(ma, p->getPos(), pos);
 }
 
@@ -316,7 +325,7 @@ bool Board::test_for_attack(Pos src, Side side) {
     if (!ret) {
         // Step 3. Check for attacking knights
         pts.assign({PT_KNIGHT});
-        for(Offset o : s_ko) {
+        for(short o : kn_offs) {
             Pos pos = src + o;
             if( !in_bounds(pos))
                 continue;
@@ -343,8 +352,8 @@ bool Board::test_for_attack(Pos src, Side side) {
 // the walker goes out of bounds
 bool Board::check_ranges(Pos& src, std::vector<Dir>& dirs, int range, std::vector<PieceType>& pts, Side side) {
     for(Dir d : dirs) {
-        uint8_t pi = search_not_empty(src, d, range);
-        if (pi == PT_EMPTY)
+        PiecePtr pi = search_not_empty(src, d, range);
+        if ( pi->isEmpty() )
             continue;
         if (check_piece(pi, pts, side))
             return true;
@@ -352,40 +361,32 @@ bool Board::check_ranges(Pos& src, std::vector<Dir>& dirs, int range, std::vecto
     return false;
 }
 
-bool Board::check_piece(uint8_t pi, std::vector<PieceType>& trg, Side side) {
+bool Board::check_piece(PiecePtr ptr, std::vector<PieceType>& trg, Side side) {
     // 1. it's not a friendly piece, and
     // 2. it exists in the trg vector.
-    PieceType pt = static_cast<PieceType>(pi & PIECE_MASK);
-    Side      s  = static_cast<Side>     ((pi & SIDE_MASK) == BLACK_MASK);
-    if (s != side && std::find(trg.begin(), trg.end(), pt) != trg.end())
+    if (ptr->getSide() != side && std::find(trg.begin(), trg.end(), ptr->getType()) != trg.end())
         return true;
     return false;
 }
 
-uint8_t Board::search_not_empty(Pos& start, Dir dir, int range) {
-    Offset o = s_os[dir];
+PiecePtr Board::search_not_empty(Pos& start, Dir dir, int range) {
+    short o = offs[dir];
     Pos pos(start);
-    uint8_t ret;
     while( range-- ) {
         pos += o;
-        if (!in_bounds(pos))
+        if ( !in_bounds(pos) )
             break;
-        if ((ret = piece_info(pos)) != PT_EMPTY)
-            return ret;
+        if ( !_p[pos]->isEmpty() )
+            return _p[pos];
     }
-    return PT_EMPTY;
+    return Piece::EMPTY;
 }
 
 void Board::dump() {
     for(int r = R8; r >= R1; r--) {
         uint8_t rank = r << 3;
         for(int f = Fa; f <= Fh; f++) {
-            char c = '.';
-            auto itr = _p.find(rank | f);
-            if (itr != _p.end()) {
-                c = itr->second->getPieceGlyph();
-            }
-            std::cout << ' ' << c;
+            std::cout << ' ' << _p[rank|f]->getPieceGlyph();
         }
         std::cout << std::endl;
     }
@@ -397,27 +398,26 @@ void Board::dump() {
 // Return true if the move is valid, false otherwise.
 //
 bool Board::validate_move(Move mov, Side side) {
-    // I considered employing a do-undo mechanism for this, but
-    // it's only 64 freakin' bytes, and the code would be much larger.
-    BoardBuffer bup;
-    memcpy(bup, _b, sizeof(BoardBuffer));
 
     // by this time we've already validated that the move is technically
     // possible. The only question is whether making the move exposes the
     // king, which can only be done if the board is actually adjusted.
     Pos src = mov.getSource();
     Pos trg = mov.getTarget();
-    uint8_t piece = piece_info(src);
+    PiecePtr piece = _p[src];
+    PiecePtr other = _p[trg];
+
     // if the actual piece that is moving is the king, then use the
     // new position to test for check. Otherwise, use the saved position.
-    Pos king_pos = ( (piece & PIECE_MASK) == PT_KING) ? trg : _k[side]->getPos();
+    Pos king_pos = piece->isType( PT_KING ) ? trg : Pos(_k[side]->getPos());
 
-    _b[trg.r()][trg.f()] = _b[src.r()][src.f()];  // copy the source piece to the target square
-    _b[src.r()][src.f()] = PT_EMPTY;                       // vacate the source square
+    _p[trg] = _p[src];          // copy the source piece to the target square
+    _p[src] = Piece::EMPTY;     // vacate the source square
 
     bool in_check = !test_for_attack( king_pos, side );
 
-    memcpy(_b, bup, sizeof(BoardBuffer));
+    _p[src] = piece;
+    _p[trg] = other;
 
     return in_check;
 }
@@ -425,19 +425,15 @@ bool Board::validate_move(Move mov, Side side) {
 void Board::move_piece(PiecePtr ptr, Pos dst) {
     // first, see if we're capturing a piece. We know this if
     // destination is not empty.
-    uint8_t  pi = piece_info(dst);
-    if (pi != PT_EMPTY) {
-        _p.erase(dst.toByte());     // remove piece from game
-        _gi.setPieceCnt(_p.size()); // update the piece count
+    if ( !_p[dst]->isEmpty() ) {
+        _p[dst] = Piece::EMPTY;     // remove piece from game
+        _gi.setPieceCnt(_gi.getPieceCnt() - 1); // update the piece count
     }
+
     // next, move the piece to the new square and vacate the old one
-    pi = piece_info(ptr->getPos());
     Pos org = ptr->getPos();
-    set_piece_info( org, PT_EMPTY );
-    set_piece_info( dst, pi );
-    ptr->setPos(dst);
-    _p.erase(org.toByte());
-    _p[dst.toByte()] = ptr;
+    _p[org] = Piece::EMPTY;
+    _p[dst] = ptr;
 
     // finally, check for key piece moves and update state
     switch(ptr->getType())
@@ -482,7 +478,7 @@ void Board::move_piece(PiecePtr ptr, Pos dst) {
 
 void Board::process_move(Move mov, Side side) {
     // Board *ret = new Board(*this);
-    PiecePtr   ptr = _p[mov.getSource().toByte()];
+    PiecePtr   ptr = _p[mov.getSource()];
     MoveAction ma  = mov.getAction();
 
     switch(mov.getAction())
@@ -491,18 +487,18 @@ void Board::process_move(Move mov, Side side) {
         // mov.getSource() is the location of the king,
         // mov.getTarget() is the location of the rook
         // Move king to file g, rook to file f
-        move_piece( ptr, Pos(ptr->getPos().rank(), Fg));
-        PiecePtr rook = _p[mov.getTarget().toByte()];
-        move_piece( rook, Pos(rook->getPos().rank(), Ff));
+        move_piece( ptr, Pos::withFile(ptr->getPos(), Fg));
+        PiecePtr rook = _p[mov.getTarget()];
+        move_piece( rook, Pos::withFile(rook->getPos(), Ff));
         }
         break;
     case MV_CASTLE_QUEENSIDE: {
         // mov.getSource() is the location of the king,
         // mov.getTarget() is the location of the rook
         // Move king to file c, rook to file d
-        move_piece( ptr, Pos(ptr->getPos().rank(), Fc));
+        move_piece( ptr, Pos::withFile(ptr->getPos(), Fc));
         PiecePtr rook = _p[mov.getTarget().toByte()];
-        move_piece( rook, Pos(rook->getPos().rank(), Fd));
+        move_piece( rook, Pos::withFile(rook->getPos(), Fd));
         }
         break;
     case MV_PROMOTION_QUEEN:
@@ -531,52 +527,10 @@ void Board::process_move(Move mov, Side side) {
         move_piece( ptr, mov.getTarget());
         // the pawn 'passed by' will be one square toward on side
         Dir d = (side == SIDE_BLACK) ? UP : DN;
-        Pos p = mov.getTarget() + s_os[d];
+        Pos p = mov.getTarget() + offs[d];
         // remove the piece from the board, but prob. need to record this somewhere.
-        set_piece_info(p, PT_EMPTY);
+        _p[p] = Piece::EMPTY;
         }
         break;
     }
-}
-
-void packBoardBuffer(const BoardBuffer& b, BoardBufferPacked ppb) {
-	uint8_t *p = ppb;
-	for(int i = 0; i < 8; ++i) {
-		for(int j = 0; j < 8; j+=2) {
-			Nibbles n(b[i][j+1], b[i][j]);
-			*p++ = n.b;
-		}
-	}
-}
-
-void unpackBoardBuffer(const BoardBufferPacked ppb, BoardBuffer& b) {
-	const uint8_t *p = ppb;
-	for(int i = 0; i < 8; ++i) {
-		for(int j = 0; j < 8; j+=2) {
-            Nibbles n(*p++);
-            b[i][j+1] = n.f.hi;
-            b[i][j]   = n.f.lo;
-		}
-	}
-}
-
-std::ostream& operator<<(std::ostream& os, const Board& b) {
-	// the purpose here is to write the game and board information as a series of hex digits
-    // first the gameinfo
-    BoardBufferPacked ppb;
-    packBoardBuffer(b._b, ppb);
-
-    os << std::hex;
-    os.fill('0');
-    os.width(8);
-    os << unsigned(b._gi.pack_c().i) << ' ';
-
-    uint8_t *p = ppb;
-    for (int i = 0; i < 32; i++, ++p) {
-        os.fill('0');
-        os.width(2);
-        os << +(*p) << ' ';
-    }
-    os.flush();
-	return os;
 }

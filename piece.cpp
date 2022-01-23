@@ -8,6 +8,7 @@
 #include "piece.h"
 
 std::map<PieceType, const char *> Piece::s_n = {
+	{ PT_EMPTY,    ".." },
 	{ PT_KING,     "Kk" },
 	{ PT_QUEEN,    "Qq" },
 	{ PT_BISHOP,   "Bb" },
@@ -28,3 +29,5 @@ PiecePtr Piece::create(PieceType pt, Side s)
 {
 	return std::make_shared<Piece>(pt, s);
 }
+
+PiecePtr Piece::EMPTY = Piece::create(PT_EMPTY, SIDE_WHITE);
