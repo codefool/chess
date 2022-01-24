@@ -163,5 +163,10 @@ int main() {
       std::cout << std::endl;
   }
 
+  PositionPacked pt = p.pack();
+  std::cout << (pp.pop == pt.pop) << std::endl;
+
+
+
 	return 0;
 }
