@@ -68,11 +68,11 @@ enum EnPassantFile {
 
 enum PieceType {
 	PT_EMPTY     = 0x00,
-	PT_KING      = 0x01,
-	PT_QUEEN     = 0x02,
-	PT_BISHOP    = 0x03,
-	PT_KNIGHT    = 0x04,
-	PT_ROOK      = 0x05,
+	PT_KING      = 0x01,  // 0x9
+	PT_QUEEN     = 0x02,  // 0xa
+	PT_BISHOP    = 0x03,  // 0xb
+	PT_KNIGHT    = 0x04,  // 0xc
+	PT_ROOK      = 0x05,  // 0xd
 	PT_PAWN      = 0x06,  // on its own file
 	PT_PAWN_OFF  = 0x07   // off its own file
 };

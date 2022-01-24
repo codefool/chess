@@ -149,9 +149,19 @@ int main() {
 
   b.validate_move(moves.front(), SIDE_WHITE);
 
-  PositionPacked pp;
-  bool q = (pp == pp);
-  std::cout << q << std::endl;
+  uint64_t pop = 0xffff00000000ffff;
+  uint64_t hi  = 0xdcb9abcdeeeeeeee;
+  uint64_t lo  = 0x6666666654312345;
+
+  PositionPacked pp(pop, lo, hi);
+  Position p(pp);
+  for(int r = R8; r >= R1; r--) {
+      uint8_t rank = r << 3;
+      for(int f = Fa; f <= Fh; f++) {
+          std::cout << ' ' << p._b[rank|f]->getPieceGlyph();
+      }
+      std::cout << std::endl;
+  }
 
 	return 0;
 }

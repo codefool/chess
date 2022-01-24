@@ -10,7 +10,7 @@ a.out : $(OBJECTS) $(HEADERS)
 	$(CC) $(CFLAGS) $(OBJECTS)
 
 board.o: board.cpp board.h piece.h gameinfo.h
-chessboard.o: chessboard.cpp gameinfo.h constants.h piece.h board.h
+chessboard.o: chessboard.cpp $(HEADERS)
 piece.o: piece.cpp piece.h
 util.o: util.cpp constants.h
 gameinfo.o: gameinfo.cpp gameinfo.h
