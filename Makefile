@@ -1,7 +1,7 @@
 CC = g++
 CFLAGS = -g -std=c++17
-HEADERS = constants.h gameinfo.h board.h piece.h db.h
-OBJECTS = chessboard.o board.o piece.o util.o gameinfo.o db.o
+HEADERS = constants.h gameinfo.h board.h piece.h db.h position.h
+OBJECTS = chessboard.o board.o piece.o util.o gameinfo.o db.o position.o
 
 .cpp.o:
 	$(CC) $(CFLAGS) -c $<
@@ -15,3 +15,4 @@ piece.o: piece.cpp piece.h
 util.o: util.cpp constants.h
 gameinfo.o: gameinfo.cpp gameinfo.h
 db.o : db.cpp db.h
+position.o : position.cpp position.h
