@@ -13,11 +13,6 @@
 #include <initializer_list>
 
 #include "constants.h"
-#include "db.h"
-#include "gameinfo.h"
-#include "board.h"
-#include "piece.h"
-#include "position.h"
 
 /*
 Maximum possible moves for any given position
@@ -134,8 +129,8 @@ int main() {
   // b.place_piece(PT_KING, SIDE_WHITE, R1, Fe);
   // b.place_piece(PT_ROOK, SIDE_WHITE, R2, Fa);
   // b.place_piece(PT_QUEEN, SIDE_BLACK, R4, Fh);
-  b.process_move(Move(MV_MOVE, Pos(R2,Fc), Pos(R5,Fc)), SIDE_WHITE);
-  b.process_move(Move(MV_MOVE, Pos(R7,Fb), Pos(R5,Fb)), SIDE_BLACK);
+  // b.process_move(Move(MV_MOVE, Pos(R2,Fc), Pos(R5,Fc)), SIDE_WHITE);
+  // b.process_move(Move(MV_MOVE, Pos(R7,Fb), Pos(R5,Fb)), SIDE_BLACK);
 	// b.gi().setEnPassantFile(EP_FB);
 
   b.dump();
@@ -159,7 +154,7 @@ int main() {
   for(int r = R8; r >= R1; r--) {
       uint8_t rank = r << 3;
       for(int f = Fa; f <= Fh; f++) {
-          std::cout << ' ' << p._b[rank|f]->getPieceGlyph();
+          std::cout << ' ' << p.get( rank|f )->getPieceGlyph();
       }
       std::cout << std::endl;
   }

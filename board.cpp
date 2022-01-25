@@ -10,104 +10,51 @@
 #include <cstring>
 #include <memory>
 
-#include "piece.h"
-#include "board.h"
-
-#define OFFSET(dr,df) ((dr * 8) + df)
+#include "constants.h"
 
 // these must be specified in the same order as
 // enum Dir
-short offs[] = {
-	OFFSET(+0,+1),  // UP
-	OFFSET(+0,-1),  // DN
-	OFFSET(-1,+0),  // LFT
-	OFFSET(+1,+0),  // RGT
-	OFFSET(+1,+1),  // UPR
-	OFFSET(-1,+1),  // UPL
-	OFFSET(+1,-1),  // DNR
-	OFFSET(-1,-1)   // DNL
+Offset offs[] = {
+	{+1,+0},  // UP
+	{-1,+0},  // DN
+	{+0,-1},  // LFT
+	{+0,+1},  // RGT
+	{+1,+1},  // UPR
+	{+1,-1},  // UPL
+	{-1,+1},  // DNR
+	{-1,-1}   // DNL
 };
 
-short kn_offs[] = {
-	OFFSET(+1,-2),
-    OFFSET(+1,+2),
-	OFFSET(+2,-1),
-    OFFSET(+2,+1),
-	OFFSET(-2,-1),
-    OFFSET(-2,+1),
-	OFFSET(-1,-2),
-    OFFSET(-1,+2)
+Offset kn_offs[] = {
+	{+1,-2},
+    {+1,+2},
+	{+2,-1},
+    {+2,+1},
+	{-2,-1},
+    {-2,+1},
+	{-1,-2},
+    {-1,+2}
 };
 
 Board::Board(bool init)
 {
-    // set the initial position.
-    static PieceType court[] = {
-        PT_ROOK, PT_KNIGHT, PT_BISHOP, PT_QUEEN,
-        PT_KING, PT_BISHOP, PT_KNIGHT, PT_ROOK
-    };
-
-    for( int i(0); i < 64; i++)
-        _p[i] = Piece::EMPTY;
-
     if (init) {
-        int f = Fa;
-        for( PieceType pt : court) {
-            File fi = static_cast<File>(f++);
-            place_piece(pt,      SIDE_WHITE, R1, fi);    // white court piece
-            place_piece(PT_PAWN, SIDE_WHITE, R2, fi);    // while pawn
-            place_piece(PT_PAWN, SIDE_BLACK, R7, fi);    // black pawn
-            place_piece(pt,      SIDE_BLACK, R8, fi);    // black court piece
-        }
-        _gi.init();
+        _p.init();
     }
 }
 
 Board::Board(Board& o)
-: _gi(o._gi)
+: _p(o._p)
 {
-    memcpy(&_k, o._k, sizeof(_k));
-    // long copy because we're copying smart pointers
-    // memcpy wouldn't up the ref cnt.
-    for( int i(0); i < 64; i++)
-        _p[i] = o._p[i];
-}
-
-PiecePtr Board::place_piece(PieceType t, Side s, Rank r, File f) {
-    PiecePtr ptr = Piece::create(t,s);
-    ptr->setPos(r,f);
-    _p[ptr->getPos()] = ptr;
-    if (PT_KING == t) {
-        _k[s] = ptr;
-    }
-    return ptr;
-}
-
-bool Board::in_bounds(short r, short f) {
-    return 0 <= f && f <= 7 && 0 <= r && r <= 7;
-}
-
-bool Board::in_bounds(Pos pos) {
-    return in_bounds(pos.r(), pos.f());
-}
-
-// a property of the physical chessboard is that
-// if the odd'ness of the rank and file are the
-// same, then the square is black, otherwise it's
-// white.
-bool Board::isBlackSquare(short r, short f) {
-    return (r&1) == (f&1);
 }
 
 // collect all moves for the existing pieces for side onmove
 void Board::get_all_moves(Side side, MoveList& moves) {
     // TODO: if the king is in check, then only moves that
     // get the king out of check are permissable.
-    for( auto p : _p ) {
-        if ( p->getSide() == side ) {
-            get_moves(p, moves);
-        }
-    }
+    for( auto p : _p.get_pieces(side) )
+        get_moves(p, moves);
+
     // remove any moves that put the king in check
     for ( auto itr = moves.begin(); itr != moves.end();) {
         if( !validate_move(*itr, side) )
@@ -124,9 +71,9 @@ void Board::get_moves(PiecePtr ptr, MoveList& moves) {
     std::vector<Dir> dirs;
 
     if (pt == PT_KNIGHT) {
-        for(short o : offs) {
-            short pos = ptr->getPos() + o;
-            if( !in_bounds(pos))
+        for(Offset o : kn_offs) {
+            Pos pos = ptr->getPos() + o;
+            if( !pos.in_bounds() )
                 continue;
             Move *mov = check_square(ptr, pos);
             if(mov != nullptr)
@@ -149,10 +96,10 @@ void Board::get_moves(PiecePtr ptr, MoveList& moves) {
         Dir updn  = (isBlack)?DN:UP;
         Dir updnl = (isBlack)?DNL:UPL;
         Dir updnr = (isBlack)?DNR:UPR;
-        Pos pos = ppos + offs[updn];
-        if( _p[pos]->isEmpty() ) {
+        Pos pos   = ppos + offs[updn];
+        if( _p.is_square_empty(pos) ) {
             // pawn can move forward
-            if ( (isBlack && pos.rank() == R1) || (pos.rank() == R8)) {
+            if ( (isBlack && pos.rank() == R1) || (pos.rank() == R8) ) {
                 // Case 5. A pawn reaching its eighth rank is promoted
                 //
                 // As we're collecting all possible moves, record four
@@ -165,9 +112,8 @@ void Board::get_moves(PiecePtr ptr, MoveList& moves) {
             // Case 2: Pawns on their home square may move two spaces.
             if ( (isBlack && ppos.rank() == R7) || ppos.rank() == R2) {
                 pos += offs[updn];
-                if( _p[pos]->isEmpty() ) {
+                if( _p.is_square_empty(pos) )
                     moves.push_back(Move(MV_MOVE, ppos, pos));
-                }
             }
         }
         // Case 3: Pawns may capture directly to the UPL or UPR.
@@ -181,17 +127,16 @@ void Board::get_moves(PiecePtr ptr, MoveList& moves) {
         // AND the pawn has not moved off its own rank (is not of type PT_PAWN_OFF)
         // AND pawn is on its fifth rank.
         // AND if target pawn is adjacent to this pawn
-        if ( pt == PT_PAWN && _gi.enPassantExists() ) {
+        if ( pt == PT_PAWN && _p.gi().enPassantExists() ) {
             // an en passant candidate exists
             Rank r_pawn = (isBlack) ? R4 : R5;      // where the pawns are
             Rank r_move = (isBlack) ? R3 : R6;      // the space where our pawn moves
-            if( ppos.rank() == r_pawn && abs(ppos.f() - _gi.getEnPassantFile()) == 1) {
+            if( ppos.rank() == r_pawn && abs(ppos.f() - _p.gi().getEnPassantFile()) == 1) {
                 // If so, check if the space above the target pawn is empty.
                 // If so, then en passant is possible.
-                Pos epos(r_move, _gi.getEnPassantFile()); // pos of target square
-                if ( _p[epos]->isEmpty() ) {
+                Pos epos(r_move, _p.gi().getEnPassantFile()); // pos of target square
+                if ( _p.is_square_empty(epos) )
                     moves.push_back(Move(MV_EN_PASSANT, ppos, epos));
-                }
             }
         }
     } else {
@@ -206,21 +151,21 @@ void Board::get_moves(PiecePtr ptr, MoveList& moves) {
             dirs.assign({UP, DN, LFT, RGT});
             gather_moves(ptr, dirs, range, moves);
         }
-        if ( pt == PT_KING && !test_for_attack(_k[side]->getPos(), side)) {
+        if ( pt == PT_KING && !test_for_attack(_p.get_king_pos(side), side) ) {
             // For casteling to be possible, the king must not have moved,
             // nor the matching rook, the king must not be in check, the
             // spaces between must be vacant AND cannot be under attack.
             if (isBlack) {
-                if(_gi.isBksCastleEnabled())
+                if(_p.gi().isBksCastleEnabled())
                     check_castle(side, MV_CASTLE_KINGSIDE, moves);
 
-                if(_gi.isBqsCastleEnabled())
+                if(_p.gi().isBqsCastleEnabled())
                     check_castle(side, MV_CASTLE_QUEENSIDE, moves);
             } else {
-                if(_gi.isWksCastleEnabled())
+                if(_p.gi().isWksCastleEnabled())
                     check_castle(side, MV_CASTLE_KINGSIDE, moves);
 
-                if(_gi.isWqsCastleEnabled())
+                if(_p.gi().isWqsCastleEnabled())
                     check_castle(side, MV_CASTLE_QUEENSIDE, moves);
             }
         }
@@ -258,12 +203,12 @@ void Board::check_castle(Side side, MoveAction ma, MoveList& moves) {
     }
 
     for (auto p : emptyCheck)
-        if ( !_p[p]->isEmpty() || test_for_attack(p, side) )
+        if ( !_p.is_square_empty(p) || test_for_attack(p, side) )
             // square not empty or under attack - can't castle
             return;
 
     // make additional empty check for queenside castle
-    if (isQueenSide && !_p[Pos(rank,Fb)]->isEmpty())
+    if (isQueenSide && !_p.is_square_empty(Pos(rank,Fb)))
         return;
 
     // get here if no reason found not to castle.
@@ -274,10 +219,10 @@ void Board::gather_moves(PiecePtr p, std::vector<Dir> dirs, int range, MoveList&
     Side on_move = p->getSide();
     for (auto d : dirs) {
         Pos pos = p->getPos();
-        short o = offs[d];
+        Offset o = offs[d];
         for( int r = range; r; --r ) {
             pos += o;
-            if( !in_bounds(pos) )
+            if( !pos.in_bounds() )
                 break;
             Move* mov = check_square(p, pos, occupied);
             if (mov == nullptr)
@@ -288,7 +233,7 @@ void Board::gather_moves(PiecePtr p, std::vector<Dir> dirs, int range, MoveList&
 }
 
 Move* Board::check_square(PiecePtr p, Pos pos, bool occupied) {
-    PiecePtr other = _p[pos];
+    PiecePtr other = _p.get(pos);
 
     if ( other->isEmpty() )
         // empty square so record move and continue
@@ -325,11 +270,11 @@ bool Board::test_for_attack(Pos src, Side side) {
     if (!ret) {
         // Step 3. Check for attacking knights
         pts.assign({PT_KNIGHT});
-        for(short o : kn_offs) {
+        for(Offset o : kn_offs) {
             Pos pos = src + o;
-            if( !in_bounds(pos))
+            if( !pos.in_bounds())
                 continue;
-            if ( check_piece(piece_info(pos), pts, side) )
+            if ( check_piece(_p.get(pos), pts, side) )
                 return true;
         }
     }
@@ -370,14 +315,14 @@ bool Board::check_piece(PiecePtr ptr, std::vector<PieceType>& trg, Side side) {
 }
 
 PiecePtr Board::search_not_empty(Pos& start, Dir dir, int range) {
-    short o = offs[dir];
+    Offset o = offs[dir];
     Pos pos(start);
     while( range-- ) {
         pos += o;
-        if ( !in_bounds(pos) )
+        if ( !pos.in_bounds() )
             break;
-        if ( !_p[pos]->isEmpty() )
-            return _p[pos];
+        if ( !_p.is_square_empty(pos) )
+            return _p.get(pos);
     }
     return Piece::EMPTY;
 }
@@ -386,7 +331,7 @@ void Board::dump() {
     for(int r = R8; r >= R1; r--) {
         uint8_t rank = r << 3;
         for(int f = Fa; f <= Fh; f++) {
-            std::cout << ' ' << _p[rank|f]->getPieceGlyph();
+            std::cout << ' ' << _p.get(rank|f)->getPieceGlyph();
         }
         std::cout << std::endl;
     }
@@ -402,22 +347,22 @@ bool Board::validate_move(Move mov, Side side) {
     // by this time we've already validated that the move is technically
     // possible. The only question is whether making the move exposes the
     // king, which can only be done if the board is actually adjusted.
-    Pos src = mov.getSource();
-    Pos trg = mov.getTarget();
-    PiecePtr piece = _p[src];
-    PiecePtr other = _p[trg];
+    Pos      src   = mov.getSource();
+    Pos      trg   = mov.getTarget();
+    PiecePtr piece = _p.get(src);
+    PiecePtr other = _p.get(trg);
 
     // if the actual piece that is moving is the king, then use the
     // new position to test for check. Otherwise, use the saved position.
-    Pos king_pos = piece->isType( PT_KING ) ? trg : Pos(_k[side]->getPos());
+    Pos king_pos = piece->isType( PT_KING ) ? trg : _p.get_king_pos(side);
 
-    _p[trg] = _p[src];          // copy the source piece to the target square
-    _p[src] = Piece::EMPTY;     // vacate the source square
+    _p.set( trg, piece );         // copy the source piece to the target square
+    _p.set( src, Piece::EMPTY );  // vacate the source square
 
     bool in_check = !test_for_attack( king_pos, side );
 
-    _p[src] = piece;
-    _p[trg] = other;
+    _p.set( src, piece );
+    _p.set( trg, other );
 
     return in_check;
 }
@@ -425,15 +370,15 @@ bool Board::validate_move(Move mov, Side side) {
 void Board::move_piece(PiecePtr ptr, Pos dst) {
     // first, see if we're capturing a piece. We know this if
     // destination is not empty.
-    if ( !_p[dst]->isEmpty() ) {
-        _p[dst] = Piece::EMPTY;     // remove piece from game
-        _gi.setPieceCnt(_gi.getPieceCnt() - 1); // update the piece count
+    if ( !_p.is_square_empty(dst) ) {
+        _p.set( dst, Piece::EMPTY );                    // remove piece from game
+        _p.gi().setPieceCnt(_p.gi().getPieceCnt() - 1); // update the piece count
     }
 
     // next, move the piece to the new square and vacate the old one
     Pos org = ptr->getPos();
-    _p[org] = Piece::EMPTY;
-    _p[dst] = ptr;
+    _p.set(org, Piece::EMPTY);
+    _p.set(dst, ptr);
 
     // finally, check for key piece moves and update state
     switch(ptr->getType())
@@ -441,24 +386,24 @@ void Board::move_piece(PiecePtr ptr, Pos dst) {
     case PT_KING:
         // king moved - casteling is no longer possible
         if (ptr->getSide() == SIDE_WHITE) {
-            _gi.setWksCastleEnabled(false);
-            _gi.setWqsCastleEnabled(false);
+            _p.gi().setWksCastleEnabled(false);
+            _p.gi().setWqsCastleEnabled(false);
         } else {
-            _gi.setBksCastleEnabled(false);
-            _gi.setBqsCastleEnabled(false);
+            _p.gi().setBksCastleEnabled(false);
+            _p.gi().setBqsCastleEnabled(false);
         }
         break;
     case PT_ROOK:
         // rook moved - casteling to that side is no longer possible
         if (ptr->getSide() == SIDE_WHITE) {
             if( org == POS_WQR )
-                _gi.setWqsCastleEnabled(false);
+                _p.gi().setWqsCastleEnabled(false);
             else if( org == POS_WKR)
-                _gi.setWksCastleEnabled(false);
+                _p.gi().setWksCastleEnabled(false);
         } else if( org == POS_BQR)
-            _gi.setBqsCastleEnabled(false);
+            _p.gi().setBqsCastleEnabled(false);
         else if( org == POS_BKR)
-            _gi.setBksCastleEnabled(false);
+            _p.gi().setBksCastleEnabled(false);
         break;
     case PT_PAWN: {
         // in this case, if the source file and target file differ,
@@ -470,7 +415,7 @@ void Board::move_piece(PiecePtr ptr, Pos dst) {
                     dst.rank() == ((ptr->getSide())?R5:R4)
         )
             // pawn moved from it's home rank forward two spaces
-             _gi.setEnPassantFile(org.file());
+             _p.gi().setEnPassantFile(org.file());
         }
         break;
     }
@@ -478,7 +423,7 @@ void Board::move_piece(PiecePtr ptr, Pos dst) {
 
 void Board::process_move(Move mov, Side side) {
     // Board *ret = new Board(*this);
-    PiecePtr   ptr = _p[mov.getSource()];
+    PiecePtr   ptr = _p.get( mov.getSource() );
     MoveAction ma  = mov.getAction();
 
     switch(mov.getAction())
@@ -487,18 +432,18 @@ void Board::process_move(Move mov, Side side) {
         // mov.getSource() is the location of the king,
         // mov.getTarget() is the location of the rook
         // Move king to file g, rook to file f
-        move_piece( ptr, Pos::withFile(ptr->getPos(), Fg));
-        PiecePtr rook = _p[mov.getTarget()];
-        move_piece( rook, Pos::withFile(rook->getPos(), Ff));
+        move_piece( ptr, ptr->getPos().withFile(Fg));
+        PiecePtr rook = _p.get( mov.getTarget() );
+        move_piece( rook, rook->getPos().withFile(Ff));
         }
         break;
     case MV_CASTLE_QUEENSIDE: {
         // mov.getSource() is the location of the king,
         // mov.getTarget() is the location of the rook
         // Move king to file c, rook to file d
-        move_piece( ptr, Pos::withFile(ptr->getPos(), Fc));
-        PiecePtr rook = _p[mov.getTarget().toByte()];
-        move_piece( rook, Pos::withFile(rook->getPos(), Fd));
+        move_piece( ptr, ptr->getPos().withFile(Fc));
+        PiecePtr rook = _p.get( mov.getTarget().toByte() );
+        move_piece( rook, rook->getPos().withFile(Fd));
         }
         break;
     case MV_PROMOTION_QUEEN:
@@ -529,7 +474,7 @@ void Board::process_move(Move mov, Side side) {
         Dir d = (side == SIDE_BLACK) ? UP : DN;
         Pos p = mov.getTarget() + offs[d];
         // remove the piece from the board, but prob. need to record this somewhere.
-        _p[p] = Piece::EMPTY;
+        _p.set( p, Piece::EMPTY );
         }
         break;
     }

@@ -62,7 +62,6 @@ union GameInfoPacked {
 
 class GameInfo {
 private:
-	GameInfoPacked	_p;
 	// number of active pieces on the board (1..31)
 	short           piece_cnt;
 	Side            on_move; // 0=white on move, 1=black
@@ -83,7 +82,7 @@ private:
 public:
 	GameInfo();
 
-	GameInfo(GameInfo& o)
+	GameInfo(const GameInfo& o)
 	{
 		unpack(o.pack());
 	}
@@ -113,12 +112,10 @@ public:
 	}
 
 	GameInfo& unpack(const GameInfoPacked& p);
-	const GameInfoPacked pack_c() const;
-
-	GameInfoPacked& pack();
+	const GameInfoPacked pack() const;
 
 	bool operator==(const GameInfo& o) const {
-		return pack_c() == o.pack_c();
+		return pack() == o.pack();
 	}
 
 	friend std::ostream& operator<<(std::ostream& os, const GameInfo& o);

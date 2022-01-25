@@ -1,11 +1,20 @@
 #include "constants.h"
-#include "position.h"
 
 Position::Position() {}
 
 Position::Position(const PositionPacked& p)
 {
     unpack(p);
+}
+
+Position::Position(const Position& o)
+:_g{o._g}
+{
+    // deep copy the board buffer so that smart pointers
+    // are copied.
+    int cnt = 64;
+    while(cnt--)
+        _b[cnt] = o._b[cnt];
 }
 
 uint32_t Position::unpack(const PositionPacked& p)
@@ -65,22 +74,63 @@ PositionPacked Position::pack()
     return pp;
 }
 
-void Position::set(int square, PieceType pt, Side s)
+void Position::init()
 {
-    set(square, Piece::create(pt, s));
+    // set the initial position.
+    static PieceType court[] = {
+        PT_ROOK, PT_KNIGHT, PT_BISHOP, PT_QUEEN,
+        PT_KING, PT_BISHOP, PT_KNIGHT, PT_ROOK
+    };
+
+    for( int i(0); i < 64; i++)
+        _b[i] = Piece::EMPTY;
+
+    short f = Fa;
+    for( PieceType pt : court ) {
+        File fi = static_cast<File>(f++);
+        set( Pos(R1, fi), pt,      SIDE_WHITE );    // white court piece
+        set( Pos(R2, fi), PT_PAWN, SIDE_WHITE );    // white pawn
+        set( Pos(R7, fi), PT_PAWN, SIDE_BLACK );    // black pawn
+        set( Pos(R8, fi), pt,      SIDE_BLACK );    // black court piece
+    }
+    _g.init();
 }
 
-void Position::set(int square, PiecePtr pp)
+void Position::set(Pos pos, PieceType pt, Side s)
 {
-    _b[square] = pp;
+    set(pos.toByte(), Piece::create(pt, s));
 }
 
-PiecePtr Position::get(int square) const
+void Position::set(Pos pos, PiecePtr pp)
 {
-    return _b[square];
+    _b[pos.toByte()] = pp;
+    pp->setPos(pos);
+    if (pp->getType() == PT_KING)
+        _k[pp->getSide()] = pos;
 }
 
-bool Position::is_square_empty(int square)
+PiecePtr Position::get(Pos pos) const
 {
-    return get(square) == Piece::EMPTY;
+    return _b[pos.toByte()];
+}
+
+Pos Position::get_king_pos(Side side) {
+    return _k[side];
+}
+
+std::vector<PiecePtr> Position::get_pieces(Side side)
+{
+    std::vector<PiecePtr> ret;
+    for( int i(0); i < 64; i++)
+    {
+        auto p = _b[i];
+        if ( p->getSide() == side && !p->isEmpty() )
+            ret.push_back( _b[i] );
+    }
+    return ret;
+}
+
+bool Position::is_square_empty(Pos pos) const
+{
+    return get(pos)->isEmpty();
 }

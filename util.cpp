@@ -14,11 +14,11 @@ const Pos POS_WKR(R1,Fh);
 const Pos POS_BQR(R8,Fa);
 const Pos POS_BKR(R8,Fh);
 
-Pos::Pos() : _p{0} {}
+Pos::Pos() {}
 
 Pos::Pos(short p)
 {
-	_p = p;
+	fromByte(p);
 }
 
 Pos::Pos(Rank ra, File fi)
@@ -26,49 +26,65 @@ Pos::Pos(Rank ra, File fi)
 	set(ra,fi);
 }
 
+Pos::Pos(int ra, int fi)
+{
+	set(static_cast<Rank>(ra),static_cast<File>(fi));
+}
+
+void Pos::set(short pos) {
+	fromByte(static_cast<uint8_t>(pos));
+}
+
 void Pos::set(Rank ra, File fi) {
-	_p = (ra<<3)|fi;
+	_r = ra;
+	_f = fi;
 }
 
-void Pos::set(uint8_t b) {
-	fromByte(b);
+bool Pos::in_bounds() const {
+	return 0 <= _r && _r <= 8 && 0 <= _f && _f <= 8;
 }
 
-Pos Pos::operator+(const short o) {
-	return Pos(_p + o);
+Pos Pos::operator+(const Offset& o) const {
+	return Pos( _r + o.dr(), _f + o.df() );
 }
 
-Pos Pos::operator+=(const short o) {
-	_p += o;
+Pos Pos::operator+=(const Offset& o) {
+	_r += o.dr();
+	_f += o.df();
 	return *this;
 }
 
-bool Pos::operator<(const Pos& o) {
-	return _p < o._p;
+bool Pos::operator<(const Pos& o) const {
+	if ( _r == o._r )
+		return _f < o._f;
+	return _r < o._r;
 }
 
-bool Pos::operator<=(const Pos& o) {
-	return _p <= o._p;
+bool Pos::operator<=(const Pos& o) const {
+	if ( _r == o._r )
+		return _f <= o._f;
+	return _r <= o._r;
 }
 
-bool Pos::operator==(const Pos& o) {
-	return _p == o._p;
+bool Pos::operator==(const Pos& o) const {
+	return _r == o._r && _f == o._f;
 }
 
 uint8_t Pos::toByte() {
-	return (uint8_t)(_p);
+	return (uint8_t)(_r<<3|_f);
 }
 
 void Pos::fromByte(uint8_t b) {
-	_p = static_cast<short>(b & 0x3f);
+	_r = b >> 3;
+	_f = b & 0x7;
 }
 
 const short Pos::r() const {
-	return _p >> 3;
+	return _r;
 }
 
 const short Pos::f() const {
-	return _p & 0x7;
+	return _f;
 }
 
 const Rank Pos::rank() const {
@@ -78,12 +94,13 @@ const File Pos::file() const {
 	return static_cast<File>(f());
 }
 
-Pos Pos::withRank(Pos s, Rank r) {
-	return Pos(r, s.file());
+Pos Pos::withRank(Rank r) {
+	return Pos(r, _f);
 }
-Pos Pos::withFile(Pos s, File f) {
-	return Pos(s.rank(), f);
+Pos Pos::withFile(File f) {
+	return Pos(_r, f);
 }
+
 
 
 Move::Move(MoveAction a, Pos from, Pos to)
@@ -114,7 +131,7 @@ MovePacked Move::pack() {
 }
 
 std::ostream& operator<<(std::ostream& os, const Pos& p) {
-	os << g_file(p.file()) << g_rank(p.rank());
+	os << g_file(p.f()) << g_rank(p.r());
 
 	return os;
 }

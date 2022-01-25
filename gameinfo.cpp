@@ -1,5 +1,4 @@
-#include "gameinfo.h"
-
+#include "constants.h"
 
 GameInfoPacked::GameInfoPacked()
 : i{0}
@@ -41,13 +40,7 @@ GameInfo& GameInfo::unpack(const GameInfoPacked& p)
     return *this;
 }
 
-GameInfoPacked& GameInfo::pack()
-{
-    _p = pack_c();
-    return _p;
-}
-
-const GameInfoPacked GameInfo::pack_c() const
+const GameInfoPacked GameInfo::pack() const
 {
     GameInfoPacked p;
     p.i                    = 0;

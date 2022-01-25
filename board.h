@@ -12,20 +12,19 @@
 #include <memory>
 
 #include "constants.h"
+#include "position.h"
 #include "gameinfo.h"
 
 class Board {
 private:
 	// we always need to know where the kings are
-	PiecePtr    _k[2];
-	GameInfo    _gi;
-	PiecePtr    _p[64];
+	Position	_p;
 
 public:
 	Board(bool init=true);
 	Board(Board& other);
 
-	GameInfo& gi() { return _gi; }
+	GameInfo& gi() { return _p.gi(); }
 
 	PiecePtr place_piece(PieceType t, Side s, Rank r, File f);
 	bool in_bounds(short f, short r);
@@ -44,22 +43,7 @@ public:
 
 	bool validate_move(Move mov, Side side);
 	void process_move(Move mov, Side side);
-
-	PiecePtr piece_info(Pos p) {
-		return _p[p.toByte()];
-	}
-
-	void set_piece_info(Pos p, PiecePtr i) {
-		_p[p.toByte()] = i;
-	}
-
 	void move_piece(PiecePtr ptr, Pos pos);
-
-	// a property of the physical chessboard is that
-	// if the odd'ness of the rank and file are the
-	// same, then the square is black, otherwise it's
-	// white.
-	bool isBlackSquare(short r, short f);
 
 	void dump();
 	friend std::ostream& operator<<(std::ostream& os, const Board& b);

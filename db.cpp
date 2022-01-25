@@ -1,5 +1,5 @@
 #include <iostream>
-#include "db.h"
+#include "constants.h"
 
 std::istream& operator>>(std::istream& is, PositionPacked& p) {
     return is;

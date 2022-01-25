@@ -1,6 +1,6 @@
 CC = g++
 CFLAGS = -g -std=c++17
-HEADERS = constants.h gameinfo.h board.h piece.h db.h position.h
+HEADERS = constants.h
 OBJECTS = chessboard.o board.o piece.o util.o gameinfo.o db.o position.o
 
 .cpp.o:
@@ -9,10 +9,10 @@ OBJECTS = chessboard.o board.o piece.o util.o gameinfo.o db.o position.o
 a.out : $(OBJECTS) $(HEADERS)
 	$(CC) $(CFLAGS) $(OBJECTS)
 
-board.o: board.cpp board.h piece.h gameinfo.h
+board.o: board.cpp $(HEADERS)
 chessboard.o: chessboard.cpp $(HEADERS)
-piece.o: piece.cpp piece.h
-util.o: util.cpp constants.h
-gameinfo.o: gameinfo.cpp gameinfo.h
-db.o : db.cpp db.h
-position.o : position.cpp position.h
+piece.o: piece.cpp $(HEADERS)
+util.o: util.cpp $(HEADERS)
+gameinfo.o: gameinfo.cpp $(HEADERS)
+db.o : db.cpp $(HEADERS)
+position.o : position.cpp $(HEADERS)
