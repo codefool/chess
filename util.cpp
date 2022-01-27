@@ -148,7 +148,7 @@ std::ostream& operator<<(std::ostream& os, const Move& m) {
 		os << m._s;
 
 		switch(m._a) {
-			case MV_CAPTURE:
+			// case MV_CAPTURE:
 			case MV_EN_PASSANT:
 				os << 'x';
 				break;
@@ -160,12 +160,12 @@ std::ostream& operator<<(std::ostream& os, const Move& m) {
 			case MV_EN_PASSANT:
 				os << " e.p.";
 				break;
-			case MV_CHECK:
-				os << '+';
-				break;
-			case MV_CHECKMATE:
-				os << "++";
-				break;
+			// case MV_CHECK:
+			// 	os << '+';
+			// 	break;
+			// case MV_CHECKMATE:
+				// os << "++";
+				// break;
 			case MV_PROMOTION_BISHOP:
 				os << "=B";
 				break;

@@ -189,7 +189,7 @@ void Board::check_castle(Side side, MoveAction ma, MoveList& moves) {
     //
     // This logic is rather straighforward, though rather torturned, because
     // the positions of the pieces are defined by the Rules, and hence
-    // generating locations can be hardcoded.
+    // locations can be hardcoded.
     //
     // We assume that the king is not already in check.
     //
@@ -220,7 +220,7 @@ void Board::gather_moves(PiecePtr p, std::vector<Dir> dirs, int range, MoveList&
     for (auto d : dirs) {
         Pos pos = p->getPos();
         Offset o = offs[d];
-        for( int r = range; r; --r ) {
+        while ( range-- ) {
             pos += o;
             if( !pos.in_bounds() )
                 break;
@@ -244,9 +244,7 @@ Move* Board::check_square(PiecePtr p, Pos pos, bool occupied) {
         // If friendly piece, do not record move and leave.
         return nullptr;
     }
-    // if opponent piece is king, then record check
-    MoveAction ma = other->isType(PT_KING) ? MV_CHECK : MV_CAPTURE;
-    return new Move(ma, p->getPos(), pos);
+    return new Move(MV_MOVE, p->getPos(), pos);
 }
 
 // to test for check, we have to travel all rays and knights moves
@@ -371,8 +369,8 @@ void Board::move_piece(PiecePtr ptr, Pos dst) {
     // first, see if we're capturing a piece. We know this if
     // destination is not empty.
     if ( !_p.is_square_empty(dst) ) {
-        _p.set( dst, Piece::EMPTY );                    // remove piece from game
-        _p.gi().setPieceCnt(_p.gi().getPieceCnt() - 1); // update the piece count
+        _p.set( dst, Piece::EMPTY );    // remove piece from game
+        _p.gi().decPieceCnt();          // update the piece count
     }
 
     // next, move the piece to the new square and vacate the old one
@@ -415,6 +413,7 @@ void Board::move_piece(PiecePtr ptr, Pos dst) {
                     dst.rank() == ((ptr->getSide())?R5:R4)
         )
             // pawn moved from it's home rank forward two spaces
+            // this make it subject to en passant
              _p.gi().setEnPassantFile(org.file());
         }
         break;
@@ -455,26 +454,24 @@ void Board::process_move(Move mov, Side side) {
         }
         [[fallthrough]];
     case MV_MOVE:
-    case MV_CAPTURE:
-    case MV_CHECK:
-    case MV_CHECKMATE:
         move_piece( ptr, mov.getTarget());
         break;
     case MV_EN_PASSANT: {
         // move the piece, but remove the pawn "passed by"
         //    a  b  c         a  b  c
         //   +--+--+--+      +--+--+--+
-        // 5 |  | P|  |    4 | p| P|  |
+        // 5 |  | P|  |    4 | p|xP|  |
         //   +--/--+--+      +--\--+--+
-        // 4 | P| p|  |    3 |  | p|  |
+        // 4 | P|xp|  |    3 |  | p|  |
         //   +--+--+--+      +--+--+--+
         //
-        move_piece( ptr, mov.getTarget());
+        move_piece( ptr, mov.getTarget() );
         // the pawn 'passed by' will be one square toward on side
         Dir d = (side == SIDE_BLACK) ? UP : DN;
         Pos p = mov.getTarget() + offs[d];
         // remove the piece from the board, but prob. need to record this somewhere.
         _p.set( p, Piece::EMPTY );
+        _p.gi().decPieceCnt();
         }
         break;
     }

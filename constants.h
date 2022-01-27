@@ -115,18 +115,18 @@ union Nibbles {
 
 // the MoveAction is packed to 4 bits, so 0..15
 enum MoveAction {
-	MV_MOVE = 0,
-	MV_CAPTURE = 1,
-	MV_CASTLE_KINGSIDE = 2,
-	MV_CASTLE_QUEENSIDE = 3,
-	MV_CHECK = 4,
-	MV_CHECKMATE = 5,
-	MV_EN_PASSANT = 6,
+	MV_MOVE             = 0,
+	MV_CASTLE_KINGSIDE  = 1,
+	MV_CASTLE_QUEENSIDE = 2,
+	MV_EN_PASSANT       = 3,
+	// MV_UNUSED = 4,
+	// MV_UNUSED = 5,
+	// MV_UNUSED = 6,
 	// MV_UNUSED = 7,
-	MV_PROMOTION_QUEEN = 8,
+	MV_PROMOTION_QUEEN  = 8,
 	MV_PROMOTION_BISHOP = 9,
 	MV_PROMOTION_KNIGHT = 10,
-	MV_PROMOTION_ROOK = 11
+	MV_PROMOTION_ROOK   = 11
 	// UNUSED = 12
 	// UNUSED = 13
 	// UNUSED = 14
@@ -410,6 +410,7 @@ public:
 
 	short getPieceCnt() const { return piece_cnt; }
 	void setPieceCnt(short cnt) { piece_cnt = cnt; }
+	void decPieceCnt() { piece_cnt--; }
 	Side getOnMove() const { return on_move; }
 	void setOnMove(Side m) { on_move = m; }
 	bool isGameActive() const { return getEndGameReason() == EGR_NONE; }
