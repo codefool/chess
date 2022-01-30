@@ -7,6 +7,7 @@ GameInfoPacked::GameInfoPacked()
     f.wqs_castle_enabled =
     f.bks_castle_enabled =
     f.bqs_castle_enabled = 1;
+    f.piece_cnt          = 32;
 }
 
 GameInfo::GameInfo()

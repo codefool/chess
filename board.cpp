@@ -48,6 +48,10 @@ Board::Board(Board& o)
 {
 }
 
+Board::Board(const PositionPacked& p)
+: _p(p)
+{}
+
 // collect all moves for the existing pieces for side onmove
 void Board::get_all_moves(Side side, MoveList& moves) {
     // TODO: if the king is in check, then only moves that

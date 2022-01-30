@@ -11,6 +11,7 @@
 #include <memory>
 #include <vector>
 #include <initializer_list>
+#include <algorithm>
 
 #include "constants.h"
 
@@ -111,12 +112,53 @@ private:
 		GameInfo _g;
 };
 
+std::vector<PositionPacked> work;
+std::vector<PositionPacked> resolved;
+std::vector<PositionPacked> worksubone;
+
+const int CLEVEL = 32;
+const int CLEVELSUB1 = CLEVEL - 1;
+
 int main() {
-	short x{7};
-	for( short y{0}; y < 8; y++) {
-		x--;
-		std::cout << x << ' ' << std::hex << (x < 8) << std::endl;
-	}
+  Position pos;
+  pos.init();
+  work.push_back(pos.pack());
+
+  while (!work.empty()) {
+    PositionPacked src = work.back();
+    work.pop_back();
+    resolved.push_back(src);
+
+    Board b(src);
+
+    MoveList moves;
+
+    b.get_all_moves(b.gi().getOnMove(), moves);
+
+    for (Move mv : moves) {
+      Board bprime(b);
+      bprime.process_move(mv, bprime.gi().getOnMove());
+      // we need to flip the on-move
+      Position pprime = bprime.getPosition();
+      pprime.gi().toggleOnMove();
+      PositionPacked posprime = pprime.pack();
+      if (bprime.gi().getPieceCnt() == CLEVELSUB1) {
+        if (std::find(worksubone.begin(), worksubone.end(), posprime) != worksubone.end())
+          continue;
+        worksubone.push_back(posprime);
+      } else {
+        if (std::find(work.begin(), work.end(), posprime) != work.end())
+          continue;
+        if (std::find(resolved.begin(), resolved.end(), posprime) != resolved.end())
+          continue;
+        work.push_back(posprime);
+      }
+    }
+  }
+
+
+
+
 
 	Board b(true);
 
@@ -149,7 +191,7 @@ int main() {
   uint64_t hi  = 0xdcb9abcdeeeeeeee;
   uint64_t lo  = 0x6666666654312345;
 
-  PositionPacked pp(pop, lo, hi);
+  PositionPacked pp(0, pop, lo, hi);
   Position p(pp);
   for(int r = R8; r >= R1; r--) {
       uint8_t rank = r << 3;

@@ -287,13 +287,21 @@ union GameInfoPacked {
 		uint32_t on_move           :  1; // 0=white on move, 1=black
 		uint32_t piece_cnt         :  8;
 	} f;
+
 	GameInfoPacked();
+
 	GameInfoPacked(uint32_t v)
 	: i{v}
 	{}
+
+	GameInfoPacked(const GameInfoPacked& o)
+	: i{o.i}
+	{}
+
 	bool operator==(const GameInfoPacked& o) const {
 		return i == o.i;
 	}
+
 	bool operator<(const GameInfoPacked& o) const {
 		return i < o.i;
 	}
@@ -342,8 +350,12 @@ struct PositionPacked {
     : gi{0}, pop(0), lo(0), hi(0)
     {}
 
-    PositionPacked(uint64_t p, uint64_t l, uint64_t h)
-    : gi{0}, pop(p), lo(l), hi(h)
+	PositionPacked(const PositionPacked& o)
+	: gi{o.gi}, pop(o.pop), lo(o.lo), hi(o.hi)
+	{}
+
+    PositionPacked(uint16_t g, uint64_t p, uint64_t l, uint64_t h)
+    : gi{g}, pop(p), lo(l), hi(h)
     {}
 
     bool operator==(const PositionPacked& o) const {
@@ -413,6 +425,7 @@ public:
 	void decPieceCnt() { piece_cnt--; }
 	Side getOnMove() const { return on_move; }
 	void setOnMove(Side m) { on_move = m; }
+	void toggleOnMove() { on_move = (on_move == SIDE_WHITE) ? SIDE_BLACK : SIDE_WHITE; }
 	bool isGameActive() const { return getEndGameReason() == EGR_NONE; }
 	EndGameReason getEndGameReason() const { return end_game_reason; }
 	void setEndGameReason(EndGameReason r) { end_game_reason = r; }
@@ -475,6 +488,7 @@ private:
 public:
 	Board(bool init=true);
 	Board(Board& other);
+	Board(const PositionPacked& p);
 
 	GameInfo& gi() { return _p.gi(); }
 
@@ -494,6 +508,8 @@ public:
 	bool validate_move(Move mov, Side side);
 	void process_move(Move mov, Side side);
 	void move_piece(PiecePtr ptr, Pos pos);
+	PositionPacked get_packed() { return _p.pack(); }
+	Position getPosition() { return _p; }
 
 	void dump();
 	friend std::ostream& operator<<(std::ostream& os, const Board& b);

@@ -56,7 +56,8 @@ PositionPacked Position::pack()
         PiecePtr ptr = _b[bit];
         if (ptr->isEmpty())
             continue;
-        map |= static_cast<uint64_t>(ptr->toByte() << (cnt << 2ULL));
+        uint64_t mask = static_cast<uint64_t>(ptr->toByte());
+        map |= static_cast<uint64_t>(mask << (cnt << 2ULL));
         pop |= (1ULL << bit);
         cnt++;
         bitcnt++;
