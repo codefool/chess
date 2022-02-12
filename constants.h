@@ -485,7 +485,7 @@ public:
 
     void set(Pos pos, PieceType pt, Side s);
     void set(Pos pos, PiecePtr pp);
-    const PiecePtr& get(Pos pos) const;
+    PiecePtr get(Pos pos) const;
 
     Pos get_king_pos(Side side);
     std::vector<PiecePtr> get_pieces(Side side);

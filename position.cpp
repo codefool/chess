@@ -114,7 +114,7 @@ void Position::set(Pos pos, PiecePtr pp)
         _k[pp->getSide()] = pos;
 }
 
-const PiecePtr& Position::get(const Pos pos) const
+PiecePtr Position::get(const Pos pos) const
 {
     return _b[pos.toByte()];
 }

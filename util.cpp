@@ -41,7 +41,7 @@ void Pos::set(Rank ra, File fi) {
 }
 
 bool Pos::in_bounds() const {
-	return 0 <= _r && _r <= 8 && 0 <= _f && _f <= 8;
+	return 0 <= _r && _r < 8 && 0 <= _f && _f < 8;
 }
 
 Pos Pos::operator+(const Offset& o) const {

@@ -9,7 +9,7 @@
 #include <cstring>
 #include <map>
 #include <memory>
-#include <vector>
+#include <deque>
 #include <initializer_list>
 #include <algorithm>
 
@@ -112,9 +112,9 @@ private:
 		GameInfo _g;
 };
 
-std::vector<PositionPacked> work;
-std::vector<PositionPacked> resolved;
-std::vector<PositionPacked> worksubone;
+std::deque<PositionPacked> work;
+std::deque<PositionPacked> resolved;
+std::deque<PositionPacked> worksubone;
 
 const int CLEVEL = 32;
 const int CLEVELSUB1 = CLEVEL - 1;
@@ -126,8 +126,8 @@ int main() {
 
 
   while (!work.empty()) {
-    PositionPacked base_pos = work.back();
-    work.pop_back();
+    PositionPacked base_pos = work.front();
+    work.pop_front();
     resolved.push_back(base_pos);
 
     Board b(base_pos);
