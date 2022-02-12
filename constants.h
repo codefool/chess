@@ -162,7 +162,7 @@ public:
 	bool operator<(const Pos& o) const;
 	bool operator<=(const Pos& o) const;
 	bool operator==(const Pos& o) const;
-	uint8_t toByte();
+	uint8_t toByte() const;
 	void fromByte(uint8_t b);
 	const short r() const;
 	const short f() const;
@@ -230,7 +230,7 @@ public:
 	Side getSide() { return _s; }
 
 	// pack piece type and side into 4-bit value
-	uint8_t toByte();
+	uint8_t toByte() const;
 
 	static PiecePtr create(PieceType pt, Side s);
 	static PiecePtr EMPTY;
@@ -361,8 +361,17 @@ struct PositionPacked {
     bool operator==(const PositionPacked& o) const {
         return gi == o.gi && hi == o.hi && lo == o.lo && pop == o.pop;
     }
+
     bool operator<(const PositionPacked& o) const {
-        return gi < o.gi || pop < o.pop || hi < o.hi || lo < o.lo;
+		if ( gi == o.gi ) {
+			if (pop == o.pop) {
+				if (hi == o.hi)
+					return lo < o.lo;
+				return hi < o.hi;
+			}
+			return pop < o.pop;
+		}
+		return gi < o.gi;
     }
 };
 
@@ -429,6 +438,10 @@ public:
 	bool isGameActive() const { return getEndGameReason() == EGR_NONE; }
 	EndGameReason getEndGameReason() const { return end_game_reason; }
 	void setEndGameReason(EndGameReason r) { end_game_reason = r; }
+	bool anyCastlePossible() const
+	{
+		return isWksCastleEnabled() || isWqsCastleEnabled() || isBksCastleEnabled() || isBqsCastleEnabled();
+	}
 	bool isWksCastleEnabled() const { return wks_castle_enabled; }
 	void setWksCastleEnabled(bool s) { wks_castle_enabled = s;}
 	bool isWqsCastleEnabled() const { return wqs_castle_enabled; }
@@ -472,12 +485,14 @@ public:
 
     void set(Pos pos, PieceType pt, Side s);
     void set(Pos pos, PiecePtr pp);
-    PiecePtr get(Pos pos) const;
+    const PiecePtr& get(Pos pos) const;
 
     Pos get_king_pos(Side side);
     std::vector<PiecePtr> get_pieces(Side side);
 
-    bool is_square_empty(Pos pos) const;
+    const bool is_square_empty(Pos pos) const;
+
+	std::string fen_string() const;
 };
 
 class Board {
@@ -487,7 +502,7 @@ private:
 
 public:
 	Board(bool init=true);
-	Board(Board& other);
+	Board(const Board& other);
 	Board(const PositionPacked& p);
 
 	GameInfo& gi() { return _p.gi(); }

@@ -70,7 +70,7 @@ bool Pos::operator==(const Pos& o) const {
 	return _r == o._r && _f == o._f;
 }
 
-uint8_t Pos::toByte() {
+uint8_t Pos::toByte() const {
 	return (uint8_t)(_r<<3|_f);
 }
 

@@ -124,23 +124,26 @@ int main() {
   pos.init();
   work.push_back(pos.pack());
 
-  while (!work.empty()) {
-    PositionPacked src = work.back();
-    work.pop_back();
-    resolved.push_back(src);
 
-    Board b(src);
+  while (!work.empty()) {
+    PositionPacked base_pos = work.back();
+    work.pop_back();
+    resolved.push_back(base_pos);
+
+    Board b(base_pos);
+    std::cout << "base position:" << b.getPosition().fen_string() << std::endl;
 
     MoveList moves;
 
     b.get_all_moves(b.gi().getOnMove(), moves);
 
     for (Move mv : moves) {
-      Board bprime(b);
+      Board bprime(base_pos);
       bprime.process_move(mv, bprime.gi().getOnMove());
       // we need to flip the on-move
       Position pprime = bprime.getPosition();
       pprime.gi().toggleOnMove();
+      std::cout << pprime.fen_string() << std::endl;
       PositionPacked posprime = pprime.pack();
       if (bprime.gi().getPieceCnt() == CLEVELSUB1) {
         if (std::find(worksubone.begin(), worksubone.end(), posprime) != worksubone.end())

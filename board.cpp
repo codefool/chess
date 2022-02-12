@@ -43,7 +43,7 @@ Board::Board(bool init)
     }
 }
 
-Board::Board(Board& o)
+Board::Board(const Board& o)
 : _p(o._p)
 {
 }
@@ -237,7 +237,7 @@ void Board::gather_moves(PiecePtr p, std::vector<Dir> dirs, int range, MoveList&
 }
 
 Move* Board::check_square(PiecePtr p, Pos pos, bool occupied) {
-    PiecePtr other = _p.get(pos);
+    const PiecePtr& other = _p.get(pos);
 
     if ( other->isEmpty() )
         // empty square so record move and continue

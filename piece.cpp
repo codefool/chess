@@ -18,7 +18,7 @@ std::map<PieceType, const char *> Piece::s_n = {
 	{ PT_PAWN_OFF, "Pp" }
 };
 
-uint8_t Piece::toByte() {
+uint8_t Piece::toByte() const {
 	uint8_t r = static_cast<uint8_t>(_t);
 	if (_s == SIDE_BLACK)
 		r |= BLACK_MASK;
