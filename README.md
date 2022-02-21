@@ -112,3 +112,7 @@ For each position P:
    b. Check if P' exists.
    c. If not, add to table with state UNRESOLVED.
 4. Mark P as RESOLVED
+
+If there are no moves for a given position, then it is a terminating position:
+- if the on-side king is in check, it is checkmate
+- otherwise it is stalemate
