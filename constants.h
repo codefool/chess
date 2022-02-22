@@ -524,7 +524,7 @@ public:
 	void process_move(Move mov, Side side);
 	void move_piece(PiecePtr ptr, Pos pos);
 	PositionPacked get_packed() { return _p.pack(); }
-	Position getPosition() { return _p; }
+	Position& getPosition() { return _p; }
 
 	void dump();
 	friend std::ostream& operator<<(std::ostream& os, const Board& b);

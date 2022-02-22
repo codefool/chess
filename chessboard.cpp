@@ -128,14 +128,30 @@ int main() {
   while (!work.empty()) {
     PositionPacked base_pos = work.front();
     work.pop_front();
-    resolved.push_back(base_pos);
 
     Board b(base_pos);
-    std::cout << "base position:" << b.getPosition().fen_string() << std::endl;
 
     MoveList moves;
+    Side s = b.gi().getOnMove();
 
-    b.get_all_moves(b.gi().getOnMove(), moves);
+    b.get_all_moves(s, moves);
+    if (moves.size() == 0) {
+      // no moves - so either checkmate or stalemate
+      bool onside_in_check = b.test_for_attack(b.getPosition().get_king_pos(s), s);
+      if (onside_in_check) {
+        // checkmate
+        b.gi().setEndGameReason(EGR_CHECKMATE);
+      } else {
+        // stalemate
+        b.gi().setEndGameReason(EGR_14A_STALEMATE);
+      }
+      std::cout << "checkmate/stalemate:" << b.getPosition().fen_string() << std::endl;
+      resolved.push_back(b.get_packed());
+      continue;
+    }
+
+    resolved.push_back(base_pos);
+    std::cout << "base position:" << b.getPosition().fen_string() << std::endl;
 
     for (Move mv : moves) {
       Board bprime(base_pos);

@@ -53,6 +53,7 @@ Board::Board(const PositionPacked& p)
 {}
 
 // collect all moves for the existing pieces for side onmove
+//
 void Board::get_all_moves(Side side, MoveList& moves) {
     // TODO: if the king is in check, then only moves that
     // get the king out of check are permissable.
