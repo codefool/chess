@@ -1,5 +1,30 @@
+// CREATE TABLE `position_xx` (
+// 	`id` BIGINT(1) NOT NULL AUTO_INCREMENT,
+// 	`gi` SMALLINT(1),
+// 	`hi` BIGINT(1),
+// 	`lo` BIGINT(1),
+// 	`move_cnt` INT(1),
+// 	`ref_cnt` INT(1),
+// 	UNIQUE KEY `pos` (`gi`,`hi`,`lo`) USING BTREE,
+// 	PRIMARY KEY (`id`)
+// );
+
+// create table position_31 select id, gi, hi, lo, move_cnt, ref_cnt from position_32;
+// create table position_30 select id, gi, hi, lo, move_cnt, ref_cnt from position_32;
+
+
+// CREATE TABLE `moves_32` (
+// 	`src` BIGINT(1),
+// 	`move` SMALLINT(1),
+// 	`trg` BIGINT(1),
+// 	KEY `src_idx` (`src`) USING BTREE
+// );
+
+// create table moves_31 select src, move, trg from moves_32;
+
 #pragma once
 #include <cstring>
+#include <mysqlx/xdevapi.h>
 
 #include "constants.h"
 #include "gameinfo.h"

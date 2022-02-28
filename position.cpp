@@ -176,7 +176,7 @@ std::string Position::fen_string() const
     for(int r = R8; r >= R1; r--) {
         uint8_t rank = r << 3;
         for(int f = Fa; f <= Fh; f++) {
-            const PiecePtr& p = get(rank|f);
+            const PiecePtr p = get(rank|f);
             if(p->isEmpty())
                 emptyCnt++;
             else

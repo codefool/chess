@@ -13,6 +13,8 @@
 #include <initializer_list>
 #include <algorithm>
 
+#include <mysqlx/xdevapi.h>
+
 #include "constants.h"
 
 /*
@@ -118,8 +120,17 @@ std::deque<PositionPacked> worksubone;
 
 const int CLEVEL = 32;
 const int CLEVELSUB1 = CLEVEL - 1;
+unsigned long long collisions = 0ULL;
+int checkmate = 0;
 
 int main() {
+
+  {
+      std::string url = "root@localhost:33060";
+      mysqlx::Session sess(url);
+  }
+
+
   Position pos;
   pos.init();
   work.push_back(pos.pack());
@@ -145,6 +156,7 @@ int main() {
         // stalemate
         b.gi().setEndGameReason(EGR_14A_STALEMATE);
       }
+      checkmate++;
       std::cout << "checkmate/stalemate:" << b.getPosition().fen_string() << std::endl;
       resolved.push_back(b.get_packed());
       continue;
@@ -166,64 +178,20 @@ int main() {
           continue;
         worksubone.push_back(posprime);
       } else {
-        if (std::find(work.begin(), work.end(), posprime) != work.end())
+        if (std::find(work.begin(), work.end(), posprime) != work.end()) {
+          ++collisions;
           continue;
-        if (std::find(resolved.begin(), resolved.end(), posprime) != resolved.end())
+        }
+        if (std::find(resolved.begin(), resolved.end(), posprime) != resolved.end()) {
+          ++collisions;
           continue;
+        }
         work.push_back(posprime);
       }
     }
   }
 
-
-
-
-
-	Board b(true);
-
-  //auto king = b.place_piece(PT_KING, SIDE_WHITE, R3, Fc);
-  // auto knight = b.place_piece(PT_KNIGHT, SIDE_BLACK, R3, Fc);
-  // b.place_piece(PT_PAWN, SIDE_BLACK, R2, Fa);
-  // b.place_piece(PT_PAWN, SIDE_BLACK, R6, Fe);
-  // auto pawn = b.place_piece(PT_PAWN, SIDE_WHITE, R2, Fa);
-
-  // b.place_piece(PT_KING, SIDE_WHITE, R1, Fe);
-  // b.place_piece(PT_ROOK, SIDE_WHITE, R2, Fa);
-  // b.place_piece(PT_QUEEN, SIDE_BLACK, R4, Fh);
-  // b.process_move(Move(MV_MOVE, Pos(R2,Fc), Pos(R5,Fc)), SIDE_WHITE);
-  // b.process_move(Move(MV_MOVE, Pos(R7,Fb), Pos(R5,Fb)), SIDE_BLACK);
-	// b.gi().setEnPassantFile(EP_FB);
-
-  b.dump();
-
-  MoveList moves;
-  //b.get_moves(pawn, moves);
-  b.get_all_moves(SIDE_WHITE, moves);
-
-  for (auto m : moves) {
-    std::cout << m << std::endl;
-  }
-
-  b.validate_move(moves.front(), SIDE_WHITE);
-
-  uint64_t pop = 0xffff00000000ffff;
-  uint64_t hi  = 0xdcb9abcdeeeeeeee;
-  uint64_t lo  = 0x6666666654312345;
-
-  PositionPacked pp(0, pop, lo, hi);
-  Position p(pp);
-  for(int r = R8; r >= R1; r--) {
-      uint8_t rank = r << 3;
-      for(int f = Fa; f <= Fh; f++) {
-          std::cout << ' ' << p.get( rank|f )->getPieceGlyph();
-      }
-      std::cout << std::endl;
-  }
-
-  PositionPacked pt = p.pack();
-  std::cout << (pp.pop == pt.pop) << std::endl;
-
-
+  std::cout << resolved.size() << ' ' << worksubone.size() << ' ' << collisions << ' ' << checkmate << std::endl;
 
 	return 0;
 }
