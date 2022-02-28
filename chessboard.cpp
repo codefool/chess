@@ -16,6 +16,7 @@
 #include <mysqlx/xdevapi.h>
 
 #include "constants.h"
+#include "db.h"
 
 /*
 Maximum possible moves for any given position
@@ -124,15 +125,20 @@ unsigned long long collisions = 0ULL;
 int checkmate = 0;
 
 int main() {
+  Position pos;
+  pos.init();
+  PositionPacked pp = pos.pack();
 
   {
       std::string url = "root@localhost:33060";
-      mysqlx::Session sess(url);
+      DatabaseObject db(url);
+      //db.create_position_table(1);
+      // db.create_moves_table(1);
+      db.create_position(1, pp);
+      db.get_next_unresolved_position(1);
   }
 
 
-  Position pos;
-  pos.init();
   work.push_back(pos.pack());
 
 
