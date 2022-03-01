@@ -28,6 +28,13 @@
 #include "constants.h"
 
 typedef unsigned long long PositionId;
+
+struct PositionRecord
+{
+    PositionId     id;
+    PositionPacked pp;
+};
+
 class DatabaseObject
 {
 private:
@@ -39,7 +46,11 @@ public:
     void create_position_table(int level);
     void create_moves_table(int level);
 
-    PositionId get_next_unresolved_position(int level);
+    PositionRecord get_next_unresolved_position(int level);
     PositionId create_position(int level, PositionPacked& pos);
+    void update_position(int level, PositionRecord& rec);
+    void create_move(int level, PositionId src, Move move, PositionId trg);
+    void set_move_count(int level, PositionId id, int size);
+
 
 };

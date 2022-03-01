@@ -129,22 +129,16 @@ int main() {
   pos.init();
   PositionPacked pp = pos.pack();
 
-  {
-      std::string url = "root@localhost:33060";
-      DatabaseObject db(url);
-      //db.create_position_table(1);
-      // db.create_moves_table(1);
-      db.create_position(1, pp);
-      db.get_next_unresolved_position(1);
-  }
+  std::string url = "root@localhost:33060";
+  DatabaseObject db(url);
+  db.create_position_table(CLEVEL);
+  db.create_position_table(CLEVELSUB1);
+  // db.create_moves_table(1);
+  db.create_position(CLEVEL, pp);
+  PositionRecord pr = db.get_next_unresolved_position(CLEVEL);
 
-
-  work.push_back(pos.pack());
-
-
-  while (!work.empty()) {
-    PositionPacked base_pos = work.front();
-    work.pop_front();
+  while (pr.id != 0) {
+    PositionPacked base_pos = pr.pp;
 
     Board b(base_pos);
 
@@ -164,37 +158,28 @@ int main() {
       }
       checkmate++;
       std::cout << "checkmate/stalemate:" << b.getPosition().fen_string() << std::endl;
-      resolved.push_back(b.get_packed());
-      continue;
-    }
+      pr.pp = b.get_packed();
+      db.update_position(CLEVEL, pr);
+    } else {
+      std::cout << "base position:" << b.getPosition().fen_string() << std::endl;
+      db.set_move_count(CLEVEL, pr.id, moves.size());
 
-    resolved.push_back(base_pos);
-    std::cout << "base position:" << b.getPosition().fen_string() << std::endl;
-
-    for (Move mv : moves) {
-      Board bprime(base_pos);
-      bprime.process_move(mv, bprime.gi().getOnMove());
-      // we need to flip the on-move
-      Position pprime = bprime.getPosition();
-      pprime.gi().toggleOnMove();
-      std::cout << pprime.fen_string() << std::endl;
-      PositionPacked posprime = pprime.pack();
-      if (bprime.gi().getPieceCnt() == CLEVELSUB1) {
-        if (std::find(worksubone.begin(), worksubone.end(), posprime) != worksubone.end())
-          continue;
-        worksubone.push_back(posprime);
-      } else {
-        if (std::find(work.begin(), work.end(), posprime) != work.end()) {
-          ++collisions;
-          continue;
+      for (Move mv : moves) {
+        Board bprime(base_pos);
+        bprime.process_move(mv, bprime.gi().getOnMove());
+        // we need to flip the on-move
+        Position pprime = bprime.getPosition();
+        pprime.gi().toggleOnMove();
+        std::cout << pprime.fen_string() << std::endl;
+        PositionPacked posprime = pprime.pack();
+        if (bprime.gi().getPieceCnt() == CLEVELSUB1) {
+          db.create_position(CLEVELSUB1, posprime);
+        } else {
+          db.create_position(CLEVEL, posprime);
         }
-        if (std::find(resolved.begin(), resolved.end(), posprime) != resolved.end()) {
-          ++collisions;
-          continue;
-        }
-        work.push_back(posprime);
       }
     }
+    pr = db.get_next_unresolved_position(CLEVEL);
   }
 
   std::cout << resolved.size() << ' ' << worksubone.size() << ' ' << collisions << ' ' << checkmate << std::endl;
