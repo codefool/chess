@@ -1,4 +1,6 @@
 #include <iostream>
+#include <mutex>
+
 #include "constants.h"
 #include "db.h"
 
@@ -6,6 +8,7 @@ std::istream& operator>>(std::istream& is, PositionPacked& p) {
     return is;
 }
 
+std::mutex ins_mtx;
 
 DatabaseObject::DatabaseObject(std::string& url)
 : sess(url)
@@ -26,6 +29,7 @@ void DatabaseObject::create_position_table(int level)
             "move_cnt SMALLINT DEFAULT 0,"
             "ref_cnt SMALLINT DEFAULT 0,"
             "resolved BOOLEAN DEFAULT FALSE,"
+            "endgame TINYINT DEFAULT 0,"
         "PRIMARY KEY (id),"
         "UNIQUE KEY pos_idx (gi,pop,hi,lo) USING BTREE);";
     sess.sql(ss.str()).execute();
@@ -48,7 +52,10 @@ PositionRecord DatabaseObject::get_next_unresolved_position(int level)
     PositionRecord pr;
     std::stringstream ss;
     sess.sql("START TRANSACTION").execute();
-    ss << "SELECT id, gi, pop, hi, lo FROM position_" << level << " WHERE resolved=false LIMIT 1 FOR UPDATE;";
+    ss << "SELECT id, gi, pop, hi, lo FROM position_" << level
+       << " WHERE resolved=false "
+       << "ORDER BY id ASC "
+       << "LIMIT 1 FOR UPDATE SKIP LOCKED;";
     mysqlx::RowResult res = sess.sql(ss.str()).execute();
     if (res.count() > 0) {
         mysqlx::Row row = res.fetchOne();
@@ -76,49 +83,59 @@ PositionId DatabaseObject::create_position(int level, PositionPacked& pos)
 {
     PositionId id;
     std::stringstream ss;
+    // std::lock_guard<std::mutex> lock(ins_mtx);
     sess.sql("START TRANSACTION").execute();
-    ss << "SELECT id FROM position_" << level << " WHERE gi=" << uint32_t(pos.gi.i)
-       << " AND pop=" << uint64_t(pos.pop)
-       << " AND hi=" << uint64_t(pos.hi)
-       << " AND lo=" << uint64_t(pos.lo)
-       << " FOR UPDATE;";
-    mysqlx::RowResult res = sess.sql(ss.str()).execute();
-    if (res.count() > 0) {
-        id = res.fetchOne().get(0).get<uint64_t>();
-
-        ss.str(std::string());
-        ss << "UPDATE position_" << level << " SET ref_cnt = ref_cnt + 1 WHERE id = " << id << ";";
-        sess.sql(ss.str()).execute();
-    } else {
-        ss.str(std::string());
-        ss << "INSERT INTO position_" << level << "(gi,pop,hi,lo) VALUES ("
+    try
+    {
+        ss << "INSERT INTO position_" << level
+           << "(gi,pop,hi,lo) VALUES ("
            << uint32_t(pos.gi.i) << ','
            << uint64_t(pos.pop) << ','
            << uint64_t(pos.hi) << ','
-           << uint64_t(pos.lo) << ");";
-        std::string sql(ss.str());
-        sess.sql(sql).execute();
+           << uint64_t(pos.lo)
+           << ");";
+        sess.sql(ss.str()).execute();
         mysqlx::RowResult res = sess.sql("SELECT LAST_INSERT_ID();").execute();
         id = res.fetchOne().get(0).get<uint64_t>();
+    } catch(mysqlx::abi2::r0::Error err) {
+        // key already exists - so increment reference count
+        for (int retryCnt = 0; retryCnt < 4; retryCnt++)
+        {
+            try
+            {
+                ss.str(std::string());
+                ss << "SELECT id FROM position_" << level
+                   << " WHERE gi=" << uint32_t(pos.gi.i)
+                   << " AND pop=" << uint64_t(pos.pop)
+                   << " AND hi=" << uint64_t(pos.hi)
+                   << " AND lo=" << uint64_t(pos.lo)
+                   << " FOR UPDATE;";
+                mysqlx::RowResult res = sess.sql(ss.str()).execute();
+                id = res.fetchOne().get(0).get<uint64_t>();
+                ss.str(std::string());
+                ss << "UPDATE position_" << level
+                   << " SET ref_cnt = ref_cnt + 1 "
+                   << "WHERE id = " << id << ";";
+                sess.sql(ss.str()).execute();
+                break;
+            } catch(const std::exception& e) {
+                std::cerr << ss.str() << ' ' << e.what() << '\n';
+            }
+        }
     }
     sess.sql("COMMIT;").execute();
 
     return id;
 }
 
-void DatabaseObject::update_position(int level, PositionRecord& rec)
+void DatabaseObject::set_endgame_reason(int level, PositionId id, EndGameReason egr)
 {
     std::stringstream ss;
     sess.sql("START TRANSACTION").execute();
-    ss << "SELECT id FROM position_" << level << " WHERE id=" << uint64_t(rec.id) << " FOR UPDATE";
-    sess.sql(ss.str()).execute();
-    ss.str(std::string());
     ss << "UPDATE position_" << level << " SET"
-       <<  " gi="  << uint32_t(rec.pp.gi.i)
-       << ", pop=" << uint64_t(rec.pp.pop)
-       << ", hi="  << uint64_t(rec.pp.hi)
-       << ", lo="  << uint64_t(rec.pp.lo)
-       << " WHERE id=" << uint64_t(rec.id);
+       << " endgame="  << egr
+       << " WHERE id=" << uint64_t(id)
+       << ";";
     sess.sql(ss.str()).execute();
     sess.sql("COMMIT;").execute();
 }
@@ -127,15 +144,11 @@ void DatabaseObject::set_move_count(int level, PositionId id, int size)
 {
     std::stringstream ss;
     sess.sql("START TRANSACTION").execute();
-    ss << "SELECT id FROM position_" << level << " WHERE id=" << uint64_t(id) << " FOR UPDATE";
-    sess.sql(ss.str()).execute();
-    ss.str(std::string());
     ss << "UPDATE position_" << level << " SET"
-       <<  " move_cnt="  << int32_t(size)
+       << " move_cnt="  << int32_t(size)
        << " WHERE id=" << uint64_t(id);
     sess.sql(ss.str()).execute();
     sess.sql("COMMIT;").execute();
-
 }
 
 // check to see if the position exists in the level table. If so,
@@ -148,9 +161,9 @@ void DatabaseObject::create_move(int level, PositionId src, Move move, PositionI
     std::stringstream ss;
     sess.sql("START TRANSACTION").execute();
     ss << "INSERT INTO move_" << level << "(src,move,trg) VALUES ("
-        << uint64_t(src) << ','
-        << uint8_t(move.pack().b) << ','
-        << uint64_t(trg);
+       << uint64_t(src) << ','
+       << uint8_t(move.pack().b) << ','
+       << uint64_t(trg);
     sess.sql(ss.str()).execute();
     sess.sql("COMMIT;").execute();
 }

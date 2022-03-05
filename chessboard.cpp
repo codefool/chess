@@ -7,11 +7,14 @@
 //
 #include <iostream>
 #include <cstring>
+#include <chrono>
 #include <map>
 #include <memory>
 #include <deque>
 #include <initializer_list>
 #include <algorithm>
+#include <signal.h>
+#include <thread>
 
 #include <mysqlx/xdevapi.h>
 
@@ -110,11 +113,6 @@ Which pieces do we need to know if they have moved or not?
   - no pieces between the king and rook
 */
 
-class Game {
-private:
-		GameInfo _g;
-};
-
 std::deque<PositionPacked> work;
 std::deque<PositionPacked> resolved;
 std::deque<PositionPacked> worksubone;
@@ -123,21 +121,24 @@ const int CLEVEL = 32;
 const int CLEVELSUB1 = CLEVEL - 1;
 unsigned long long collisions = 0ULL;
 int checkmate = 0;
+bool stop = false;
 
-int main() {
-  Position pos;
-  pos.init();
-  PositionPacked pp = pos.pack();
 
+void worker(int level)
+{
+  std::cout << std::this_thread::get_id() << " starting" << std::endl;
   std::string url = "root@localhost:33060";
   DatabaseObject db(url);
-  db.create_position_table(CLEVEL);
-  db.create_position_table(CLEVELSUB1);
-  // db.create_moves_table(1);
-  db.create_position(CLEVEL, pp);
-  PositionRecord pr = db.get_next_unresolved_position(CLEVEL);
 
-  while (pr.id != 0) {
+
+  while (!stop) {
+    PositionRecord pr = db.get_next_unresolved_position(level);
+    if (pr.id == 0) {
+      using namespace std::chrono_literals;
+      std::this_thread::sleep_for(500ms);
+      continue;
+    }
+
     PositionPacked base_pos = pr.pp;
 
     Board b(base_pos);
@@ -149,20 +150,14 @@ int main() {
     if (moves.size() == 0) {
       // no moves - so either checkmate or stalemate
       bool onside_in_check = b.test_for_attack(b.getPosition().get_king_pos(s), s);
-      if (onside_in_check) {
-        // checkmate
-        b.gi().setEndGameReason(EGR_CHECKMATE);
-      } else {
-        // stalemate
-        b.gi().setEndGameReason(EGR_14A_STALEMATE);
-      }
+      EndGameReason egr = (onside_in_check) ? EGR_CHECKMATE : EGR_14A_STALEMATE;
+      db.set_endgame_reason(level, pr.id, egr);
       checkmate++;
-      std::cout << "checkmate/stalemate:" << b.getPosition().fen_string() << std::endl;
+      std::cout << std::this_thread::get_id() << " checkmate/stalemate:" << b.getPosition().fen_string() << std::endl;
       pr.pp = b.get_packed();
-      db.update_position(CLEVEL, pr);
     } else {
-      std::cout << "base position:" << b.getPosition().fen_string() << std::endl;
-      db.set_move_count(CLEVEL, pr.id, moves.size());
+      std::cout << std::this_thread::get_id() << " base position:" << b.getPosition().fen_string() << std::endl;
+      db.set_move_count(level, pr.id, moves.size());
 
       for (Move mv : moves) {
         Board bprime(base_pos);
@@ -170,19 +165,106 @@ int main() {
         // we need to flip the on-move
         Position pprime = bprime.getPosition();
         pprime.gi().toggleOnMove();
-        std::cout << pprime.fen_string() << std::endl;
+        std::cout << std::this_thread::get_id() << ' ' << pprime.fen_string() << std::endl;
         PositionPacked posprime = pprime.pack();
-        if (bprime.gi().getPieceCnt() == CLEVELSUB1) {
-          db.create_position(CLEVELSUB1, posprime);
+        if (bprime.gi().getPieceCnt() < level) {
+          db.create_position(level - 1, posprime);
         } else {
-          db.create_position(CLEVEL, posprime);
+          db.create_position(level, posprime);
         }
       }
     }
     pr = db.get_next_unresolved_position(CLEVEL);
   }
+}
 
-  std::cout << resolved.size() << ' ' << worksubone.size() << ' ' << collisions << ' ' << checkmate << std::endl;
+void ctrl_c_handler(int s) {
+  stop = true;
+}
 
+int main() {
+  struct sigaction sigIntHandler;
+
+  sigIntHandler.sa_handler = ctrl_c_handler;
+  sigemptyset(&sigIntHandler.sa_mask);
+  sigIntHandler.sa_flags = 0;
+
+  sigaction(SIGINT, &sigIntHandler, NULL);
+
+  Position pos;
+  pos.init();
+  PositionPacked pp = pos.pack();
+
+  {
+    std::string url = "root@localhost:33060";
+    DatabaseObject db(url);
+    db.create_position_table(CLEVEL);
+    db.create_position_table(CLEVELSUB1);
+    // db.create_moves_table(1);
+    db.create_position(CLEVEL, pp);
+  }
+
+  std::thread t0(worker, CLEVEL);
+  std::thread t1(worker, CLEVEL);
+  std::thread t2(worker, CLEVEL);
+  std::thread t3(worker, CLEVEL);
+  std::thread t4(worker, CLEVEL);
+  // std::thread t5(worker, CLEVEL);
+
+  // PositionRecord pr = db.get_next_unresolved_position(CLEVEL);
+
+  // while (!stop && pr.id != 0) {
+  //   PositionPacked base_pos = pr.pp;
+
+  //   Board b(base_pos);
+
+  //   MoveList moves;
+  //   Side s = b.gi().getOnMove();
+
+  //   b.get_all_moves(s, moves);
+  //   if (moves.size() == 0) {
+  //     // no moves - so either checkmate or stalemate
+  //     bool onside_in_check = b.test_for_attack(b.getPosition().get_king_pos(s), s);
+  //     if (onside_in_check) {
+  //       // checkmate
+  //       b.gi().setEndGameReason(EGR_CHECKMATE);
+  //     } else {
+  //       // stalemate
+  //       b.gi().setEndGameReason(EGR_14A_STALEMATE);
+  //     }
+  //     checkmate++;
+  //     std::cout << "checkmate/stalemate:" << b.getPosition().fen_string() << std::endl;
+  //     pr.pp = b.get_packed();
+  //     db.update_position(CLEVEL, pr);
+  //   } else {
+  //     std::cout << "base position:" << b.getPosition().fen_string() << std::endl;
+  //     db.set_move_count(CLEVEL, pr.id, moves.size());
+
+  //     for (Move mv : moves) {
+  //       Board bprime(base_pos);
+  //       bprime.process_move(mv, bprime.gi().getOnMove());
+  //       // we need to flip the on-move
+  //       Position pprime = bprime.getPosition();
+  //       pprime.gi().toggleOnMove();
+  //       std::cout << pprime.fen_string() << std::endl;
+  //       PositionPacked posprime = pprime.pack();
+  //       if (bprime.gi().getPieceCnt() == CLEVELSUB1) {
+  //         db.create_position(CLEVELSUB1, posprime);
+  //       } else {
+  //         db.create_position(CLEVEL, posprime);
+  //       }
+  //     }
+  //   }
+  //   pr = db.get_next_unresolved_position(CLEVEL);
+  // }
+
+  // std::cout << resolved.size() << ' ' << worksubone.size() << ' ' << collisions << ' ' << checkmate << std::endl;
+
+  t0.join();
+  t1.join();
+  t2.join();
+  t3.join();
+  t4.join();
+  // t5.join();
 	return 0;
 }

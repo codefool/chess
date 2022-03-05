@@ -48,7 +48,7 @@ public:
 
     PositionRecord get_next_unresolved_position(int level);
     PositionId create_position(int level, PositionPacked& pos);
-    void update_position(int level, PositionRecord& rec);
+    void set_endgame_reason(int level, PositionId id, EndGameReason egr);
     void create_move(int level, PositionId src, Move move, PositionId trg);
     void set_move_count(int level, PositionId id, int size);
 

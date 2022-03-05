@@ -1,7 +1,7 @@
 CC = g++
 CFLAGS = -g -std=c++17
 INCLUDES=-I /usr/include/mysql-cppconn-8
-LIBS=-L/usr/lib/x86_64-linux-gnu -lmysqlcppconn8 -lmysqlcppconn
+LIBS=-L/usr/lib/x86_64-linux-gnu -lmysqlcppconn8 -lmysqlcppconn -lpthread
 HEADERS = constants.h
 OBJECTS = chessboard.o board.o piece.o util.o gameinfo.o db.o position.o
 

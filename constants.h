@@ -252,7 +252,6 @@ union MovePacked {
 /*
 xxxx x... .... .... .... .... .... .... = number of active pieces on the board (0..31)
 .... .x.. .... .... .... .... .... .... = side on move: 0-white, 1-black
-.... ..xx xx.. .... .... .... .... .... = end game reason
 .... .... ..x. .... .... .... .... .... = en passant latch
 .... .... ...x xx.. .... .... .... .... = pawn on file xxx is subject to en passant
 .... .... .... ..x. .... .... .... .... = white castle kingside disabled  (WK or WKR has moved)
@@ -267,9 +266,7 @@ It is imperitive that all unused bits - or bits that are out of scope - be set t
 union GameInfoPacked {
 	uint32_t i;
 	struct {
-		uint32_t unused            : 11; // for future use
-		//
-		uint32_t end_game_reason   :  4;
+		uint32_t unused            : 15; // for future use
 		// en passant
 		// If set, the pawn that rests on file en_passant_file moved two
 		// positions. This signals that a pawn subject to en passant capture
@@ -405,8 +402,6 @@ private:
 	// number of active pieces on the board (1..31)
 	short           piece_cnt;
 	Side            on_move; // 0=white on move, 1=black
-	//
-	EndGameReason end_game_reason;
 	// en passant
 	// If set, the pawn that rests on file en_passant_file moved two
 	// positions. This signals that a pawn subject to en passant capture
@@ -435,9 +430,6 @@ public:
 	Side getOnMove() const { return on_move; }
 	void setOnMove(Side m) { on_move = m; }
 	void toggleOnMove() { on_move = (on_move == SIDE_WHITE) ? SIDE_BLACK : SIDE_WHITE; }
-	bool isGameActive() const { return getEndGameReason() == EGR_NONE; }
-	EndGameReason getEndGameReason() const { return end_game_reason; }
-	void setEndGameReason(EndGameReason r) { end_game_reason = r; }
 	bool anyCastlePossible() const
 	{
 		return isWksCastleEnabled() || isWqsCastleEnabled() || isBksCastleEnabled() || isBqsCastleEnabled();

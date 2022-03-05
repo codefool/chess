@@ -19,7 +19,6 @@ void GameInfo::init()
 {
 	setPieceCnt(32);
 	setOnMove(SIDE_WHITE);
-	setEndGameReason(EGR_NONE);
 	setWksCastleEnabled(true);
 	setWqsCastleEnabled(true);
 	setBksCastleEnabled(true);
@@ -32,7 +31,6 @@ GameInfo& GameInfo::unpack(const GameInfoPacked& p)
 {
     setPieceCnt(static_cast<short>(p.f.piece_cnt));
     setOnMove(static_cast<Side>(p.f.on_move));
-    setEndGameReason(static_cast<EndGameReason>(p.f.end_game_reason));
     setEnPassantFile(static_cast<EnPassantFile>(en_passant_file));
     setWksCastleEnabled(p.f.wks_castle_enabled == 1);
     setWqsCastleEnabled(p.f.wqs_castle_enabled == 1);
@@ -47,7 +45,6 @@ const GameInfoPacked GameInfo::pack() const
     p.i                    = 0;
     p.f.piece_cnt          = static_cast<uint32_t>(piece_cnt);
     p.f.on_move            = static_cast<uint32_t>(on_move);
-    p.f.end_game_reason    = static_cast<uint32_t>(end_game_reason);
     p.f.wks_castle_enabled = static_cast<uint32_t>(wks_castle_enabled);
     p.f.wqs_castle_enabled = static_cast<uint32_t>(wqs_castle_enabled);
     p.f.bks_castle_enabled = static_cast<uint32_t>(bks_castle_enabled);
