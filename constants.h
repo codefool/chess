@@ -115,11 +115,11 @@ union Nibbles {
 
 // the MoveAction is packed to 4 bits, so 0..15
 enum MoveAction {
-	MV_MOVE             = 0,
-	MV_CASTLE_KINGSIDE  = 1,
-	MV_CASTLE_QUEENSIDE = 2,
-	MV_EN_PASSANT       = 3,
-	// MV_UNUSED = 4,
+	MV_NONE             = 0,
+	MV_MOVE             = 1,
+	MV_CASTLE_KINGSIDE  = 2,
+	MV_CASTLE_QUEENSIDE = 3,
+	MV_EN_PASSANT       = 4,
 	// MV_UNUSED = 5,
 	// MV_UNUSED = 6,
 	// MV_UNUSED = 7,
@@ -381,6 +381,7 @@ private:
 	Pos         _t;
 
 public:
+	Move();
 	Move(MoveAction a, Pos from, Pos to);
 	void setAction(MoveAction a);
 	MoveAction getAction();

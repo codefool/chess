@@ -44,12 +44,10 @@ public:
     DatabaseObject(std::string& url);
 
     void create_position_table(int level);
-    void create_moves_table(int level);
 
     PositionRecord get_next_unresolved_position(int level);
-    PositionId create_position(int level, PositionPacked& pos);
+    PositionId create_position(int level, PositionId src, Move move, PositionPacked& pos);
     void set_endgame_reason(int level, PositionId id, EndGameReason egr);
-    void create_move(int level, PositionId src, Move move, PositionId trg);
     void set_move_count(int level, PositionId id, int size);
 
 

@@ -168,14 +168,15 @@ void worker(int level)
         std::cout << std::this_thread::get_id() << ' ' << pprime.fen_string() << std::endl;
         PositionPacked posprime = pprime.pack();
         if (bprime.gi().getPieceCnt() < level) {
-          db.create_position(level - 1, posprime);
+          db.create_position(level - 1, pr.id, mv, posprime);
         } else {
-          db.create_position(level, posprime);
+          db.create_position(level, pr.id, mv, posprime);
         }
       }
     }
     pr = db.get_next_unresolved_position(CLEVEL);
   }
+  std::cout << std::this_thread::get_id() << " stopping" << std::endl;
 }
 
 void ctrl_c_handler(int s) {
@@ -201,7 +202,7 @@ int main() {
     db.create_position_table(CLEVEL);
     db.create_position_table(CLEVELSUB1);
     // db.create_moves_table(1);
-    db.create_position(CLEVEL, pp);
+    db.create_position(CLEVEL, 0, Move(), pp);
   }
 
   std::thread t0(worker, CLEVEL);
@@ -209,7 +210,7 @@ int main() {
   std::thread t2(worker, CLEVEL);
   std::thread t3(worker, CLEVEL);
   std::thread t4(worker, CLEVEL);
-  // std::thread t5(worker, CLEVEL);
+  std::thread t5(worker, CLEVEL);
 
   // PositionRecord pr = db.get_next_unresolved_position(CLEVEL);
 
@@ -265,6 +266,6 @@ int main() {
   t2.join();
   t3.join();
   t4.join();
-  // t5.join();
+  t5.join();
 	return 0;
 }

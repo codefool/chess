@@ -101,7 +101,9 @@ Pos Pos::withFile(File f) {
 	return Pos(_r, f);
 }
 
-
+Move::Move()
+: _a{MV_NONE}, _s{0}, _t{0}
+{}
 
 Move::Move(MoveAction a, Pos from, Pos to)
 : _a{a}, _s{from}, _t{to}
