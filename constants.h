@@ -98,21 +98,6 @@ struct Vector {
 	std::vector<Dir> d;
 };
 
-union Nibbles {
-	uint8_t b;
-	struct {
-		uint8_t lo : 4;
-		uint8_t hi : 4;
-	} f;
-	Nibbles(short l, short h) {
-		f.lo = static_cast<uint8_t>(l & 0x0f);
-		f.hi = static_cast<uint8_t>(h & 0x0f);
-	}
-	Nibbles(uint8_t by)
-	: b(by)
-	{}
-};
-
 // the MoveAction is packed to 4 bits, so 0..15
 enum MoveAction {
 	MV_NONE             = 0,
@@ -239,14 +224,15 @@ public:
 
 #pragma pack(1)
 union MovePacked {
-	uint8_t b;
+	uint16_t i;
 	struct {
-		uint8_t action    : 4;
-		uint8_t source    : 6;
-		uint8_t target    : 6;
+		uint16_t action    : 4;
+		uint16_t source    : 6;
+		uint16_t target    : 6;
 	} f;
 
-	MovePacked() : b{0} {}
+	MovePacked() : i{0} {}
+	MovePacked(uint16_t ii) : i{ii} {}
 };
 
 /*

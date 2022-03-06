@@ -3,16 +3,22 @@ CFLAGS = -g -std=c++17
 INCLUDES=-I /usr/include/mysql-cppconn-8
 LIBS=-L/usr/lib/x86_64-linux-gnu -lmysqlcppconn8 -lmysqlcppconn -lpthread
 HEADERS = constants.h
-OBJECTS = chessboard.o board.o piece.o util.o gameinfo.o db.o position.o
+OBJECTS = board.o piece.o util.o gameinfo.o db.o position.o
 
 .cpp.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c $<
 
-a.out : $(OBJECTS) $(HEADERS)
-	$(CC) $(CFLAGS) $(OBJECTS) $(LIBS)
+all: a.out cg
+
+a.out : chessboard.o $(OBJECTS) $(HEADERS)
+	$(CC) $(CFLAGS) chessboard.o $(OBJECTS) $(LIBS)
+
+cg : cg.o $(OBJECTS) $(HEADERS)
+	$(CC) $(CFLAGS) cg.o $(OBJECTS) $(LIBS) -o cg
 
 board.o: board.cpp $(HEADERS)
 chessboard.o: chessboard.cpp $(HEADERS)
+cg.o : cg.cpp $(HEADERS)
 piece.o: piece.cpp $(HEADERS)
 util.o: util.cpp $(HEADERS)
 gameinfo.o: gameinfo.cpp $(HEADERS)

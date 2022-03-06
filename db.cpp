@@ -23,7 +23,7 @@ void DatabaseObject::create_position_table(int level)
         "position_" << level << "("
             "id BIGINT unsigned NOT NULL AUTO_INCREMENT,"
             "src BIGINT unsigned NOT NULL,"
-            "move TINYINT unsigned NOT NULL,"
+            "move SMALLINT unsigned NOT NULL,"
             "gi INT unsigned DEFAULT NULL,"
             "pop BIGINT unsigned DEFAULT NULL,"
             "hi BIGINT unsigned DEFAULT NULL,"
@@ -43,7 +43,7 @@ PositionRecord DatabaseObject::get_next_unresolved_position(int level)
     PositionRecord pr;
     std::stringstream ss;
     sess.sql("START TRANSACTION").execute();
-    ss << "SELECT id, gi, pop, hi, lo FROM position_" << level
+    ss << "SELECT id, src, move, gi, pop, hi, lo FROM position_" << level
        << " WHERE resolved=false "
        << "ORDER BY id ASC "
        << "LIMIT 1 FOR UPDATE SKIP LOCKED;";
@@ -51,10 +51,12 @@ PositionRecord DatabaseObject::get_next_unresolved_position(int level)
     if (res.count() > 0) {
         mysqlx::Row row = res.fetchOne();
         pr.id     = row.get(0).get<uint64_t>();
-        pr.pp.gi  = row.get(1).get<uint32_t>();
-        pr.pp.pop = row.get(2).get<uint64_t>();
-        pr.pp.hi  = row.get(3).get<uint64_t>();
-        pr.pp.lo  = row.get(4).get<uint64_t>();
+        pr.src    = row.get(1).get<uint64_t>();
+        pr.move.i = row.get(2).get<int>();
+        pr.pp.gi  = row.get(3).get<uint32_t>();
+        pr.pp.pop = row.get(4).get<uint64_t>();
+        pr.pp.hi  = row.get(5).get<uint64_t>();
+        pr.pp.lo  = row.get(6).get<uint64_t>();
         ss.str(std::string());
         ss << "UPDATE position_" << level << " SET resolved = true WHERE id=" << pr.id << ";";
         sess.sql(ss.str()).execute();
@@ -62,6 +64,30 @@ PositionRecord DatabaseObject::get_next_unresolved_position(int level)
     } else {
         sess.sql("ROLLBACK;").execute();
         pr.id = 0;
+    }
+    return pr;
+}
+
+PositionRecord DatabaseObject::get_position(int level, PositionId id)
+{
+    PositionRecord pr;
+    std::stringstream ss;
+    ss << "SELECT src, move, gi, pop, hi, lo FROM position_" << level << " WHERE id=" << id << ';';
+    try
+    {
+        mysqlx::RowResult res = sess.sql(ss.str()).execute();
+        if (res.count() > 0) {
+            mysqlx::Row row = res.fetchOne();
+            pr.id     = id;
+            pr.src    = row.get(0).get<uint64_t>();
+            pr.move.i = row.get(1).get<int>();
+            pr.pp.gi  = row.get(2).get<uint32_t>();
+            pr.pp.pop = row.get(3).get<uint64_t>();
+            pr.pp.hi  = row.get(4).get<uint64_t>();
+            pr.pp.lo  = row.get(5).get<uint64_t>();
+        }
+    } catch(mysqlx::abi2::r0::Error e) {
+        std::cerr << ss.str() << ' ' << e.what() << '\n';
     }
     return pr;
 }
@@ -81,7 +107,7 @@ PositionId DatabaseObject::create_position(int level, PositionId src, Move move,
         ss << "INSERT INTO position_" << level
            << "(src,move,gi,pop,hi,lo) VALUES ("
            << uint64_t(src) << ','
-           << int(move.pack().b) << ','
+           << uint16_t(move.pack().i) << ','
            << uint32_t(pos.gi.i) << ','
            << uint64_t(pos.pop) << ','
            << uint64_t(pos.hi) << ','

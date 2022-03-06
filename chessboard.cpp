@@ -174,7 +174,6 @@ void worker(int level)
         }
       }
     }
-    pr = db.get_next_unresolved_position(CLEVEL);
   }
   std::cout << std::this_thread::get_id() << " stopping" << std::endl;
 }

@@ -32,6 +32,8 @@ typedef unsigned long long PositionId;
 struct PositionRecord
 {
     PositionId     id;
+    PositionId     src;
+    MovePacked     move;
     PositionPacked pp;
 };
 
@@ -46,6 +48,7 @@ public:
     void create_position_table(int level);
 
     PositionRecord get_next_unresolved_position(int level);
+    PositionRecord get_position(int level, PositionId id);
     PositionId create_position(int level, PositionId src, Move move, PositionPacked& pos);
     void set_endgame_reason(int level, PositionId id, EndGameReason egr);
     void set_move_count(int level, PositionId id, int size);
