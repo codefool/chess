@@ -225,7 +225,7 @@ void Board::gather_moves(PiecePtr p, std::vector<Dir> dirs, int range, MoveList&
     for (auto d : dirs) {
         Pos pos = p->getPos();
         Offset o = offs[d];
-        while ( range-- ) {
+        for ( int r = range; r > 0; r-- ) {
             pos += o;
             if( !pos.in_bounds() )
                 break;

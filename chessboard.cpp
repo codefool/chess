@@ -156,7 +156,7 @@ void worker(int level)
       std::cout << std::this_thread::get_id() << " checkmate/stalemate:" << b.getPosition().fen_string() << std::endl;
       pr.pp = b.get_packed();
     } else {
-      std::cout << std::this_thread::get_id() << " base position:" << b.getPosition().fen_string() << std::endl;
+      std::cout << std::this_thread::get_id() << " base position:" << b.getPosition().fen_string() << " moves:" << moves.size() << std::endl;
       db.set_move_count(level, pr.id, moves.size());
 
       for (Move mv : moves) {
@@ -165,7 +165,7 @@ void worker(int level)
         // we need to flip the on-move
         Position pprime = bprime.getPosition();
         pprime.gi().toggleOnMove();
-        std::cout << std::this_thread::get_id() << ' ' << pprime.fen_string() << std::endl;
+        // std::cout << std::this_thread::get_id() << ' ' << pprime.fen_string() << std::endl;
         PositionPacked posprime = pprime.pack();
         if (bprime.gi().getPieceCnt() < level) {
           db.create_position(level - 1, pr.id, mv, posprime);

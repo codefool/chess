@@ -33,7 +33,7 @@ void DatabaseObject::create_position_table(int level)
             "resolved BOOLEAN DEFAULT FALSE,"
             "endgame TINYINT DEFAULT 0,"
         "PRIMARY KEY (id),"
-        "KEY src_idx (src) USING BTREE,"
+        "INDEX src_idx (src) USING BTREE,"
         "UNIQUE KEY pos_idx (gi,pop,hi,lo) USING BTREE);";
     sess.sql(ss.str()).execute();
 }
@@ -117,25 +117,27 @@ PositionId DatabaseObject::create_position(int level, PositionId src, Move move,
         mysqlx::RowResult res = sess.sql("SELECT LAST_INSERT_ID();").execute();
         id = res.fetchOne().get(0).get<uint64_t>();
     } catch(mysqlx::abi2::r0::Error e) {
-        std::cerr << ss.str() << ' ' << e.what() << '\n';
+        // std::cerr << ss.str() << ' ' << e.what() << '\n';
         // key already exists - so increment reference count
         for (int retryCnt = 0; retryCnt < 4; retryCnt++)
         {
             try
             {
                 ss.str(std::string());
-                ss << "SELECT id FROM position_" << level
+                ss << "SELECT id, ref_cnt FROM position_" << level
                    << " WHERE gi=" << uint32_t(pos.gi.i)
                    << " AND pop=" << uint64_t(pos.pop)
                    << " AND hi=" << uint64_t(pos.hi)
                    << " AND lo=" << uint64_t(pos.lo)
                    << " FOR UPDATE;";
                 mysqlx::RowResult res = sess.sql(ss.str()).execute();
-                id = res.fetchOne().get(0).get<uint64_t>();
+                mysqlx::Row row = res.fetchOne();
+                id = row.get(0).get<uint64_t>();
+                int ref_cnt = row.get(1).get<int>() + 1;
                 ss.str(std::string());
                 ss << "UPDATE position_" << level
-                   << " SET ref_cnt = ref_cnt + 1 "
-                   << "WHERE id = " << id << ";";
+                   << " SET ref_cnt = " << ref_cnt
+                   << " WHERE id = " << id << ";";
                 sess.sql(ss.str()).execute();
                 break;
             } catch(const std::exception& e) {
@@ -170,3 +172,9 @@ void DatabaseObject::set_move_count(int level, PositionId id, int size)
     sess.sql(ss.str()).execute();
     sess.sql("COMMIT;").execute();
 }
+
+mysqlx::RowResult DatabaseObject::exec(std::string sql)
+{
+    return sess.sql(sql).execute();
+}
+

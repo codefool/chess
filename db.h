@@ -52,6 +52,6 @@ public:
     PositionId create_position(int level, PositionId src, Move move, PositionPacked& pos);
     void set_endgame_reason(int level, PositionId id, EndGameReason egr);
     void set_move_count(int level, PositionId id, int size);
-
+    mysqlx::RowResult exec(std::string sql);
 
 };
