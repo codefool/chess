@@ -31,7 +31,7 @@ GameInfo& GameInfo::unpack(const GameInfoPacked& p)
 {
     setPieceCnt(static_cast<short>(p.f.piece_cnt));
     setOnMove(static_cast<Side>(p.f.on_move));
-    setEnPassantFile(static_cast<EnPassantFile>(en_passant_file));
+    setEnPassantFile(static_cast<EnPassantFile>(p.f.en_passant_file));
     setWksCastleEnabled(p.f.wks_castle_enabled == 1);
     setWqsCastleEnabled(p.f.wqs_castle_enabled == 1);
     setBksCastleEnabled(p.f.bks_castle_enabled == 1);

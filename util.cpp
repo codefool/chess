@@ -116,11 +116,12 @@ Pos Move::getSource() { return _s; }
 Pos Move::getTarget() { return _t; }
 
 Move Move::unpack(MovePacked& p) {
-	_a = static_cast<MoveAction>( p.f.action );
-	_s.set(p.f.source);
-	_t.set(p.f.target);
+	Move ret;
+	ret._a = static_cast<MoveAction>( p.f.action );
+	ret._s.set(p.f.source);
+	ret._t.set(p.f.target);
 
-	return *this;
+	return ret;
 }
 
 MovePacked Move::pack() {
@@ -140,7 +141,7 @@ std::ostream& operator<<(std::ostream& os, const Pos& p) {
 
 // the idea will be to display the move in alebraic notation [38]
 std::ostream& operator<<(std::ostream& os, const Move& m) {
-	os << static_cast<int>(m._a) << ' ';
+	os << static_cast<int>(m._a) << ':';
 	// special cases
 	if (m._a == MV_CASTLE_KINGSIDE)
 		os << "O-O";

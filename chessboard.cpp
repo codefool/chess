@@ -8,9 +8,10 @@
 #include <iostream>
 #include <cstring>
 #include <chrono>
+#include <inttypes.h>
 #include <map>
 #include <memory>
-#include <deque>
+#include <mutex>
 #include <initializer_list>
 #include <algorithm>
 #include <signal.h>
@@ -113,10 +114,6 @@ Which pieces do we need to know if they have moved or not?
   - no pieces between the king and rook
 */
 
-std::deque<PositionPacked> work;
-std::deque<PositionPacked> resolved;
-std::deque<PositionPacked> worksubone;
-
 const int CLEVEL = 32;
 const int CLEVELSUB1 = CLEVEL - 1;
 unsigned long long collisions = 0ULL;
@@ -124,22 +121,103 @@ int checkmate = 0;
 bool stop = false;
 
 
+#pragma pack(1)
+struct PosCycle {
+  MovePacked move;
+  PositionId trg;
+
+  PosCycle(Move m, PositionId t)
+  : move{m.pack()}, trg{t}
+  {}
+};
+#pragma pack()
+
+typedef std::vector<PosCycle> PosCycleMap;
+typedef PosCycleMap *PosCycleMapPtr;
+
+#pragma pack(1)
+struct PosInfo {
+  PositionId     id;      // unique id for this position
+  PositionId     src;     // the parent of this position
+  MovePacked     move;    // the Move that created in this position
+  int            move_cnt;// number of valid moves for this position
+  EndGameReason  egr;     // end game reason
+  PosCycleMapPtr cycles;  // cycles
+
+  PosInfo()
+  : id{0}, src{0}, move(Move().pack()), move_cnt{0}, egr{EGR_NONE}, cycles{nullptr}
+  {}
+
+  PosInfo(PositionId i, PositionId s, Move m)
+  : id{i}, src{s}, move(m.pack()), move_cnt{0}, egr{EGR_NONE}, cycles{nullptr}
+  {}
+
+  void add_cycle(Move move, PositionId trg)
+  {
+    if (cycles == nullptr) {
+      cycles = new PosCycleMap();
+    }
+    cycles->push_back(PosCycle(move,trg));
+  }
+};
+#pragma pack()
+
+typedef std::map<PositionPacked,PosInfo> PosMap;
+typedef PosMap *PosMapPtr;
+
+PosMapPtr unresolved;
+PosMapPtr resolved;
+PosMapPtr unresolved_n1;
+
+std::mutex mtx_id;
+PositionId g_id_cnt = 0;
+
+PositionId get_id()
+{
+  std::lock_guard<std::mutex> lock(mtx_id);
+  return ++g_id_cnt;
+}
+
+std::mutex unresolved_mtx;
+
+void dump_map( PosMapPtr m)
+{
+  std::cout << "Dumping " << m->size() << "entries =====================\n" << std::endl;
+  for( auto e : *m) {
+    Board b(e.first);
+    std::cout << e.second.id << ' ' << b.getPosition().fen_string() << std::endl;
+  }
+}
+
 void worker(int level)
 {
   std::cout << std::this_thread::get_id() << " starting" << std::endl;
-  std::string url = "root@localhost:33060";
-  DatabaseObject db(url);
-
-
+  int loop_cnt{0};
   while (!stop) {
-    PositionRecord pr = db.get_next_unresolved_position(level);
-    if (pr.id == 0) {
+    if (loop_cnt++ % 100 == 0) {
+      int x = loop_cnt;
+    }
+
+    PositionPacked base_pos;
+    PosInfo        base_info;
+    PosMap::iterator itr;
+    { // dummy scope
+      std::lock_guard<std::mutex> lock(unresolved_mtx);
+      itr = unresolved->begin();
+      if (itr != unresolved->end()) {
+        base_pos  = itr->first;
+        base_info = itr->second;
+        unresolved->erase(base_pos);
+      }
+    }
+
+    if (base_pos.pop == 0) {
       using namespace std::chrono_literals;
       std::this_thread::sleep_for(500ms);
       continue;
     }
 
-    PositionPacked base_pos = pr.pp;
+    resolved->insert({base_pos, base_info});
 
     Board b(base_pos);
 
@@ -147,17 +225,21 @@ void worker(int level)
     Side s = b.gi().getOnMove();
 
     b.get_all_moves(s, moves);
+
+    std::cout << std::this_thread::get_id() << " base:" << base_info.id << ' ' << b.getPosition().fen_string() 
+              << " moves:" << moves.size() << " src:" << base_info.src << " mov:" << Move::unpack(base_info.move)
+              << " R:" << resolved->size() << " U:" << unresolved->size() << " U1:" << unresolved_n1->size()
+              << std::endl;
+
     if (moves.size() == 0) {
       // no moves - so either checkmate or stalemate
       bool onside_in_check = b.test_for_attack(b.getPosition().get_king_pos(s), s);
       EndGameReason egr = (onside_in_check) ? EGR_CHECKMATE : EGR_14A_STALEMATE;
-      db.set_endgame_reason(level, pr.id, egr);
+      base_info.egr = egr;
       checkmate++;
       std::cout << std::this_thread::get_id() << " checkmate/stalemate:" << b.getPosition().fen_string() << std::endl;
-      pr.pp = b.get_packed();
     } else {
-      std::cout << std::this_thread::get_id() << " base position:" << b.getPosition().fen_string() << " moves:" << moves.size() << std::endl;
-      db.set_move_count(level, pr.id, moves.size());
+      base_info.move_cnt = moves.size();
 
       for (Move mv : moves) {
         Board bprime(base_pos);
@@ -167,16 +249,92 @@ void worker(int level)
         pprime.gi().toggleOnMove();
         // std::cout << std::this_thread::get_id() << ' ' << pprime.fen_string() << std::endl;
         PositionPacked posprime = pprime.pack();
-        if (bprime.gi().getPieceCnt() < level) {
-          db.create_position(level - 1, pr.id, mv, posprime);
+        PosInfo posinfo(get_id(), base_info.id, mv);
+        if (bprime.gi().getPieceCnt() == level-1) {
+          auto itr = unresolved_n1->find(posprime);
+          if (itr != unresolved_n1->end()) {
+            itr->second.add_cycle(mv,posinfo.id);
+          } else {
+            unresolved_n1->insert({posprime, posinfo});
+          }
+        } else if(bprime.gi().getPieceCnt() == level) {
+          auto itr = resolved->find(posprime);
+          if (itr != resolved->end()) {
+            itr->second.add_cycle(mv, posinfo.id);
+          } else {
+            itr = unresolved->find(posprime);
+            if ( itr != unresolved->end() ) {
+              itr->second.add_cycle(mv, posinfo.id);
+            } else {
+              unresolved->insert({posprime,posinfo});
+            }
+          }
         } else {
-          db.create_position(level, pr.id, mv, posprime);
+          std::cout << "ERROR! too many captures" << std::endl;
+          exit(1);
         }
+        resolved->at(base_pos) = base_info;
       }
     }
+    // dump_map(unresolved);
+    // dump_map(resolved);
+    // dump_map(unresolved_n1);
   }
   std::cout << std::this_thread::get_id() << " stopping" << std::endl;
 }
+
+// void worker_db(int level)
+// {
+//   std::cout << std::this_thread::get_id() << " starting" << std::endl;
+//   std::string url = "root@localhost:33060";
+//   DatabaseObject db(url);
+
+//   while (!stop) {
+//     PositionRecord pr = db.get_next_unresolved_position(level);
+//     if (pr.id == 0) {
+//       using namespace std::chrono_literals;
+//       std::this_thread::sleep_for(500ms);
+//       continue;
+//     }
+
+//     PositionPacked base_pos = pr.pp;
+
+//     Board b(base_pos);
+
+//     MoveList moves;
+//     Side s = b.gi().getOnMove();
+
+//     b.get_all_moves(s, moves);
+//     if (moves.size() == 0) {
+//       // no moves - so either checkmate or stalemate
+//       bool onside_in_check = b.test_for_attack(b.getPosition().get_king_pos(s), s);
+//       EndGameReason egr = (onside_in_check) ? EGR_CHECKMATE : EGR_14A_STALEMATE;
+//       db.set_endgame_reason(level, pr.id, egr);
+//       checkmate++;
+//       std::cout << std::this_thread::get_id() << " checkmate/stalemate:" << b.getPosition().fen_string() << std::endl;
+//       pr.pp = b.get_packed();
+//     } else {
+//       std::cout << std::this_thread::get_id() << " base position:" << b.getPosition().fen_string() << " moves:" << moves.size() << std::endl;
+//       db.set_move_count(level, pr.id, moves.size());
+
+//       for (Move mv : moves) {
+//         Board bprime(base_pos);
+//         bprime.process_move(mv, bprime.gi().getOnMove());
+//         // we need to flip the on-move
+//         Position pprime = bprime.getPosition();
+//         pprime.gi().toggleOnMove();
+//         // std::cout << std::this_thread::get_id() << ' ' << pprime.fen_string() << std::endl;
+//         PositionPacked posprime = pprime.pack();
+//         if (bprime.gi().getPieceCnt() < level) {
+//           db.create_position(level - 1, pr.id, mv, posprime);
+//         } else {
+//           db.create_position(level, pr.id, mv, posprime);
+//         }
+//       }
+//     }
+//   }
+//   std::cout << std::this_thread::get_id() << " stopping" << std::endl;
+// }
 
 void ctrl_c_handler(int s) {
   stop = true;
@@ -191,25 +349,31 @@ int main() {
 
   sigaction(SIGINT, &sigIntHandler, NULL);
 
+  unresolved    = new PosMap();
+  resolved      = new PosMap();
+  unresolved_n1 = new PosMap();
+
   Position pos;
   pos.init();
   PositionPacked pp = pos.pack();
+  PosInfo posinfo(get_id(), 0, Move());
+  unresolved->insert({pp,posinfo});
 
-  {
-    std::string url = "root@localhost:33060";
-    DatabaseObject db(url);
-    db.create_position_table(CLEVEL);
-    db.create_position_table(CLEVELSUB1);
-    // db.create_moves_table(1);
-    db.create_position(CLEVEL, 0, Move(), pp);
-  }
+  // {
+  //   std::string url = "root@localhost:33060";
+  //   DatabaseObject db(url);
+  //   db.create_position_table(CLEVEL);
+  //   db.create_position_table(CLEVELSUB1);
+  //   // db.create_moves_table(1);
+  //   db.create_position(CLEVEL, 0, Move(), pp);
+  // }
 
   std::thread t0(worker, CLEVEL);
-  std::thread t1(worker, CLEVEL);
-  std::thread t2(worker, CLEVEL);
-  std::thread t3(worker, CLEVEL);
-  std::thread t4(worker, CLEVEL);
-  std::thread t5(worker, CLEVEL);
+  // std::thread t1(worker, CLEVEL);
+  // std::thread t2(worker, CLEVEL);
+  // std::thread t3(worker, CLEVEL);
+  // std::thread t4(worker, CLEVEL);
+  // std::thread t5(worker, CLEVEL);
 
   // PositionRecord pr = db.get_next_unresolved_position(CLEVEL);
 
@@ -261,10 +425,10 @@ int main() {
   // std::cout << resolved.size() << ' ' << worksubone.size() << ' ' << collisions << ' ' << checkmate << std::endl;
 
   t0.join();
-  t1.join();
-  t2.join();
-  t3.join();
-  t4.join();
-  t5.join();
+  // t1.join();
+  // t2.join();
+  // t3.join();
+  // t4.join();
+  // t5.join();
 	return 0;
 }

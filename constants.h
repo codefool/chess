@@ -342,19 +342,23 @@ struct PositionPacked {
     {}
 
     bool operator==(const PositionPacked& o) const {
-        return gi == o.gi && hi == o.hi && lo == o.lo && pop == o.pop;
+        return pop == o.pop && gi == o.gi && hi == o.hi && lo == o.lo;
     }
 
     bool operator<(const PositionPacked& o) const {
-		if ( gi == o.gi ) {
-			if (pop == o.pop) {
-				if (hi == o.hi)
+		if ( pop == o.pop )
+		{
+			if ( gi.i == o.gi.i )
+			{
+				if ( hi == o.hi )
+				{
 					return lo < o.lo;
+				}
 				return hi < o.hi;
 			}
-			return pop < o.pop;
+			return gi.i < o.gi.i;
 		}
-		return gi < o.gi;
+		return pop > o.pop;
     }
 };
 
@@ -375,7 +379,7 @@ public:
 	Pos getSource();
 	Pos getTarget();
 
-	Move unpack(MovePacked& p);
+	static Move unpack(MovePacked& p);
 	MovePacked pack();
 
 	friend std::ostream& operator<<(std::ostream& os, const Move& p);
