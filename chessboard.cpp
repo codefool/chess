@@ -8,6 +8,8 @@
 #include <iostream>
 #include <cstring>
 #include <chrono>
+#include <filesystem>
+#include <fstream>
 #include <inttypes.h>
 #include <map>
 #include <memory>
@@ -137,19 +139,25 @@ typedef PosCycleMap *PosCycleMapPtr;
 
 #pragma pack(1)
 struct PosInfo {
-  PositionId     id;      // unique id for this position
-  PositionId     src;     // the parent of this position
-  MovePacked     move;    // the Move that created in this position
-  int            move_cnt;// number of valid moves for this position
-  EndGameReason  egr;     // end game reason
-  PosCycleMapPtr cycles;  // cycles
+  PositionId     id;        // unique id for this position
+  PositionId     src;       // the parent of this position
+  MovePacked     move;      // the Move that created in this position
+  short          move_cnt;  // number of valid moves for this position
+  short          distance;  // number of moves from the initial position
+  short          fifty_cnt; // number of moves since last capture or pawn move (50-move rule [14F])
+  EndGameReason  egr;       // end game reason
+  PosCycleMapPtr cycles;    // cycles
 
   PosInfo()
-  : id{0}, src{0}, move(Move().pack()), move_cnt{0}, egr{EGR_NONE}, cycles{nullptr}
+  : id{0}, src{0}, move(Move().pack()), move_cnt{0}, distance{0}, fifty_cnt{0},
+    egr{EGR_NONE}, cycles{nullptr}
   {}
 
-  PosInfo(PositionId i, PositionId s, Move m)
-  : id{i}, src{s}, move(m.pack()), move_cnt{0}, egr{EGR_NONE}, cycles{nullptr}
+  PosInfo(PositionId i, PosInfo s, MovePacked m)
+  : id{i}, src{s.id}, move(m), move_cnt{0},
+    distance{s.distance + 1},
+    fifty_cnt{s.fifty_cnt + 1},
+    egr{EGR_NONE}, cycles{nullptr}
   {}
 
   void add_cycle(Move move, PositionId trg)
@@ -165,12 +173,73 @@ struct PosInfo {
 typedef std::map<PositionPacked,PosInfo> PosMap;
 typedef PosMap *PosMapPtr;
 
+PosMapPtr initpos;
 PosMapPtr unresolved;
 PosMapPtr resolved;
-PosMapPtr unresolved_n1;
 
 std::mutex mtx_id;
 PositionId g_id_cnt = 0;
+uint64_t collisioncnt = 0;
+uint64_t initposcnt = 0;
+uint64_t unresolvedn1cnt = 0;
+uint64_t fiftymovedrawcnt = 0;
+std::string workfilepath("/mnt/c/tmp/cg/");
+
+class PositionFile {
+private:
+  std::string   fspec;
+  std::ofstream ofs;
+public:
+  PositionFile(std::string base_name, int level)
+  {
+    std::stringstream ss;
+    ss << workfilepath << level << '/';
+    std::filesystem::create_directories(ss.str());
+    ss << base_name << '_' << level << ".csv";
+    fspec = ss.str();
+    ofs.open(fspec, std::ios_base::app);
+    ofs.flags(std::ios::hex);
+    ofs.fill('0');
+  }
+
+  ~PositionFile()
+  {
+    ofs.close();
+  }
+
+  void write(const PositionPacked& pos, const PosInfo& info)
+  {
+    //id    gi   pop    hi     lo     src    mv   dist 50m
+    ofs << info.id << ','
+        << pos.gi.i << ',';
+    auto ow = ofs.width(8);
+    ofs << pos.pop << ',';
+    ofs.width(16);
+    ofs << pos.hi << ','
+        << pos.lo << ','
+        << info.src << ',';
+    ofs.width(ow);
+    ofs << info.move_cnt << ','
+        << info.move.i << ','
+        << info.distance << ','
+        << info.fifty_cnt << ',';
+
+      if (info.cycles == nullptr) {
+        ofs << 0;
+      } else {
+        ofs << info.cycles->size() << ',';
+        bool second = false;
+        for (auto e : *info.cycles) {
+          if (second)
+            ofs << ',';
+          ofs << e.move.i << ',' << e.trg;
+          second = true;
+        }
+      }
+      ofs << std::endl;
+  }
+};
+
 
 PositionId get_id()
 {
@@ -191,13 +260,13 @@ void dump_map( PosMapPtr m)
 
 void worker(int level)
 {
-  std::cout << std::this_thread::get_id() << " starting" << std::endl;
+  std::cout << std::this_thread::get_id() << " starting level " << level << std::endl;
+
+  PositionFile f_initpos("init_pos", level);
+  PositionFile f_downlevel("init_pos", level - 1);
+
   int loop_cnt{0};
   while (!stop) {
-    if (loop_cnt++ % 100 == 0) {
-      int x = loop_cnt;
-    }
-
     PositionPacked base_pos;
     PosInfo        base_info;
     PosMap::iterator itr;
@@ -217,25 +286,18 @@ void worker(int level)
       continue;
     }
 
-    resolved->insert({base_pos, base_info});
-
     Board b(base_pos);
 
     MoveList moves;
     Side s = b.gi().getOnMove();
 
     b.get_all_moves(s, moves);
-
-    std::cout << std::this_thread::get_id() << " base:" << base_info.id << ' ' << b.getPosition().fen_string() 
-              << " moves:" << moves.size() << " src:" << base_info.src << " mov:" << Move::unpack(base_info.move)
-              << " R:" << resolved->size() << " U:" << unresolved->size() << " U1:" << unresolved_n1->size()
-              << std::endl;
+    int pawn_moves{0};
 
     if (moves.size() == 0) {
       // no moves - so either checkmate or stalemate
       bool onside_in_check = b.test_for_attack(b.getPosition().get_king_pos(s), s);
-      EndGameReason egr = (onside_in_check) ? EGR_CHECKMATE : EGR_14A_STALEMATE;
-      base_info.egr = egr;
+      base_info.egr = (onside_in_check) ? EGR_CHECKMATE : EGR_14A_STALEMATE;
       checkmate++;
       std::cout << std::this_thread::get_id() << " checkmate/stalemate:" << b.getPosition().fen_string() << std::endl;
     } else {
@@ -243,28 +305,43 @@ void worker(int level)
 
       for (Move mv : moves) {
         Board bprime(base_pos);
-        bprime.process_move(mv, bprime.gi().getOnMove());
+        bool isPawnMove = bprime.process_move(mv, bprime.gi().getOnMove());
         // we need to flip the on-move
         Position pprime = bprime.getPosition();
         pprime.gi().toggleOnMove();
         // std::cout << std::this_thread::get_id() << ' ' << pprime.fen_string() << std::endl;
         PositionPacked posprime = pprime.pack();
-        PosInfo posinfo(get_id(), base_info.id, mv);
-        if (bprime.gi().getPieceCnt() == level-1) {
-          auto itr = unresolved_n1->find(posprime);
-          if (itr != unresolved_n1->end()) {
-            itr->second.add_cycle(mv,posinfo.id);
-          } else {
-            unresolved_n1->insert({posprime, posinfo});
-          }
+        PosInfo posinfo(get_id(), base_info, mv.pack());
+
+        // 50-move rule: drawn game if no pawn move or capture in the last 50 moves.
+        // hence, if this is a pawn move or a capture, reset the counter.
+        if (isPawnMove || mv.getAction() == MV_CAPTURE) {
+          posinfo.fifty_cnt = 0;  // pawn move - reset 50-move counter
+        }
+
+        if (isPawnMove) {
+          // new initial position
+          initposcnt++;
+          pawn_moves++;
+          // initpos->insert({posprime,posinfo});
+          f_initpos.write(posprime,posinfo);
+        } else if (posinfo.fifty_cnt == 50) {
+          // no pawn move or capture in past fifty moves, so draw the game
+          base_info.egr = EGR_14F_50_MOVE_RULE;
+          fiftymovedrawcnt++;
+        } else if (bprime.gi().getPieceCnt() == level-1) {
+          unresolvedn1cnt++;
+          f_downlevel.write(posprime,posinfo);
         } else if(bprime.gi().getPieceCnt() == level) {
           auto itr = resolved->find(posprime);
           if (itr != resolved->end()) {
             itr->second.add_cycle(mv, posinfo.id);
+            collisioncnt++;
           } else {
             itr = unresolved->find(posprime);
             if ( itr != unresolved->end() ) {
               itr->second.add_cycle(mv, posinfo.id);
+              collisioncnt++;
             } else {
               unresolved->insert({posprime,posinfo});
             }
@@ -273,13 +350,32 @@ void worker(int level)
           std::cout << "ERROR! too many captures" << std::endl;
           exit(1);
         }
-        resolved->at(base_pos) = base_info;
       }
+
+      resolved->insert({base_pos, base_info});
+
+      std::cout << /*std::this_thread::get_id() <<*/ " base:" << base_info.id
+                << " mov/p:" << moves.size() << '/' << pawn_moves
+                << " src:" << base_info.src << " mov:" << Move::unpack(base_info.move)
+                << " dist:" << base_info.distance << " d50:" << base_info.fifty_cnt
+                << " C:" << collisioncnt
+                << " I:" << initposcnt // << initpos->size()
+                << " R:" << resolved->size()
+                << " U:" << unresolved->size()
+                << " U1:" << unresolvedn1cnt
+                << " 50:" << fiftymovedrawcnt
+                << ' ' << b.getPosition().fen_string(base_info.distance)
+                << std::endl;
     }
+    // dump_map(initpos);
     // dump_map(unresolved);
     // dump_map(resolved);
-    // dump_map(unresolved_n1);
+    stop = stop || unresolved->size() == 0;
   }
+
+  PositionFile f_resolved("resolved", level);
+  for (auto e : *resolved)
+    f_resolved.write(e.first, e.second);
   std::cout << std::this_thread::get_id() << " stopping" << std::endl;
 }
 
@@ -349,14 +445,15 @@ int main() {
 
   sigaction(SIGINT, &sigIntHandler, NULL);
 
+  initpos       = new PosMap();
   unresolved    = new PosMap();
   resolved      = new PosMap();
-  unresolved_n1 = new PosMap();
 
   Position pos;
   pos.init();
   PositionPacked pp = pos.pack();
-  PosInfo posinfo(get_id(), 0, Move());
+  PosInfo posinfo(get_id(), PosInfo(), Move().pack());
+  // this should be put into initpos, but for now
   unresolved->insert({pp,posinfo});
 
   // {
@@ -367,6 +464,8 @@ int main() {
   //   // db.create_moves_table(1);
   //   db.create_position(CLEVEL, 0, Move(), pp);
   // }
+
+  // worker(CLEVEL);
 
   std::thread t0(worker, CLEVEL);
   // std::thread t1(worker, CLEVEL);

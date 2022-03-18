@@ -8,13 +8,16 @@ OBJECTS = board.o piece.o util.o gameinfo.o position.o #db.o
 .cpp.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c $<
 
-all: a.out #cg
+all: a.out bang0 #cg
 
 a.out : chessboard.o $(OBJECTS) $(HEADERS)
 	$(CC) $(CFLAGS) chessboard.o $(OBJECTS) $(LIBS)
 
 cg : cg.o $(OBJECTS) $(HEADERS)
 	$(CC) $(CFLAGS) cg.o $(OBJECTS) $(LIBS) -o cg
+
+bang0 : bang0.o $(OBJECTS) $(HEADERS)
+	$(CC) $(CFLAGS) bang0.o $(OBJECTS) $(LIBS) -o bang0
 
 board.o: board.cpp $(HEADERS)
 chessboard.o: chessboard.cpp $(HEADERS)

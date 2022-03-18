@@ -225,7 +225,8 @@ void Board::gather_moves(PiecePtr p, std::vector<Dir> dirs, int range, MoveList&
     for (auto d : dirs) {
         Pos pos = p->getPos();
         Offset o = offs[d];
-        for ( int r = range; r > 0; r-- ) {
+        int r = range;
+        while ( r-- ) {
             pos += o;
             if( !pos.in_bounds() )
                 break;
@@ -249,7 +250,7 @@ Move* Board::check_square(PiecePtr p, Pos pos, bool occupied) {
         // If friendly piece, do not record move and leave.
         return nullptr;
     }
-    return new Move(MV_MOVE, p->getPos(), pos);
+    return new Move(MV_CAPTURE, p->getPos(), pos);
 }
 
 // to test for check, we have to travel all rays and knights moves
@@ -425,10 +426,13 @@ void Board::move_piece(PiecePtr ptr, Pos dst) {
     }
 }
 
-void Board::process_move(Move mov, Side side) {
+// process the given move on the board.
+// return true if this is a pawn move
+bool Board::process_move(Move mov, Side side) {
     // Board *ret = new Board(*this);
     PiecePtr   ptr = _p.get( mov.getSource() );
     MoveAction ma  = mov.getAction();
+    bool isPawnMove = ptr->getType() == PT_PAWN || ptr->getType() == PT_PAWN_OFF;
 
     switch(mov.getAction())
     {
@@ -459,6 +463,7 @@ void Board::process_move(Move mov, Side side) {
         }
         [[fallthrough]];
     case MV_MOVE:
+    case MV_CAPTURE:
         move_piece( ptr, mov.getTarget());
         break;
     case MV_EN_PASSANT: {
@@ -480,4 +485,5 @@ void Board::process_move(Move mov, Side side) {
         }
         break;
     }
+    return isPawnMove;
 }

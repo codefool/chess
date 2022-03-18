@@ -12,7 +12,6 @@
 #include <vector>
 
 #include "constants.h"
-#include "board.h"
 
 // base class of all pieces
 

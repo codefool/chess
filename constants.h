@@ -102,10 +102,10 @@ struct Vector {
 enum MoveAction {
 	MV_NONE             = 0,
 	MV_MOVE             = 1,
-	MV_CASTLE_KINGSIDE  = 2,
-	MV_CASTLE_QUEENSIDE = 3,
-	MV_EN_PASSANT       = 4,
-	// MV_UNUSED = 5,
+	MV_CAPTURE          = 2,
+	MV_CASTLE_KINGSIDE  = 3,
+	MV_CASTLE_QUEENSIDE = 4,
+	MV_EN_PASSANT       = 5,
 	// MV_UNUSED = 6,
 	// MV_UNUSED = 7,
 	MV_PROMOTION_QUEEN  = 8,
@@ -337,7 +337,7 @@ struct PositionPacked {
 	: gi{o.gi}, pop(o.pop), lo(o.lo), hi(o.hi)
 	{}
 
-    PositionPacked(uint16_t g, uint64_t p, uint64_t l, uint64_t h)
+    PositionPacked(uint32_t g, uint64_t p, uint64_t h, uint64_t l)
     : gi{g}, pop(p), lo(l), hi(h)
     {}
 
@@ -475,7 +475,7 @@ public:
 
     const bool is_square_empty(Pos pos) const;
 
-	std::string fen_string() const;
+	std::string fen_string(int move_no = 0) const;
 };
 
 class Board {
@@ -504,7 +504,7 @@ public:
 	PiecePtr search_not_empty(Pos& start, Dir dir, int range);
 
 	bool validate_move(Move mov, Side side);
-	void process_move(Move mov, Side side);
+	bool process_move(Move mov, Side side);
 	void move_piece(PiecePtr ptr, Pos pos);
 	PositionPacked get_packed() { return _p.pack(); }
 	Position& getPosition() { return _p; }

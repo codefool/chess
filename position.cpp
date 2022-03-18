@@ -71,6 +71,9 @@ PositionPacked Position::pack()
         }
     }
 
+    if(cnt < 16)
+        map <<= (16 - cnt) * 4;
+
     pp.pop = pop;
     if (bitcnt > 15)
         pp.hi = map;
@@ -168,7 +171,7 @@ const bool Position::is_square_empty(Pos pos) const
 // 6. Fullmove number: The number of the full move. It starts at 1, and is incremented after Black's move.
 //
 
-std::string Position::fen_string() const
+std::string Position::fen_string(int move_no) const
 {
     std::stringstream ss;
     int emptyCnt{0};
@@ -225,7 +228,7 @@ std::string Position::fen_string() const
     ss << ' ';
     // field 5 - half-move clock
     // field 6 - full-move number
-    ss << "0 0";
+    ss << "0 " << move_no;
     return ss.str();
 }
 

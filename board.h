@@ -42,7 +42,7 @@ public:
 	PiecePtr search_not_empty(Pos& start, Dir dir, int range);
 
 	bool validate_move(Move mov, Side side);
-	void process_move(Move mov, Side side);
+	bool process_move(Move mov, Side side);
 	void move_piece(PiecePtr ptr, Pos pos);
 
 	void dump();
