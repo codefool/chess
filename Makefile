@@ -3,7 +3,7 @@ CFLAGS = -g -std=c++17
 INCLUDES=-I /usr/include/mysql-cppconn-8
 LIBS=-L/usr/lib/x86_64-linux-gnu -lmysqlcppconn8 -lmysqlcppconn -lpthread
 HEADERS = constants.h
-OBJECTS = board.o piece.o util.o gameinfo.o position.o #db.o
+OBJECTS = board.o piece.o util.o gameinfo.o position.o worker.o #db.o
 
 .cpp.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c $<
@@ -27,3 +27,4 @@ util.o: util.cpp $(HEADERS)
 gameinfo.o: gameinfo.cpp $(HEADERS)
 # db.o : db.cpp db.h $(HEADERS)
 position.o : position.cpp $(HEADERS)
+worker.o : worker.cpp $(HEADERS)

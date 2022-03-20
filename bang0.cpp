@@ -6,8 +6,8 @@
 // Released under the GNU General Public Licence Version 3, 29 June 2007
 //
 #include <iostream>
-// #include <algorithm>
 // #include <cstring>
+// #include <ctime>
 // #include <chrono>
 // #include <filesystem>
 // #include <fstream>
@@ -16,13 +16,14 @@
 // #include <memory>
 // #include <mutex>
 // #include <initializer_list>
+// #include <algorithm>
 // #include <signal.h>
 #include <thread>
 
 // #include <mysqlx/xdevapi.h>
 
 #include "constants.h"
-#include "db.h"
+// #include "db.h"
 #include "worker.h"
 
 /*
@@ -119,7 +120,7 @@ Which pieces do we need to know if they have moved or not?
 
 const int CLEVEL = 32;
 const int CLEVELSUB1 = CLEVEL - 1;
-unsigned long long collisions = 0ULL;
+// unsigned long long collisions = 0ULL;
 // int checkmate = 0;
 // bool stop = false;
 
@@ -177,7 +178,7 @@ unsigned long long collisions = 0ULL;
 // PosMapPtr resolved;
 
 // std::mutex mtx_id;
-// PositionId g_id_cnt = 0;
+// PositionId g_id_cnt = 0x1fe3ec53;
 // uint64_t collisioncnt = 0;
 // uint64_t initposcnt = 0;
 // uint64_t unresolvedn1cnt = 0;
@@ -197,7 +198,6 @@ unsigned long long collisions = 0ULL;
 //     fspec = ss.str();
 //     ofs.open(fspec, std::ios_base::app);
 //     ofs.flags(std::ios::hex);
-//     ofs.fill('0');
 //   }
 
 //   ~PositionFile()
@@ -209,18 +209,15 @@ unsigned long long collisions = 0ULL;
 //   {
 //     //id    gi   pop    hi     lo     src    mv   dist 50m
 //     ofs << info.id << ','
-//         << pos.gi.i << ',';
-//     auto ow = ofs.width(8);
-//     ofs << pos.pop << ',';
-//     ofs.width(16);
-//     ofs << pos.hi << ','
-//         << pos.lo << ','
-//         << info.src << ',';
-//     ofs.width(ow);
-//     ofs << info.move_cnt << ','
-//         << info.move.i << ','
-//         << info.distance << ','
-//         << info.fifty_cnt << ',';
+//       << pos.gi.i << ','
+//       << pos.pop << ','
+//       << pos.hi << ','
+//       << pos.lo << ','
+//       << info.src << ','
+//       << info.move_cnt << ','
+//       << info.move.i << ','
+//       << info.distance << ','
+//       << info.fifty_cnt << ',';
 
 //       if (info.cycles == nullptr) {
 //         ofs << 0;
@@ -368,17 +365,12 @@ unsigned long long collisions = 0ULL;
 //     // dump_map(initpos);
 //     // dump_map(unresolved);
 //     // dump_map(resolved);
-//     if (unresolved->size() == 0) {
-//         std::cout << std::this_thread::get_id() << " traversal finished" << std::endl;
-//         stop = true;
-//     }
+//     stop = stop || unresolved->size() == 0;
 //   }
 
-//   std::cout << std::this_thread::get_id() << " writing resolved positions" << std::endl;
 //   PositionFile f_resolved("resolved", level);
 //   for (auto e : *resolved)
 //     f_resolved.write(e.first, e.second);
-
 //   std::cout << std::this_thread::get_id() << " stopping" << std::endl;
 // }
 
@@ -447,7 +439,6 @@ int main() {
   // sigIntHandler.sa_flags = 0;
 
   // sigaction(SIGINT, &sigIntHandler, NULL);
-  set_stop_handler();
 
   // initpos       = new PosMap();
   // unresolved    = new PosMap();
@@ -455,9 +446,16 @@ int main() {
 
   Position pos;
   pos.init();
-  PositionPacked pp = pos.pack();
-  PosInfo posinfo(get_id(), PosInfo(), Move().pack());
-  // this should be put into initpos, but for now
+
+// 6,20f80000,ffff00000001feff,dcb9abcdeeeeeeee,6666666654312345,1,0,4081,2,0,0,
+
+  PositionPacked pp(uint32_t(0x20f80000),uint64_t(0xffff00000001feff),uint64_t(0xdcb9abcdeeeeeeee),uint64_t(0x6666666654312345));
+  PosInfo posinfo;
+  posinfo.id = 6;
+  posinfo.src = 1;
+  posinfo.distance = 2;
+  posinfo.move.i = 0x4081;
+  // unresolved->insert({pp,posinfo});
   insert_unresolved(pp,posinfo);
 
   // {
@@ -470,9 +468,10 @@ int main() {
   // }
 
   // worker(CLEVEL);
+
   // time_t start = time(0);
 
-  std::string workfilepath("/mnt/c/tmp/cg/");
+  std::string workfilepath("/mnt/c/tmp/cg/p0/");
   std::thread t0(worker, CLEVEL, workfilepath);
   // std::thread t1(worker, CLEVEL);
   // std::thread t2(worker, CLEVEL);
@@ -537,6 +536,7 @@ int main() {
   // t5.join();
 
   // time_t stop = time(0);
+
   // double hang = std::difftime(stop, start);
 
   // std::cout << std::asctime(std::localtime(&start))
