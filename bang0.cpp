@@ -456,6 +456,7 @@ int main() {
   posinfo.distance = 2;
   posinfo.move.i = 0x4081;
   // unresolved->insert({pp,posinfo});
+  set_global_id_cnt(1000);
   insert_unresolved(pp,posinfo);
 
   // {
@@ -471,7 +472,7 @@ int main() {
 
   // time_t start = time(0);
 
-  std::string workfilepath("/mnt/c/tmp/cg/p0/");
+  std::string workfilepath("/mnt/c/tmp/cg/p6/");
   std::thread t0(worker, CLEVEL, workfilepath);
   // std::thread t1(worker, CLEVEL);
   // std::thread t2(worker, CLEVEL);

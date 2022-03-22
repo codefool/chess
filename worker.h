@@ -48,7 +48,8 @@ public:
   void write(const PositionPacked& pos, const PosInfo& info);
 };
 
+void set_global_id_cnt(PositionId id);
 void insert_unresolved(PositionPacked& pp, PosInfo& pi);
-PositionId get_id();
+PositionId get_position_id();
 void set_stop_handler();
 void worker(int level, std::string base_path);

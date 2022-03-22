@@ -39,6 +39,19 @@ PositionFile::PositionFile(std::string base_path, std::string base_name, int lev
     ofs.open(fspec, std::ios_base::app);
     ofs.flags(std::ios::hex);
     ofs.fill('0');
+    ofs << "\"id\","
+        << "\"parent\","
+        << "\"gameinfo\","
+        << "\"population\","
+        << "\"hi\","
+        << "\"lo\",,"
+        << "\"move_cnt\","
+        << "\"move_packed\","
+        << "\"distance\","
+        << "\"50_cnt\","
+        << "\"cycle_cnt\","
+        << "\"links\""
+        << std::endl;
 }
 
 PositionFile::~PositionFile()
@@ -49,14 +62,15 @@ PositionFile::~PositionFile()
 void PositionFile::write(const PositionPacked& pos, const PosInfo& info)
 {
     //id    gi   pop    hi     lo     src    mv   dist 50m
+    auto ow = ofs.width(16);
     ofs << info.id << ','
-        << pos.gi.i << ',';
-    auto ow = ofs.width(8);
-    ofs << pos.pop << ',';
-    ofs.width(16);
-    ofs << pos.hi << ','
-        << pos.lo << ','
         << info.src << ',';
+    ofs.width(8);
+    ofs << pos.gi.i << ',';
+    ofs.width(16);
+    ofs << pos.pop << ','
+        << pos.hi << ','
+        << pos.lo << ',';
     ofs.width(ow);
     ofs << info.move_cnt << ','
         << info.move.i << ','
@@ -81,7 +95,12 @@ void PositionFile::write(const PositionPacked& pos, const PosInfo& info)
 std::mutex mtx_id;
 PositionId g_id_cnt = 0;
 
-PositionId get_id()
+void set_global_id_cnt(PositionId id)
+{
+  g_id_cnt = id;
+}
+
+PositionId get_position_id()
 {
   std::lock_guard<std::mutex> lock(mtx_id);
   return ++g_id_cnt;
@@ -132,7 +151,8 @@ void worker(int level, std::string base_path)
   time_t start = time(0);
 
   int loop_cnt{0};
-  while (!stop) {
+  bool done = false;
+  while (!stop && !done) {
     PositionPacked base_pos;
     PosInfo        base_info;
     PosMap::iterator itr;
@@ -177,7 +197,8 @@ void worker(int level, std::string base_path)
         pprime.gi().toggleOnMove();
         // std::cout << std::this_thread::get_id() << ' ' << pprime.fen_string() << std::endl;
         PositionPacked posprime = pprime.pack();
-        PosInfo posinfo(get_id(), base_info, mv.pack());
+        // PosInfo posinfo(get_position_id(), base_info, mv.pack());
+        PosInfo posinfo(0, base_info, mv.pack());
 
         // 50-move rule: drawn game if no pawn move or capture in the last 50 moves.
         // hence, if this is a pawn move or a capture, reset the counter.
@@ -190,25 +211,31 @@ void worker(int level, std::string base_path)
           initposcnt++;
           pawn_moves++;
           // initpos->insert({posprime,posinfo});
+          posinfo.id = get_position_id();
           f_initpos.write(posprime,posinfo);
+
         } else if (posinfo.fifty_cnt == 50) {
           // if no pawn move or capture in past fifty moves, draw the game
           base_info.egr = EGR_14F_50_MOVE_RULE;
           fiftymovedrawcnt++;
+
         } else if (bprime.gi().getPieceCnt() == level-1) {
           unresolvedn1cnt++;
+          posinfo.id = get_position_id();
           f_downlevel.write(posprime,posinfo);
+
         } else if(bprime.gi().getPieceCnt() == level) {
           auto itr = resolved.find(posprime);
           if (itr != resolved.end()) {
-            itr->second.add_cycle(mv, posinfo.id);
+            itr->second.add_cycle(mv, base_info.id);
             collisioncnt++;
           } else {
             itr = unresolved.find(posprime);
             if ( itr != unresolved.end() ) {
-              itr->second.add_cycle(mv, posinfo.id);
+              itr->second.add_cycle(mv, base_info.id);
               collisioncnt++;
             } else {
+              posinfo.id = get_position_id();
               unresolved.insert({posprime,posinfo});
             }
           }
@@ -238,23 +265,25 @@ void worker(int level, std::string base_path)
     // dump_map(resolved);
     if (unresolved.size() == 0) {
         std::cout << std::this_thread::get_id() << " traversal finished" << std::endl;
-        stop = true;
+        done = true;
     }
   }
 
-  std::cout << std::this_thread::get_id() << " writing resolved positions" << std::endl;
-  PositionFile f_resolved(base_path, "resolved", level);
-  for (auto e : resolved)
-    f_resolved.write(e.first, e.second);
+  // if stop, then ctrl-c was used, so bail
+  if (!stop) {
+    std::cout << std::this_thread::get_id() << " writing resolved positions" << std::endl;
+    PositionFile f_resolved(base_path, "resolved", level);
+    for (auto e : resolved)
+      f_resolved.write(e.first, e.second);
 
-  time_t stop = time(0);
-  double hang = std::difftime(stop, start);
+    time_t stop = time(0);
+    double hang = std::difftime(stop, start);
 
-  std::cout << std::this_thread::get_id() << '\n'
-            << std::asctime(std::localtime(&start))
-            << std::asctime(std::localtime(&stop))
-            << ' ' << hang << '(' << (hang/60.0) << ") secs"
-            << std::endl;
-
+    std::cout << std::this_thread::get_id() << '\n'
+              << std::asctime(std::localtime(&start))
+              << std::asctime(std::localtime(&stop))
+              << ' ' << hang << '(' << (hang/60.0) << ") secs"
+              << std::endl;
+  }
   std::cout << std::this_thread::get_id() << " stopping" << std::endl;
 }

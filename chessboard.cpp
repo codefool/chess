@@ -456,7 +456,7 @@ int main() {
   Position pos;
   pos.init();
   PositionPacked pp = pos.pack();
-  PosInfo posinfo(get_id(), PosInfo(), Move().pack());
+  PosInfo posinfo(get_position_id(), PosInfo(), Move().pack());
   // this should be put into initpos, but for now
   insert_unresolved(pp,posinfo);
 
