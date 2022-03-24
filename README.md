@@ -184,3 +184,16 @@ great inefficiency in the algorithm.
 139704283731712 base:573829427 moves:27 src:185787935 mov:1:b5a3 I:324956167 R:25452172 U:2 U1:55112922 r1bqkbr1/pppppppp/8/8/8/Nn6/PPPPPPPP/RnBQKBNR b KQq - 0 0
 139704283731712 base:573829452 moves:27 src:185787961 mov:1:b5a3 I:324956183 R:25452173 U:1 U1:55112926 r1bqkbr1/pppppppp/8/8/8/Nn6/PPPPPPPP/RNBQKBnR b KQq - 0 0
 139704283731712 base:582202058 moves:28 src:194157015 mov:1:h3g1 I:324956199 R:25452174 U:0 U1:55112931 r1bqkbr1/pppppppp/8/8/8/nn6/PPPPPPPP/RNBQKBNR b KQq - 0 0
+
+
+
+Running with different thread counts gives differing results in the total number
+of first-order non-pawn positions.
+
+Threads Exec          Resolved  Pawn-Init-Pos Diff
+8       2781s(46.4m)  23372033  299871125     +116381/1364076
+7       3347s(55.8m)  23255652  298507049     + 24441/ 352446
+6       3578s(59.6m)  23231211  298154603
+
+I suspect this is due to undetected duplicates, so I'll need to write some
+analysis programs to see if this is true. Oy.

@@ -11,6 +11,8 @@
 #include <memory>
 #include <vector>
 
+#define THREAD_COUNT 6
+
 enum Side {
 	SIDE_WHITE = 0,
 	SIDE_BLACK = 1
@@ -91,11 +93,6 @@ enum Dir {
 	UPL,
 	DNR,
 	DNL
-};
-
-struct Vector {
-	short  			 c;	// max number of moves
-	std::vector<Dir> d;
 };
 
 // the MoveAction is packed to 4 bits, so 0..15

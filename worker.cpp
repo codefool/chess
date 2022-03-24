@@ -11,30 +11,42 @@
 
 PosInfo::PosInfo()
 : id{0}, src{0}, move(Move().pack()), move_cnt{0}, distance{0}, fifty_cnt{0},
-egr{EGR_NONE}, cycles{nullptr}
+egr{EGR_NONE}, refs{nullptr}
 {}
 
 PosInfo::PosInfo(PositionId i, PosInfo s, MovePacked m)
 : id{i}, src{s.id}, move(m), move_cnt{0},
     distance{s.distance + 1},
     fifty_cnt{s.fifty_cnt + 1},
-    egr{EGR_NONE}, cycles{nullptr}
+    egr{EGR_NONE}, refs{nullptr}
 {}
 
-void PosInfo::add_cycle(Move move, PositionId trg)
+// it's possible that multiple threads for the same position
+// can cause issues here. Since we have at most THREAD_COUNT
+// possible collisions, we only need that many mutex's.
+// We do a poor man's hash and just id mod THREAD_COUNT
+// should provide adequate protection without pausing all
+// threads every time we add a reference (of which there are
+// many)
+std::vector<std::mutex> posrefmtx(THREAD_COUNT);
+
+void PosInfo::add_ref(Move move, PositionId trg)
 {
-    if (cycles == nullptr) {
-        cycles = new PosCycleMap();
+    std::lock_guard<std::mutex> lock(posrefmtx[id % THREAD_COUNT]);
+    if (refs == nullptr) {
+        refs = new PosRefMap();
+        refs->reserve(10);
     }
-    cycles->push_back(PosCycle(move,trg));
+    refs->push_back(PosRef(move,trg));
 }
 
 PositionFile::PositionFile(std::string base_path, std::string base_name, int level)
+: line_cnt{0}
 {
     std::stringstream ss;
     ss << base_path << level << '/';
     std::filesystem::create_directories(ss.str());
-    ss << base_name << '_' << level << ".csv";
+    ss << base_name << '_' << level << '_' << std::this_thread::get_id() << ".csv";
     fspec = ss.str();
     ofs.open(fspec, std::ios_base::app);
     ofs.flags(std::ios::hex);
@@ -50,12 +62,14 @@ PositionFile::PositionFile(std::string base_path, std::string base_name, int lev
         << "\"distance\","
         << "\"50_cnt\","
         << "\"cycle_cnt\","
-        << "\"links\""
-        << std::endl;
+        << "\"ref_cnt\","
+        << "\"move/parent...\","
+        << '\n';
 }
 
 PositionFile::~PositionFile()
 {
+    ofs << std::flush;
     ofs.close();
 }
 
@@ -77,19 +91,21 @@ void PositionFile::write(const PositionPacked& pos, const PosInfo& info)
         << info.distance << ','
         << info.fifty_cnt << ',';
 
-    if (info.cycles == nullptr) {
+    if (info.refs == nullptr) {
         ofs << 0;
     } else {
-        ofs << info.cycles->size() << ',';
+        ofs << info.refs->size() << ',';
         bool second = false;
-        for (auto e : *info.cycles) {
+        for (auto e : *info.refs) {
             if (second)
-            ofs << ',';
+              ofs << ',';
             ofs << e.move.i << ',' << e.trg;
             second = true;
         }
     }
-    ofs << std::endl;
+    ofs << '\n';
+    if ((++line_cnt % 100) == 0)
+      ofs << std::flush;
 }
 
 std::mutex mtx_id;
@@ -113,6 +129,7 @@ uint64_t fiftymovedrawcnt = 0;
 int checkmate = 0;
 
 std::mutex unresolved_mtx;
+std::mutex resolved_mtx;
 
 PosMap initpos;
 PosMap unresolved;
@@ -138,6 +155,7 @@ void set_stop_handler()
 
 void insert_unresolved(PositionPacked& pp, PosInfo& pi)
 {
+    std::lock_guard<std::mutex> lock(unresolved_mtx);
     unresolved.insert({pp,pi});
 }
 
@@ -147,8 +165,12 @@ void worker(int level, std::string base_path)
 
   PositionFile f_initpos(base_path, "init_pos", level);
   PositionFile f_downlevel(base_path, "init_pos", level - 1);
+  std::stringstream ss;
 
-  time_t start = time(0);
+  MoveList moves;
+  moves.reserve(50);
+
+  // time_t start = time(0);
 
   int loop_cnt{0};
   bool done = false;
@@ -157,12 +179,14 @@ void worker(int level, std::string base_path)
     PosInfo        base_info;
     PosMap::iterator itr;
     { // dummy scope
-      std::lock_guard<std::mutex> lock(unresolved_mtx);
+      std::lock_guard<std::mutex> lock0(unresolved_mtx);
       itr = unresolved.begin();
       if (itr != unresolved.end()) {
         base_pos  = itr->first;
         base_info = itr->second;
         unresolved.erase(base_pos);
+        std::lock_guard<std::mutex> lock1(resolved_mtx);
+        resolved.insert({base_pos,base_info});
       }
     }
 
@@ -173,12 +197,14 @@ void worker(int level, std::string base_path)
     }
 
     Board b(base_pos);
+    Side  s = b.gi().getOnMove();
 
-    MoveList moves;
-    Side s = b.gi().getOnMove();
-
+    moves.clear();
     b.get_all_moves(s, moves);
     int pawn_moves{0};
+    int coll_cnt{0};
+    int fifty_cnt{0};
+    int nsub1_cnt{0};
 
     if (moves.size() == 0) {
       // no moves - so either checkmate or stalemate
@@ -218,25 +244,37 @@ void worker(int level, std::string base_path)
           // if no pawn move or capture in past fifty moves, draw the game
           base_info.egr = EGR_14F_50_MOVE_RULE;
           fiftymovedrawcnt++;
+          fifty_cnt++;
 
         } else if (bprime.gi().getPieceCnt() == level-1) {
           unresolvedn1cnt++;
           posinfo.id = get_position_id();
           f_downlevel.write(posprime,posinfo);
+          nsub1_cnt++;
 
         } else if(bprime.gi().getPieceCnt() == level) {
-          auto itr = resolved.find(posprime);
-          if (itr != resolved.end()) {
-            itr->second.add_cycle(mv, base_info.id);
-            collisioncnt++;
-          } else {
+          bool found = false;
+          { // dummy scope
+            std::lock_guard<std::mutex> lock(resolved_mtx);
+            auto itr = resolved.find(posprime);
+            if (itr != resolved.end()) {
+              itr->second.add_ref(mv, base_info.id);
+              collisioncnt++;
+              coll_cnt++;
+              found = true;
+            }
+          } // end dummy scope
+          if (!found)
+          {
+            std::lock_guard<std::mutex> lock(unresolved_mtx);
             itr = unresolved.find(posprime);
             if ( itr != unresolved.end() ) {
-              itr->second.add_cycle(mv, base_info.id);
+              itr->second.add_ref(mv, base_info.id);
               collisioncnt++;
+              coll_cnt++;
             } else {
               posinfo.id = get_position_id();
-              unresolved.insert({posprime,posinfo});
+              unresolved.insert({posprime, posinfo});
             }
           }
         } else {
@@ -245,20 +283,34 @@ void worker(int level, std::string base_path)
         }
       }
 
-      resolved.insert({base_pos, base_info});
+      { // dummy scope
+        std::lock_guard<std::mutex> lock(resolved_mtx);
+        resolved[base_pos] = base_info;
+      } // end dummy scope
 
-      std::cout << /*std::this_thread::get_id() <<*/ " base:" << base_info.id
-                << " mov/p:" << moves.size() << '/' << pawn_moves
-                << " src:" << base_info.src << " mov:" << Move::unpack(base_info.move)
-                << " dist:" << base_info.distance << " d50:" << base_info.fifty_cnt
-                << " C:" << collisioncnt
-                << " I:" << initposcnt // << initpos->size()
-                << " R:" << resolved.size()
-                << " U:" << unresolved.size()
-                << " U1:" << unresolvedn1cnt
-                << " 50:" << fiftymovedrawcnt
-                << ' ' << b.getPosition().fen_string(base_info.distance)
+      // std::cout << "base mov/p/c/5/1 parent mov dist dis50 coll_cnt init_cnt res_cnt unr unr1 fifty FEN\n";
+      ss.str(std::string());
+      ss
+      // std::cout /*<< std::this_thread::get_id() <<*/
+                << base_info.id
+                << ',' << moves.size()
+                    << '/' << pawn_moves
+                    << '/' << coll_cnt
+                    << '/' << fifty_cnt
+                    << '/' << nsub1_cnt
+                << ',' << base_info.src
+                << ',' << Move::unpack(base_info.move)
+                << ',' << base_info.distance
+                << ',' << base_info.fifty_cnt
+                << ',' << collisioncnt
+                << ',' << initposcnt // << initpos->size()
+                << ',' << resolved.size()
+                << ',' << unresolved.size()
+                << ',' << unresolvedn1cnt
+                << ',' << fiftymovedrawcnt
+                << ',' << b.getPosition().fen_string(base_info.distance)
                 << std::endl;
+      std::cout << ss.str();
     }
     // dump_map(initpos);
     // dump_map(unresolved);
@@ -269,21 +321,29 @@ void worker(int level, std::string base_path)
     }
   }
 
-  // if stop, then ctrl-c was used, so bail
-  if (!stop) {
+  // // if stop, then ctrl-c was used, so bail
+  // if (!stop) {
+  //   std::cout << std::this_thread::get_id() << " writing resolved positions" << std::endl;
+  //   PositionFile f_resolved(base_path, "resolved", level);
+  //   for (auto e : resolved)
+  //     f_resolved.write(e.first, e.second);
+
+  //   // time_t stop = time(0);
+  //   // double hang = std::difftime(stop, start);
+
+  //   // std::cout << std::this_thread::get_id() << '\n'
+  //   //           << std::asctime(std::localtime(&start))
+  //   //           << std::asctime(std::localtime(&stop))
+  //   //           << ' ' << hang << '(' << (hang/60.0) << ") secs"
+  //   //           << std::endl;
+  // }
+  std::cout << std::this_thread::get_id() << " stopping" << std::endl;
+}
+
+void write_resolved(int level, std::string& base_path)
+{
     std::cout << std::this_thread::get_id() << " writing resolved positions" << std::endl;
     PositionFile f_resolved(base_path, "resolved", level);
     for (auto e : resolved)
       f_resolved.write(e.first, e.second);
-
-    time_t stop = time(0);
-    double hang = std::difftime(stop, start);
-
-    std::cout << std::this_thread::get_id() << '\n'
-              << std::asctime(std::localtime(&start))
-              << std::asctime(std::localtime(&stop))
-              << ' ' << hang << '(' << (hang/60.0) << ") secs"
-              << std::endl;
-  }
-  std::cout << std::this_thread::get_id() << " stopping" << std::endl;
 }
