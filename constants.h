@@ -11,7 +11,7 @@
 #include <memory>
 #include <vector>
 
-#define THREAD_COUNT 6
+#define THREAD_COUNT 7
 
 enum Side {
 	SIDE_WHITE = 0,
@@ -355,8 +355,10 @@ struct PositionPacked {
 			}
 			return gi.i < o.gi.i;
 		}
-		return pop > o.pop;
+		return pop < o.pop;
     }
+
+	friend std::ostream& operator<<(std::ostream& os, const PositionPacked& pp);
 };
 
 #pragma pack()
@@ -509,3 +511,38 @@ public:
 	void dump();
 	friend std::ostream& operator<<(std::ostream& os, const Board& b);
 };
+
+typedef unsigned long long PositionId;
+
+#pragma pack(1)
+struct PosRef {
+  MovePacked move;
+  PositionId trg;
+
+  PosRef() {}
+  PosRef(Move m, PositionId t)
+  : move{m.pack()}, trg{t}
+  {}
+};
+#pragma pack()
+
+typedef std::vector<PosRef> PosRefMap;
+typedef PosRefMap *PosRefMapPtr;
+
+struct PosInfo {
+  PositionId     id;        // unique id for this position
+  PositionId     src;       // the parent of this position
+  MovePacked     move;      // the Move that created in this position
+  short          move_cnt;  // number of valid moves for this position
+  short          distance;  // number of moves from the initial position
+  short          fifty_cnt; // number of moves since last capture or pawn move (50-move rule [14F])
+  EndGameReason  egr;       // end game reason
+  PosRefMapPtr   refs;      // additional references to this position
+
+  PosInfo();
+  PosInfo(PositionId i, PosInfo s, MovePacked m);
+  void add_ref(Move move, PositionId trg);
+};
+
+typedef std::map<PositionPacked,PosInfo> PosMap;
+typedef PosMap *PosMapPtr;

@@ -27,8 +27,6 @@
 #include <mysqlx/xdevapi.h>
 #include "constants.h"
 
-typedef unsigned long long PositionId;
-
 struct PositionRecord
 {
     PositionId     id;

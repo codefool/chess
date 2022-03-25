@@ -188,7 +188,7 @@ great inefficiency in the algorithm.
 
 
 Running with different thread counts gives differing results in the total number
-of first-order non-pawn positions.
+of first-order non-pawn positions, and pawn initial positions. By a lot.
 
 Threads Exec          Resolved  Pawn-Init-Pos Diff
 8       2781s(46.4m)  23372033  299871125     +116381/1364076

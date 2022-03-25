@@ -186,3 +186,22 @@ std::ostream& operator<<(std::ostream& os, const Move& m) {
 
 	return os;
 }
+
+std::ostream& operator<<(std::ostream& os, const PositionPacked& pp)
+{
+	auto oflags = os.flags(std::ios::hex);
+    auto ofill  = os.fill('0');
+	auto owid   = os.width(8);
+
+    os << pp.gi.i << ',';
+    os.width(16);
+    os << pp.pop << ','
+       << pp.hi << ','
+       << pp.lo;
+
+	os.flags(oflags);
+	os.fill(ofill);
+	os.width(owid);
+	return os;
+}
+

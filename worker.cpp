@@ -56,14 +56,14 @@ PositionFile::PositionFile(std::string base_path, std::string base_name, int lev
         << "\"gameinfo\","
         << "\"population\","
         << "\"hi\","
-        << "\"lo\",,"
+        << "\"lo\","
         << "\"move_cnt\","
         << "\"move_packed\","
         << "\"distance\","
         << "\"50_cnt\","
-        << "\"cycle_cnt\","
+        << "\"end_game\","
         << "\"ref_cnt\","
-        << "\"move/parent...\","
+        << "\"move/parent...\""
         << '\n';
 }
 
@@ -89,7 +89,8 @@ void PositionFile::write(const PositionPacked& pos, const PosInfo& info)
     ofs << info.move_cnt << ','
         << info.move.i << ','
         << info.distance << ','
-        << info.fifty_cnt << ',';
+        << info.fifty_cnt << ','
+        << static_cast<int>(info.egr) << ',';
 
     if (info.refs == nullptr) {
         ofs << 0;
