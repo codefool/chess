@@ -62,16 +62,18 @@ uint64_t get_uint64(std::istringstream& line)
     return -1;
 }
 
-PosMap results;
 uint64_t dupeCnt{0};
-int main(){
-   std::fstream newfile;
-   newfile.open("/mnt/c/tmp/cg_8/32/resolved_32_139782223079232.csv", std::ios::in); //open a file to perform read operation using file object
-   if (newfile.is_open()){   //checking whether the file is open
+int load_csv(std::string filename, PosMap& map) {
+   std::fstream fs;
+   std::cout << "Loading " << filename << '\n';
+   fs.open(filename, std::ios::in); //open a file to perform read operation using file object
+   uint64_t reccnt{0};
+   if (fs.is_open()){   //checking whether the file is open
       std::string tp;
-      std::getline(newfile,tp); // throw away first line (column heads)
-      while(std::getline(newfile, tp)){ //read data from file object and put it into string.
-        std::cout << tp << "\n"; //print the data of the string
+      std::getline(fs,tp); // throw away first line (column heads)
+      while(std::getline(fs, tp)){ //read data from file object and put it into string.
+        if ((++reccnt % 100) == 0)
+            std::cout << reccnt << "\r"; //print the data of the string
         // split by comma
         std::string tok;
         std::istringstream line;
@@ -100,15 +102,52 @@ int main(){
             info.add_ref(Move::unpack(ref.move), ref.trg);
         }
 
-        PosMap::iterator itr = results.find(pos);
-        if (itr != results.end()) {
+        PosMap::iterator itr = map.find(pos);
+        if (itr != map.end()) {
             // duplicate entry
             dupeCnt++;
             std::cout << "\t dupe " << itr->first << ' ' << pos << std::endl;
         } else {
-            results.insert({pos,info});
+            map.insert({pos,info});
         }
       }
-      newfile.close();
+      fs.close();
+      std::cout << std::endl;
    }
+   return map.size();
+}
+
+PosMap lhs;
+PosMap rhs;
+
+int main() {
+    load_csv("/mnt/c/tmp/cg_8/32/resolved_32_139782223079232.csv", lhs);
+    load_csv("/mnt/c/tmp/cg_7/32/resolved_32_140492346263360.csv", rhs);
+
+    std::cout << "lhs " << lhs.size() << " rhs " << rhs.size() << std::endl;
+
+    // compare lhs to rhs - remove all lhs in rhs
+    uint64_t cnt{0};
+    uint64_t rkill{0};
+    for (auto l : lhs) {
+        auto r = rhs.find(l.first);
+        if (r != rhs.end()) {
+            rhs.erase(r);
+            rkill++;
+        }
+        if ((++cnt % 100) == 0) {
+            std::cout << cnt << ' ' << rkill << '\r';
+        }
+    }
+    std::cout << "\n remaining lhs " << lhs.size() << " rhs " << rhs.size() << std::endl;
+    // what's left in rhs is not in lhs - so what are they?
+    for (auto l : lhs) {
+        Position p(l.first);
+        std::cout << "l " << p.fen_string() << std::endl;
+    }
+    // for (auto r : rhs) {
+    //     Position p(r.first);
+    //     std::cout << "r " << p.fen_string() << std::endl;
+    // }
+    return 0;
 }

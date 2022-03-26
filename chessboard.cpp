@@ -138,7 +138,7 @@ int main() {
   std::vector<std::thread> threads;
 
   time_t tstart = time(0);
-  std::cout << "base,mov/p/c/5/1,parent,mov,dist,dis50,coll_cnt,init_cnt,res_cnt,unr,unr1,fifty FEN" << std::endl;
+  std::cout << "base,mov/p/c/5/1,parent,mov,dist,dis50,coll_cnt,init_cnt,res_cnt,unr,unr1,fifty,FEN" << std::endl;
 
   for (int i = 0; i < THREAD_COUNT; i++) {
     threads.push_back(std::thread(worker, CLEVEL, workfilepath));
@@ -156,7 +156,7 @@ int main() {
 
   std::cout << std::asctime(std::localtime(&tstart))
             << std::asctime(std::localtime(&tend))
-            << ' ' << hang << '(' << (hang/60.0) << ") secs"
+            << ' ' << hang << "s (" << (hang/60.0) << "m)"
             << std::endl;
 
   write_resolved(CLEVEL, workfilepath);

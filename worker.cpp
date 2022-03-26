@@ -172,10 +172,11 @@ void worker(int level, std::string base_path)
   moves.reserve(50);
 
   // time_t start = time(0);
+  std::cout << "base,parent,mov/p/c/5/1,move,dist,dis50,coll_cnt,init_cnt,res_cnt,unr,unr1,fifty,FEN\n";
 
   int loop_cnt{0};
-  bool done = false;
-  while (!stop && !done) {
+  int retry_cnt{0};
+  while (!stop) {
     PositionPacked base_pos;
     PosInfo        base_info;
     PosMap::iterator itr;
@@ -194,14 +195,20 @@ void worker(int level, std::string base_path)
     if (base_pos.pop == 0) {
       using namespace std::chrono_literals;
       std::this_thread::sleep_for(500ms);
+      if (retry_cnt++ > 3) {
+        // more than two seconds with no new entries - assume we're done!
+        break;
+      }
       continue;
     }
 
-    Board b(base_pos);
-    Side  s = b.gi().getOnMove();
+    retry_cnt = 0;
+
+    Board sub_board(base_pos);
+    Side  s = sub_board.gi().getOnMove();
 
     moves.clear();
-    b.get_all_moves(s, moves);
+    sub_board.get_all_moves(s, moves);
     int pawn_moves{0};
     int coll_cnt{0};
     int fifty_cnt{0};
@@ -209,10 +216,10 @@ void worker(int level, std::string base_path)
 
     if (moves.size() == 0) {
       // no moves - so either checkmate or stalemate
-      bool onside_in_check = b.test_for_attack(b.getPosition().get_king_pos(s), s);
+      bool onside_in_check = sub_board.test_for_attack(sub_board.getPosition().get_king_pos(s), s);
       base_info.egr = (onside_in_check) ? EGR_CHECKMATE : EGR_14A_STALEMATE;
       checkmate++;
-      std::cout << std::this_thread::get_id() << " checkmate/stalemate:" << b.getPosition().fen_string() << std::endl;
+      std::cout << std::this_thread::get_id() << " checkmate/stalemate:" << sub_board.getPosition().fen_string() << std::endl;
     } else {
       base_info.move_cnt = moves.size();
 
@@ -241,11 +248,11 @@ void worker(int level, std::string base_path)
           posinfo.id = get_position_id();
           f_initpos.write(posprime,posinfo);
 
-        } else if (posinfo.fifty_cnt == 50) {
-          // if no pawn move or capture in past fifty moves, draw the game
-          base_info.egr = EGR_14F_50_MOVE_RULE;
-          fiftymovedrawcnt++;
-          fifty_cnt++;
+        // } else if (posinfo.fifty_cnt == 50) {
+        //   // if no pawn move or capture in past fifty moves, draw the game
+        //   base_info.egr = EGR_14F_50_MOVE_RULE;
+        //   fiftymovedrawcnt++;
+        //   fifty_cnt++;
 
         } else if (bprime.gi().getPieceCnt() == level-1) {
           unresolvedn1cnt++;
@@ -257,7 +264,7 @@ void worker(int level, std::string base_path)
           bool found = false;
           { // dummy scope
             std::lock_guard<std::mutex> lock(resolved_mtx);
-            auto itr = resolved.find(posprime);
+            itr = resolved.find(posprime);
             if (itr != resolved.end()) {
               itr->second.add_ref(mv, base_info.id);
               collisioncnt++;
@@ -289,17 +296,17 @@ void worker(int level, std::string base_path)
         resolved[base_pos] = base_info;
       } // end dummy scope
 
-      // std::cout << "base mov/p/c/5/1 parent mov dist dis50 coll_cnt init_cnt res_cnt unr unr1 fifty FEN\n";
+      // std::cout << "base,parent,mov/p/c/5/1,move,dist,dis50,coll_cnt,init_cnt,res_cnt,unr,unr1,fifty,FEN\n";
       ss.str(std::string());
       ss
       // std::cout /*<< std::this_thread::get_id() <<*/
                 << base_info.id
+                << ',' << base_info.src
                 << ',' << moves.size()
                     << '/' << pawn_moves
                     << '/' << coll_cnt
                     << '/' << fifty_cnt
                     << '/' << nsub1_cnt
-                << ',' << base_info.src
                 << ',' << Move::unpack(base_info.move)
                 << ',' << base_info.distance
                 << ',' << base_info.fifty_cnt
@@ -309,17 +316,13 @@ void worker(int level, std::string base_path)
                 << ',' << unresolved.size()
                 << ',' << unresolvedn1cnt
                 << ',' << fiftymovedrawcnt
-                << ',' << b.getPosition().fen_string(base_info.distance)
+                << ',' << sub_board.getPosition().fen_string(base_info.distance)
                 << std::endl;
       std::cout << ss.str();
     }
     // dump_map(initpos);
     // dump_map(unresolved);
     // dump_map(resolved);
-    if (unresolved.size() == 0) {
-        std::cout << std::this_thread::get_id() << " traversal finished" << std::endl;
-        done = true;
-    }
   }
 
   // // if stop, then ctrl-c was used, so bail
@@ -343,7 +346,7 @@ void worker(int level, std::string base_path)
 
 void write_resolved(int level, std::string& base_path)
 {
-    std::cout << std::this_thread::get_id() << " writing resolved positions" << std::endl;
+    std::cout << " writing " << resolved.size() << " resolved positions" << std::endl;
     PositionFile f_resolved(base_path, "resolved", level);
     for (auto e : resolved)
       f_resolved.write(e.first, e.second);

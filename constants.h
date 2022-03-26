@@ -11,7 +11,7 @@
 #include <memory>
 #include <vector>
 
-#define THREAD_COUNT 7
+#define THREAD_COUNT 8
 
 enum Side {
 	SIDE_WHITE = 0,
