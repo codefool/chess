@@ -4,6 +4,7 @@
 #include <sstream>
 
 #include "constants.h"
+#include "worker.h"
 
 // "id",           "parent","gameinfo", "population",   "hi",            "lo",            "move_cnt","move_packed","distance","50_cnt","ref_cnt","move/parent..."
 // uint64,          uin1t64, uint32,    uint64,          uint64,          uint64,          int,       uint16,       int,       int,     int,      uint16/uint64
@@ -62,54 +63,55 @@ uint64_t get_uint64(std::istringstream& line)
     return -1;
 }
 
+void tokenize(std::string& tp, PositionPacked& pos, PosInfo& info)
+{
+    // split by comma
+    std::string tok;
+    std::istringstream line;
+    PosRef  ref;
+
+    line.str(tp);
+    int fieldcnt(0);
+    int refcnt(0);
+    info.id        = get_uint64(line);
+    info.src       = get_uint64(line);
+    pos.gi.i       = get_uint32(line);
+    pos.pop        = get_uint64(line);
+    pos.hi         = get_uint64(line);
+    pos.lo         = get_uint64(line);
+    info.move_cnt  = get_int(line);
+    info.move.i    = get_uint16(line);
+    info.distance  = get_uint16(line);
+    info.fifty_cnt = get_uint16(line);
+    info.egr       = static_cast<EndGameReason>(get_int(line));
+    refcnt         = get_int(line);
+    while(refcnt--)
+    {
+        ref.move.i = get_uint16(line);
+        ref.trg    = get_uint64(line);
+        info.add_ref(Move::unpack(ref.move), ref.trg);
+    }
+}
+
 uint64_t dupeCnt{0};
-int load_csv(std::string filename, PosMap& map) {
+int load_csv(std::string filename, PosMap& map)
+{
    std::fstream fs;
    std::cout << "Loading " << filename << '\n';
    fs.open(filename, std::ios::in); //open a file to perform read operation using file object
    uint64_t reccnt{0};
-   if (fs.is_open()){   //checking whether the file is open
+   if (fs.is_open())   //checking whether the file is open
+   {
       std::string tp;
       std::getline(fs,tp); // throw away first line (column heads)
-      while(std::getline(fs, tp)){ //read data from file object and put it into string.
+      while(std::getline(fs, tp)) //read data from file object and put it into string.
+      {
         if ((++reccnt % 100) == 0)
             std::cout << reccnt << "\r"; //print the data of the string
-        // split by comma
-        std::string tok;
-        std::istringstream line;
         PositionPacked pos;
         PosInfo info;
-        PosRef  ref;
-        line.str(tp);
-        int fieldcnt(0);
-        int refcnt(0);
-        info.id        = get_uint64(line);
-        info.src       = get_uint64(line);
-        pos.gi.i       = get_uint32(line);
-        pos.pop        = get_uint64(line);
-        pos.hi         = get_uint64(line);
-        pos.lo         = get_uint64(line);
-        info.move_cnt  = get_int(line);
-        info.move.i    = get_uint16(line);
-        info.distance  = get_uint16(line);
-        info.fifty_cnt = get_uint16(line);
-        info.egr       = static_cast<EndGameReason>(get_int(line));
-        refcnt         = get_int(line);
-        while(refcnt--)
-        {
-            ref.move.i = get_uint16(line);
-            ref.trg    = get_uint64(line);
-            info.add_ref(Move::unpack(ref.move), ref.trg);
-        }
-
-        PosMap::iterator itr = map.find(pos);
-        if (itr != map.end()) {
-            // duplicate entry
-            dupeCnt++;
-            std::cout << "\t dupe " << itr->first << ' ' << pos << std::endl;
-        } else {
-            map.insert({pos,info});
-        }
+        tokenize(tp, pos, info);
+        map.insert({pos,info});
       }
       fs.close();
       std::cout << std::endl;
@@ -117,37 +119,68 @@ int load_csv(std::string filename, PosMap& map) {
    return map.size();
 }
 
+uint64_t csv_cmp(std::string filename, PosMap& lhs)
+{
+   std::fstream fs;
+   std::cout << "Comparing " << filename << '\n';
+   fs.open(filename, std::ios::in); //open a file to perform read operation using file object
+   uint64_t reccnt{0};
+   uint64_t dupe_cnt{0};
+   if (fs.is_open())   //checking whether the file is open
+   {
+      std::string tp;
+      std::getline(fs,tp); // throw away first line (column heads)
+      while(std::getline(fs, tp)) //read data from file object and put it into string.
+      {
+        if ((reccnt++ % 100) == 0)
+            std::cout << reccnt << ' ' << dupe_cnt << '\r'; //print the data of the string
+        PositionPacked pos;
+        PosInfo info;
+        tokenize(tp, pos, info);
+        auto itr = lhs.find(pos);
+        if (itr != lhs.end()) {
+            dupe_cnt++;
+            itr->second.add_ref(Move::unpack(info.move), info.src);
+        } else {
+            lhs.insert({pos,info});
+        }
+      }
+      fs.close();
+      std::cout << reccnt << ' ' << dupe_cnt << std::endl; //print the data of the string
+   }
+   return dupe_cnt;
+}
+
 PosMap lhs;
-PosMap rhs;
 
-int main() {
-    load_csv("/mnt/c/tmp/cg_8/32/resolved_32_139782223079232.csv", lhs);
-    load_csv("/mnt/c/tmp/cg_7/32/resolved_32_140492346263360.csv", rhs);
+int main()
+{
+    std::string base_path("/mnt/c/tmp/cg_8/");
+    auto dupe_cnt = csv_cmp("/mnt/c/tmp/cg_7/32/init-pos-combined_32_139843531208512.csv", lhs);
+    dupe_cnt = csv_cmp("/mnt/c/tmp/cg_8/32/init-pos-combined_32_139637762422592.csv", lhs);
+    // dupe_cnt = csv_cmp("/mnt/c/tmp/cg_7/31/init_pos_31_139632422450944.csv", lhs);
+    // dupe_cnt = csv_cmp("/mnt/c/tmp/cg_7/31/init_pos_31_139632430843648.csv", lhs);
+    // dupe_cnt = csv_cmp("/mnt/c/tmp/cg_7/31/init_pos_31_139632439236352.csv", lhs);
+    // dupe_cnt = csv_cmp("/mnt/c/tmp/cg_7/31/init_pos_31_139632447629056.csv", lhs);
+    // dupe_cnt = csv_cmp("/mnt/c/tmp/cg_7/31/init_pos_31_139632456021760.csv", lhs);
 
-    std::cout << "lhs " << lhs.size() << " rhs " << rhs.size() << std::endl;
+    // std::string filz[] = {
+    //     "init_pos_32_139666046908160.csv",
+    //     "init_pos_32_139666055300864.csv",
+    //     "init_pos_32_139666063693568.csv",
+    //     "init_pos_32_139666072086272.csv",
+    //     "init_pos_32_139666080478976.csv",
+    //     "init_pos_32_139666088871680.csv",
+    //     "init_pos_32_139666097264384.csv",
+    //     "init_pos_32_139666105657088.csv"
+    // };
 
-    // compare lhs to rhs - remove all lhs in rhs
-    uint64_t cnt{0};
-    uint64_t rkill{0};
-    for (auto l : lhs) {
-        auto r = rhs.find(l.first);
-        if (r != rhs.end()) {
-            rhs.erase(r);
-            rkill++;
-        }
-        if ((++cnt % 100) == 0) {
-            std::cout << cnt << ' ' << rkill << '\r';
-        }
-    }
-    std::cout << "\n remaining lhs " << lhs.size() << " rhs " << rhs.size() << std::endl;
-    // what's left in rhs is not in lhs - so what are they?
-    for (auto l : lhs) {
-        Position p(l.first);
-        std::cout << "l " << p.fen_string() << std::endl;
-    }
-    // for (auto r : rhs) {
-    //     Position p(r.first);
-    //     std::cout << "r " << p.fen_string() << std::endl;
+    // for(auto fil : filz) {
+    //     auto dupe_cnt = csv_cmp(base_path + "32/" + fil, lhs);
     // }
+    std::cout << "lhs " << lhs.size() << std::endl;
+
+    // write_results(lhs, 32, base_path, "init-pos-combined");
+
     return 0;
 }

@@ -197,3 +197,17 @@ Threads Exec          Resolved  Pawn-Init-Pos Diff
 
 I suspect this is due to undetected duplicates, so I'll need to write some
 analysis programs to see if this is true. Oy.
+
+This issue seems to be with the "enforcement" of the 50-move rule. Not sure why as
+the solution set is strictly deterministic, but the number of threads apparently
+introduced chaos such that enforcing a max distance of 50 causes these discrepencies.
+
+Ran solution sets with 8-and-7 threads:
+Threads Exec          Resolved  Pawn-Init-Pos n-1-init-pos  Diff
+8       3008s(50.1m)  25452174  325027392     55126670      0/+15451/+2813
+7       3102s(51.7m)  25452174  325011941     55123857
+
+However, in the pawn-init-pos and n-1-init-pos there are still discrepencies. This is
+most puzzling, as if the resolved result sets are identical, then the derivitive
+result sets should also be identical.
+

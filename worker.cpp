@@ -117,10 +117,31 @@ void set_global_id_cnt(PositionId id)
   g_id_cnt = id;
 }
 
-PositionId get_position_id()
+// a position id is a 64-bit value, with the high
+// six bits being the piece population
+union PositionIdPacked {
+  uint64_t  uul;
+  struct {
+    uint64_t m:58;
+    uint64_t l:6;
+  } f;
+
+  PositionIdPacked(int level, PositionId cnt)
+  {
+      f.m = cnt;
+      f.l = level;
+  }
+
+  PositionId get()
+  {
+      return static_cast<uint64_t>(uul);
+  }
+};
+
+PositionId get_position_id(int level)
 {
   std::lock_guard<std::mutex> lock(mtx_id);
-  return ++g_id_cnt;
+  return PositionIdPacked(level, ++g_id_cnt).get();
 }
 
 uint64_t collisioncnt = 0;
@@ -172,7 +193,6 @@ void worker(int level, std::string base_path)
   moves.reserve(50);
 
   // time_t start = time(0);
-  std::cout << "base,parent,mov/p/c/5/1,move,dist,dis50,coll_cnt,init_cnt,res_cnt,unr,unr1,fifty,FEN\n";
 
   int loop_cnt{0};
   int retry_cnt{0};
@@ -245,7 +265,7 @@ void worker(int level, std::string base_path)
           initposcnt++;
           pawn_moves++;
           // initpos->insert({posprime,posinfo});
-          posinfo.id = get_position_id();
+          posinfo.id = get_position_id(level);
           f_initpos.write(posprime,posinfo);
 
         // } else if (posinfo.fifty_cnt == 50) {
@@ -256,7 +276,7 @@ void worker(int level, std::string base_path)
 
         } else if (bprime.gi().getPieceCnt() == level-1) {
           unresolvedn1cnt++;
-          posinfo.id = get_position_id();
+          posinfo.id = get_position_id(level-1);
           f_downlevel.write(posprime,posinfo);
           nsub1_cnt++;
 
@@ -281,7 +301,7 @@ void worker(int level, std::string base_path)
               collisioncnt++;
               coll_cnt++;
             } else {
-              posinfo.id = get_position_id();
+              posinfo.id = get_position_id(level);
               unresolved.insert({posprime, posinfo});
             }
           }
@@ -298,27 +318,28 @@ void worker(int level, std::string base_path)
 
       // std::cout << "base,parent,mov/p/c/5/1,move,dist,dis50,coll_cnt,init_cnt,res_cnt,unr,unr1,fifty,FEN\n";
       ss.str(std::string());
-      ss
-      // std::cout /*<< std::this_thread::get_id() <<*/
-                << base_info.id
-                << ',' << base_info.src
-                << ',' << moves.size()
-                    << '/' << pawn_moves
-                    << '/' << coll_cnt
-                    << '/' << fifty_cnt
-                    << '/' << nsub1_cnt
-                << ',' << Move::unpack(base_info.move)
-                << ',' << base_info.distance
-                << ',' << base_info.fifty_cnt
-                << ',' << collisioncnt
-                << ',' << initposcnt // << initpos->size()
-                << ',' << resolved.size()
-                << ',' << unresolved.size()
-                << ',' << unresolvedn1cnt
-                << ',' << fiftymovedrawcnt
-                << ',' << sub_board.getPosition().fen_string(base_info.distance)
-                << std::endl;
-      std::cout << ss.str();
+      ss.flags(std::ios::hex);
+      ss.fill('0');
+      auto ow = ss.width(16);
+      ss << base_info.id
+         << ',' << base_info.src;
+      ss.width(ow);
+      ss << ',' << moves.size()
+           << '/' << pawn_moves
+           << '/' << coll_cnt
+           << '/' << fifty_cnt
+           << '/' << nsub1_cnt
+         << ',' << Move::unpack(base_info.move)
+         << ',' << base_info.distance
+         << ',' << base_info.fifty_cnt
+         << ',' << collisioncnt
+         << ',' << initposcnt // << initpos->size()
+         << ',' << resolved.size()
+         << ',' << unresolved.size()
+         << ',' << unresolvedn1cnt
+         << ',' << fiftymovedrawcnt
+         << ',' << sub_board.getPosition().fen_string(base_info.distance);
+      std::cout << ss.str() << std::endl;
     }
     // dump_map(initpos);
     // dump_map(unresolved);
@@ -346,8 +367,13 @@ void worker(int level, std::string base_path)
 
 void write_resolved(int level, std::string& base_path)
 {
-    std::cout << " writing " << resolved.size() << " resolved positions" << std::endl;
-    PositionFile f_resolved(base_path, "resolved", level);
-    for (auto e : resolved)
-      f_resolved.write(e.first, e.second);
+    write_results(resolved, level, base_path, "resolved");
+}
+
+void write_results(PosMap& map, int level, std::string& base_path, std::string disp_name)
+{
+    std::cout << " writing " << map.size() << ' ' << disp_name << " positions" << std::endl;
+    PositionFile f_results(base_path, disp_name, level);
+    for (auto e : map)
+      f_results.write(e.first, e.second);
 }

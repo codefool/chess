@@ -9,6 +9,7 @@
 #include <iostream>
 #include <map>
 #include <memory>
+#include <set>
 #include <vector>
 
 #define THREAD_COUNT 8
@@ -545,4 +546,5 @@ struct PosInfo {
 };
 
 typedef std::map<PositionPacked,PosInfo> PosMap;
+typedef std::set<PositionPacked>		 PosSet;
 typedef PosMap *PosMapPtr;
