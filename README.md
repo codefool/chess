@@ -202,6 +202,9 @@ This issue seems to be with the "enforcement" of the 50-move rule. Not sure why 
 the solution set is strictly deterministic, but the number of threads apparently
 introduced chaos such that enforcing a max distance of 50 causes these discrepencies.
 
+// 50-move rule
+//#define ENFORCE_14F_50_MOVE_RULE
+
 Ran solution sets with 8-and-7 threads:
 Threads Exec          Resolved  Pawn-Init-Pos n-1-init-pos  Diff
 8       3008s(50.1m)  25452174  325027392     55126670      0/+15451/+2813
@@ -211,3 +214,25 @@ However, in the pawn-init-pos and n-1-init-pos there are still discrepencies. Th
 most puzzling, as if the resolved result sets are identical, then the derivitive
 result sets should also be identical.
 
+Executed a compare/merge for these initial position files, and after everything is
+distilled down to a set of unique positions, the pawn-init-pos and n-1-init-pos
+datasets are identical for both 8 and 7 threads.
+
+If I consider that the rules regarding castling have more to do with the traversal
+of the final graph, rather than the generation of routes, then the move count can
+be reduced by 2^4.
+
+//#define ENFORCE_8A3_CASTELING
+
+Indeed, after removing the 8A3 enforcement the run for the first-order non-pawn positions
+completed after 677s(11.2833m), and the size of the resulting dataset shrank to 5'027'597,
+and the number of pawn-init-positions to 64'188'960.
+
+This brings the amount of data into a more manageble size and execution times to something
+less than the heat-death of the universe.
+
+// define to cache pawn-move positions rather than shunt to files
+#define CACHE_PAWN_MOVE_POSITIONS
+
+// define to cache n-1 positions rather than shunt to files
+#define CACHE_N_1_POSITIONS

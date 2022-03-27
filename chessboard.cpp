@@ -161,5 +161,8 @@ int main() {
 
   write_resolved(CLEVEL, workfilepath);
 
+#ifdef CACHE_PAWN_MOVE_POSITIONS
+  write_pawn_init_pos(CLEVEL, workfilepath);
+#endif
 	return 0;
 }

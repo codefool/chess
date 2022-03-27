@@ -153,7 +153,11 @@ int checkmate = 0;
 std::mutex unresolved_mtx;
 std::mutex resolved_mtx;
 
-PosMap initpos;
+#ifdef CACHE_PAWN_MOVE_POSITIONS
+std::mutex pawn_init_pos_mtx;
+PosMap pawn_init_pos;
+#endif
+
 PosMap unresolved;
 PosMap resolved;
 
@@ -185,7 +189,9 @@ void worker(int level, std::string base_path)
 {
   std::cout << std::this_thread::get_id() << " starting level " << level << std::endl;
 
-  PositionFile f_initpos(base_path, "init_pos", level);
+#ifndef CACHE_PAWN_MOVE_POSITIONS
+  PositionFile f_pawninitpos(base_path, "pawn_init_pos", level);
+#endif
   PositionFile f_downlevel(base_path, "init_pos", level - 1);
   std::stringstream ss;
 
@@ -201,16 +207,19 @@ void worker(int level, std::string base_path)
     PosInfo        base_info;
     PosMap::iterator itr;
     { // dummy scope
-      std::lock_guard<std::mutex> lock0(unresolved_mtx);
-      itr = unresolved.begin();
-      if (itr != unresolved.end()) {
-        base_pos  = itr->first;
-        base_info = itr->second;
-        unresolved.erase(base_pos);
-        std::lock_guard<std::mutex> lock1(resolved_mtx);
-        resolved.insert({base_pos,base_info});
-      }
-    }
+        std::lock_guard<std::mutex> lock0(unresolved_mtx);
+        if (unresolved.size())
+        {
+            itr = unresolved.begin();
+            if (itr != unresolved.end()) {
+                base_pos  = itr->first;
+                base_info = itr->second;
+                unresolved.erase(base_pos);
+                std::lock_guard<std::mutex> lock1(resolved_mtx);
+                resolved.insert({base_pos,base_info});
+            }
+        }
+    } // end dummy scope
 
     if (base_pos.pop == 0) {
       using namespace std::chrono_literals;
@@ -266,14 +275,23 @@ void worker(int level, std::string base_path)
           pawn_moves++;
           // initpos->insert({posprime,posinfo});
           posinfo.id = get_position_id(level);
-          f_initpos.write(posprime,posinfo);
-
-        // } else if (posinfo.fifty_cnt == 50) {
-        //   // if no pawn move or capture in past fifty moves, draw the game
-        //   base_info.egr = EGR_14F_50_MOVE_RULE;
-        //   fiftymovedrawcnt++;
-        //   fifty_cnt++;
-
+#ifdef CACHE_PAWN_MOVE_POSITIONS
+          std::lock_guard<std::mutex> lock(pawn_init_pos_mtx);
+          auto it = pawn_init_pos.find(posprime);
+          if (it == pawn_init_pos.end())
+              pawn_init_pos.insert({posprime,posinfo});
+          else
+              it->second.add_ref(mv, base_info.id);
+#else
+          f_pawninitpos.write(posprime,posinfo);
+#endif
+#ifdef ENFORCE_14F_50_MOVE_RULE
+        } else if (posinfo.fifty_cnt == 50) {
+          // if no pawn move or capture in past fifty moves, draw the game
+          base_info.egr = EGR_14F_50_MOVE_RULE;
+          fiftymovedrawcnt++;
+          fifty_cnt++;
+#endif
         } else if (bprime.gi().getPieceCnt() == level-1) {
           unresolvedn1cnt++;
           posinfo.id = get_position_id(level-1);
@@ -333,13 +351,18 @@ void worker(int level, std::string base_path)
          << ',' << base_info.distance
          << ',' << base_info.fifty_cnt
          << ',' << collisioncnt
-         << ',' << initposcnt // << initpos->size()
+#ifdef CACHE_PAWN_MOVE_POSITIONS
+         << ',' << pawn_init_pos.size()
+#else
+         << ',' << initposcnt
+#endif
          << ',' << resolved.size()
          << ',' << unresolved.size()
          << ',' << unresolvedn1cnt
          << ',' << fiftymovedrawcnt
-         << ',' << sub_board.getPosition().fen_string(base_info.distance);
-      std::cout << ss.str() << std::endl;
+         << ',' << sub_board.getPosition().fen_string(base_info.distance)
+         << '\n';
+      std::cout << ss.str();
     }
     // dump_map(initpos);
     // dump_map(unresolved);
@@ -368,6 +391,11 @@ void worker(int level, std::string base_path)
 void write_resolved(int level, std::string& base_path)
 {
     write_results(resolved, level, base_path, "resolved");
+}
+
+void write_pawn_init_pos(int level, std::string& base_path)
+{
+    write_results(pawn_init_pos, level, base_path, "pawn_init_pos");
 }
 
 void write_results(PosMap& map, int level, std::string& base_path, std::string disp_name)

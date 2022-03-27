@@ -1,7 +1,7 @@
 // Chess analysis
 //
-// Copyright (C) 2021 Garyl Hester. All rights reserved.
-// github.com/codefool/chess
+// Copyright (C) 2021-2022 Garyl Hester. All rights reserved.
+// github.com/codefool/chessgen
 //
 // Released under the GNU General Public Licence Version 3, 29 June 2007
 //
@@ -13,6 +13,18 @@
 #include <vector>
 
 #define THREAD_COUNT 8
+// [8A3] castling permanently illegal if the king moves, or the castling
+// rook has moved.
+//#define ENFORCE_8A3_CASTELING
+
+// 50-move rule
+//#define ENFORCE_14F_50_MOVE_RULE
+
+// define to cache pawn-move positions rather than shunt to files
+#define CACHE_PAWN_MOVE_POSITIONS
+
+// define to cache n-1 positions rather than shunt to files
+#define CACHE_N_1_POSITIONS
 
 enum Side {
 	SIDE_WHITE = 0,
@@ -238,10 +250,10 @@ xxxx x... .... .... .... .... .... .... = number of active pieces on the board (
 .... .x.. .... .... .... .... .... .... = side on move: 0-white, 1-black
 .... .... ..x. .... .... .... .... .... = en passant latch
 .... .... ...x xx.. .... .... .... .... = pawn on file xxx is subject to en passant
-.... .... .... ..x. .... .... .... .... = white castle kingside disabled  (WK or WKR has moved)
-.... .... .... ...x .... .... .... .... = white castle queenside disabled (WK or WQR has moved)
-.... .... .... .... x... .... .... .... = black castle kingside disabled  (BK or BKR has moved)
-.... .... .... .... .x.. .... .... .... = black castle queenside disabled (BK or BQR has moved)
+.... .... .... ..x. .... .... .... .... = white castle kingside enabled  (WK or WKR has not moved)
+.... .... .... ...x .... .... .... .... = white castle queenside enabled (WK or WQR has not moved)
+.... .... .... .... x... .... .... .... = black castle kingside enabled  (BK or BKR has not moved)
+.... .... .... .... .x.. .... .... .... = black castle queenside enabled (BK or BQR has not moved)
 .... .... .... .... ..?? ???? ???? ???? = unused (zeroes)
 
 It is imperitive that all unused bits - or bits that are out of scope - be set to 0
@@ -421,6 +433,7 @@ public:
 	Side getOnMove() const { return on_move; }
 	void setOnMove(Side m) { on_move = m; }
 	void toggleOnMove() { on_move = (on_move == SIDE_WHITE) ? SIDE_BLACK : SIDE_WHITE; }
+#ifdef ENFORCE_CASTELING_8A3
 	bool anyCastlePossible() const
 	{
 		return isWksCastleEnabled() || isWqsCastleEnabled() || isBksCastleEnabled() || isBqsCastleEnabled();
@@ -433,6 +446,17 @@ public:
 	void setBksCastleEnabled(bool s) { bks_castle_enabled = s;}
 	bool isBqsCastleEnabled() const { return bqs_castle_enabled; }
 	void setBqsCastleEnabled(bool s) { bqs_castle_enabled = s;}
+#else
+	bool anyCastlePossible()  const { return true; }
+	bool isWksCastleEnabled() const { return wks_castle_enabled; }
+	void setWksCastleEnabled(bool s) { /* do nothing */ }
+	bool isWqsCastleEnabled() const { return wqs_castle_enabled; }
+	void setWqsCastleEnabled(bool s) { /* do nothing */ }
+	bool isBksCastleEnabled() const { return bks_castle_enabled; }
+	void setBksCastleEnabled(bool s) { /* do nothing */ }
+	bool isBqsCastleEnabled() const { return bqs_castle_enabled; }
+	void setBqsCastleEnabled(bool s) { /* do nothing */ }
+#endif
 	bool enPassantExists() const { return (en_passant_file & EP_HERE_MASK) != 0;}
 	File getEnPassantFile() const { return static_cast<File>(en_passant_file & EP_FILE_MASK); }
 	void setEnPassantFile(EnPassantFile ep) { en_passant_file = ep; }

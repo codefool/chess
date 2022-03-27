@@ -23,6 +23,7 @@ PositionId get_position_id(int level);
 void set_stop_handler();
 void worker(int level, std::string base_path);
 void write_resolved(int level, std::string& base_path);
+void write_pawn_init_pos(int level, std::string& base_path);
 void write_results(PosMap& map, int level, std::string& base_path, std::string disp_name);
 
 
