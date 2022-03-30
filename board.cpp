@@ -102,7 +102,7 @@ void Board::get_moves(PiecePtr ptr, MoveList& moves) {
         Dir updnl = (isBlack)?DNL:UPL;
         Dir updnr = (isBlack)?DNR:UPR;
         Pos pos   = ppos + offs[updn];
-        if( _p.is_square_empty(pos) ) {
+        if( pos.in_bounds() && _p.is_square_empty(pos) ) {
             // pawn can move forward
             if ( (isBlack && pos.rank() == R1) || (pos.rank() == R8) ) {
                 // Case 5. A pawn reaching its eighth rank is promoted
@@ -117,7 +117,7 @@ void Board::get_moves(PiecePtr ptr, MoveList& moves) {
             // Case 2: Pawns on their home square may move two spaces.
             if ( (isBlack && ppos.rank() == R7) || ppos.rank() == R2) {
                 pos += offs[updn];
-                if( _p.is_square_empty(pos) )
+                if( pos.in_bounds() && _p.is_square_empty(pos) )
                     moves.push_back(Move(MV_MOVE, ppos, pos));
             }
         }
@@ -220,20 +220,38 @@ void Board::check_castle(Side side, MoveAction ma, MoveList& moves) {
     moves.push_back(Move(ma, Pos(rank,Fe), Pos(rank,(isQueenSide)?Fa:Fh)));
 }
 
+// Collect all valid moves for the given piece for the directions provided, but no more than
+// range moves. If occupied is true, then the move is only valid iif the target square is
+// occuppied (this is for pawns. So, while non-pawn pieces can advance in a given direction
+// until/unless another piece is encountered, pawns can only advance in this concext iif the
+// target square is occupied by an opposing piece.)
 void Board::gather_moves(PiecePtr p, std::vector<Dir> dirs, int range, MoveList& moves, bool occupied) {
     Side on_move = p->getSide();
-    for (auto d : dirs) {
+    for (auto d : dirs)
+    {
         Pos pos = p->getPos();
         Offset o = offs[d];
         int r = range;
-        while ( r-- ) {
+        while ( r-- )
+        {
             pos += o;
             if( !pos.in_bounds() )
+            {
+                // walked off the edge of the board.
                 break;
+            }
             Move* mov = check_square(p, pos, occupied);
             if (mov == nullptr)
+            {
+                // encountered a friendly piece
                 break;
+            }
             moves.push_back(*mov);
+            if (mov->getAction() == MV_CAPTURE)
+            {
+                // captured an enemy piece - walk is over.
+                break;
+            }
         }
     }
 }
@@ -242,14 +260,17 @@ Move* Board::check_square(PiecePtr p, Pos pos, bool occupied) {
     PiecePtr other = _p.get(pos);
 
     if ( other->isEmpty() )
+    {
         // empty square so record move and continue
         return (occupied) ? nullptr : new Move(MV_MOVE, p->getPos(), pos);
+    }
 
-    // otherwise, square is not empty so record capture move and leave.
-    if( other->getSide() == p->getSide()) {
+    if( other->getSide() == p->getSide())
+    {
         // If friendly piece, do not record move and leave.
         return nullptr;
     }
+
     return new Move(MV_CAPTURE, p->getPos(), pos);
 }
 

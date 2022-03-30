@@ -324,7 +324,7 @@ void worker(int level, std::string base_path)
             }
           }
         } else {
-          std::cout << "ERROR! too many captures" << std::endl;
+          std::cout << "ERROR! too many captures " << bprime.gi().getPieceCnt() << std::endl;
           exit(1);
         }
       }

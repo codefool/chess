@@ -19,6 +19,41 @@ Position::Position(const Position& o)
         _b[cnt] = o._b[cnt];
 }
 
+// how this works
+//
+// There are 64 squares on the board, so we keep a bitmap where
+// each bit represents whether a piece is present or not. The
+// index of the bit is the square number, and the cnt of the bit
+// is the index into the lo/hi population to identify what the
+// piece is.
+//
+// lo and hi are 64-bit values, mapped into 16 4-bit values that
+// identify each piece. Since there can be no more than 32 pieces
+// this sufficies for encoding any possible possition.
+//
+// This is the packed encoding for the initial position:
+//
+//   uint64_t pop = 0xffff00000000ffff;
+//   uint64_t hi  = 0xdcb9abcdeeeeeeee;
+//   uint64_t lo  = 0x6666666654312345;
+//
+// The square numbers (0-63) are represented by the pop value and
+// are interpreted left-to-right, so the first bit represent square
+// A1 on the board. Another point of confusion is that since there
+// can be at most 32 pieces on the board, then there can only be 32
+// bits set in this 64 bit map. Also, each piece is encoded as a
+// 4-bit value, which is futher packed into two 64-bit values. So,
+// as the pop map is traversed, a count of set bits (usually referred
+// to as the population of bits) is made, with the ordinal of any
+// given bit being the index into the hi/lo packed maps. So even though
+// the pop map contains 64 bits, at most its population is 32 bits set.
+//
+// The lo and hi maps are treated as a single 128-bit value, and more
+// specifically as an array of 32 4-bit values that identify each
+// specific piece.
+//
+#ifndef USE_NEW_POSITION_PACK_UNPACK
+
 uint32_t Position::unpack(const PositionPacked& p)
 {
     uint32_t bitcnt(0);
@@ -82,6 +117,74 @@ PositionPacked Position::pack()
     return pp;
 }
 
+#else
+
+uint32_t Position::unpack(const PositionPacked& p)
+{
+    uint32_t bitcnt{0};
+    uint64_t pop{p.pop};
+    uint64_t map{p.lo};
+  	for (short bit{0}; bit < 64; bit++)
+  	{
+        if (pop & 1ULL)
+        {
+            uint8_t   pb = static_cast<uint8_t>  (map & 0x0fULL);
+            PieceType pt = static_cast<PieceType>(pb & PIECE_MASK);
+            Side      s  = static_cast<Side>     ((pb & SIDE_MASK) != 0);
+            set(bit, pt, s);
+            if( ++bitcnt == 16 )
+            {
+                map = p.hi;
+            } else {
+                map >>= 4;
+            }
+        }
+        else
+        {
+            set(bit, Piece::EMPTY);
+        }
+        pop >>= 1;
+  	}
+    _g.unpack(p.gi);
+    return bitcnt;
+}
+
+PositionPacked Position::pack()
+{
+	PositionPacked pp;
+    uint64_t pop{0};
+    uint64_t map{0};
+    uint32_t bitcnt{0};
+
+    for (short bit(0); bit < 64; bit++) {
+        PiecePtr ptr = _b[bit];
+        if (!ptr->isEmpty())
+        {
+            pop |= 1ULL;    // mark square as occupied
+            map <<= 4;		// make room for piece info
+            map |= static_cast<uint64_t>(ptr->toByte());
+            if(++bitcnt == 16)
+            {
+                pp.lo = map;
+                map = 0;
+            }
+        }
+        // This bothers me. We need to pack 64 bits, but we only want to do 63 shifts.
+        // So we want to shift on every iteration but the last one.
+        if ( bit < 63 )
+            pop <<= 1;
+  	}
+    if (bitcnt > 15)
+        pp.hi = map;
+
+    pp.pop = pop;
+    pp.gi  = gi().pack();
+
+    return pp;
+}
+
+#endif //USE_NEW_POSITION_PACK_UNPACK
+
 void Position::init()
 {
     // set the initial position.
@@ -106,7 +209,7 @@ void Position::init()
 
 void Position::set(Pos pos, PieceType pt, Side s)
 {
-    set(pos.toByte(), Piece::create(pt, s));
+    set(pos, Piece::create(pt, s));
 }
 
 void Position::set(Pos pos, PiecePtr pp)

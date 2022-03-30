@@ -225,7 +225,7 @@ be reduced by 2^4.
 //#define ENFORCE_8A3_CASTELING
 
 Indeed, after removing the 8A3 enforcement the run for the first-order non-pawn positions
-completed after 677s(11.2833m), and the size of the resulting dataset shrank to 5'027'597,
+completed after 677s(11.2833m), and the size of the resulting dataset shrank to 5'027'596,
 and the number of pawn-init-positions to 64'188'960.
 
 This brings the amount of data into a more manageble size and execution times to something

@@ -155,9 +155,9 @@ PosMap lhs;
 
 int main()
 {
-    std::string base_path("/mnt/c/tmp/cg_8/");
-    auto dupe_cnt = csv_cmp("/mnt/c/tmp/cg_7/32/init-pos-combined_32_139843531208512.csv", lhs);
-    dupe_cnt = csv_cmp("/mnt/c/tmp/cg_8/32/init-pos-combined_32_139637762422592.csv", lhs);
+    // std::string base_path("/mnt/c/tmp/cg_8/");
+    // auto dupe_cnt = csv_cmp("/mnt/c/tmp/cg_7/32/init-pos-combined_32_139843531208512.csv", lhs);
+    // dupe_cnt = csv_cmp("/mnt/c/tmp/cg_8/32/init-pos-combined_32_139637762422592.csv", lhs);
     // dupe_cnt = csv_cmp("/mnt/c/tmp/cg_7/31/init_pos_31_139632422450944.csv", lhs);
     // dupe_cnt = csv_cmp("/mnt/c/tmp/cg_7/31/init_pos_31_139632430843648.csv", lhs);
     // dupe_cnt = csv_cmp("/mnt/c/tmp/cg_7/31/init_pos_31_139632439236352.csv", lhs);
@@ -178,9 +178,17 @@ int main()
     // for(auto fil : filz) {
     //     auto dupe_cnt = csv_cmp(base_path + "32/" + fil, lhs);
     // }
-    std::cout << "lhs " << lhs.size() << std::endl;
+    // std::cout << "lhs " << lhs.size() << std::endl;
 
     // write_results(lhs, 32, base_path, "init-pos-combined");
 
+    Position p;
+    PositionPacked pp;
+    pp.gi.i = 0x20000000;
+    pp.pop  = 0x7dff00000007fffd;
+    pp.hi   = 0xdb9abdeeeeeeee4c;
+    pp.lo   = 0x4666666665c31235;
+    p.unpack(pp);
+    std::cout << p.fen_string() << std::endl;
     return 0;
 }

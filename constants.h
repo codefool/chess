@@ -12,7 +12,9 @@
 #include <set>
 #include <vector>
 
-#define THREAD_COUNT 8
+#define USE_NEW_POSITION_PACK_UNPACK
+
+#define THREAD_COUNT 1
 // [8A3] castling permanently illegal if the king moves, or the castling
 // rook has moved.
 //#define ENFORCE_8A3_CASTELING
@@ -300,39 +302,6 @@ union GameInfoPacked {
 	}
 };
 
-// how this works
-//
-// There are 64 squares on the board, so we keep a bitmap where
-// each bit represents whether a piece is present or not. The
-// index of the bit is the square number, and the cnt of the bit
-// is the index into the lo/hi population to identify what the
-// piece is.
-//
-// lo and hi are 64-bit values, mapped into 16 4-bit values that
-// identify each piece. Since there can be no more than 32 pieces
-// this sufficies for encoding any possible possition.
-//
-// This is the packed encoding for the initial position:
-//
-//   uint64_t pop = 0xffff00000000ffff;
-//   uint64_t hi  = 0xdcb9abcdeeeeeeee;
-//   uint64_t lo  = 0x6666666654312345;
-//
-// The square numbers (0-63) are represented by the pop value and
-// are interpreted left-to-right, so the first bit represent square
-// A1 on the board. Another point of confusion is that since there
-// can be at most 32 pieces on the board, then there can only be 32
-// bits set in this 64 bit map. Also, each piece is encoded as a
-// 4-bit value, which is futher packed into two 64-bit values. So,
-// as the pop map is traversed, a count of set bits (usually referred
-// to as the population of bits) is made, with the ordinal of any
-// given bit being the index into the hi/lo packed maps. So even though
-// the pop map contains 64 bits, at most its population is 32 bits set.
-//
-// The lo and hi maps are treated as a single 128-bit value, and more
-// specifically as an array of 32 4-bit values that identify each
-// specific piece.
-//
 struct PositionPacked {
     GameInfoPacked gi;
     uint64_t       pop;   // population bitmap
@@ -448,14 +417,14 @@ public:
 	void setBqsCastleEnabled(bool s) { bqs_castle_enabled = s;}
 #else
 	bool anyCastlePossible()  const { return true; }
-	bool isWksCastleEnabled() const { return wks_castle_enabled; }
-	void setWksCastleEnabled(bool s) { /* do nothing */ }
-	bool isWqsCastleEnabled() const { return wqs_castle_enabled; }
-	void setWqsCastleEnabled(bool s) { /* do nothing */ }
-	bool isBksCastleEnabled() const { return bks_castle_enabled; }
-	void setBksCastleEnabled(bool s) { /* do nothing */ }
-	bool isBqsCastleEnabled() const { return bqs_castle_enabled; }
-	void setBqsCastleEnabled(bool s) { /* do nothing */ }
+	bool isWksCastleEnabled() const { return true; }
+	void setWksCastleEnabled(bool s) { wks_castle_enabled = true;}
+	bool isWqsCastleEnabled() const { return true; }
+	void setWqsCastleEnabled(bool s) { wqs_castle_enabled = true;}
+	bool isBksCastleEnabled() const { return true; }
+	void setBksCastleEnabled(bool s) { bks_castle_enabled = true;}
+	bool isBqsCastleEnabled() const { return true; }
+	void setBqsCastleEnabled(bool s) { bqs_castle_enabled = true;}
 #endif
 	bool enPassantExists() const { return (en_passant_file & EP_HERE_MASK) != 0;}
 	File getEnPassantFile() const { return static_cast<File>(en_passant_file & EP_FILE_MASK); }
@@ -486,6 +455,7 @@ public:
     Position(const Position& o);
     uint32_t unpack(const PositionPacked& p);
     PositionPacked pack();
+
     void init();
 
 	GameInfo& gi() { return _g; }

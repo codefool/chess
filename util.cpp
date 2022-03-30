@@ -75,8 +75,8 @@ uint8_t Pos::toByte() const {
 }
 
 void Pos::fromByte(uint8_t b) {
-	_r = b >> 3;
-	_f = b & 0x7;
+	_r = (b >> 3) & 0x07;
+	_f = b & 0x07;
 }
 
 const short Pos::r() const {
@@ -97,6 +97,7 @@ const File Pos::file() const {
 Pos Pos::withRank(Rank r) {
 	return Pos(r, _f);
 }
+
 Pos Pos::withFile(File f) {
 	return Pos(_r, f);
 }

@@ -22,6 +22,9 @@ bang1 : bang1.o $(OBJECTS) $(HEADERS)
 bang1 : test.o $(OBJECTS) $(HEADERS)
 	$(CC) $(CFLAGS) test.o $(OBJECTS) $(LIBS) -o test
 
+fenutil : fenutil.o $(OBJECTS) $(HEADERS)
+	$(CC) $(CFLAGS) fenutil.o $(OBJECTS) $(LIBS) -o fenutil
+
 board.o: board.cpp $(HEADERS)
 chessboard.o: chessboard.cpp $(HEADERS)
 cg.o : cg.cpp $(HEADERS)
@@ -31,3 +34,4 @@ gameinfo.o: gameinfo.cpp $(HEADERS)
 # db.o : db.cpp db.h $(HEADERS)
 position.o : position.cpp $(HEADERS)
 worker.o : worker.cpp $(HEADERS)
+fenutil.o : fenutil.cpp $(HEADERS)
