@@ -129,6 +129,9 @@ int main() {
   pos.init();
   std::cout << pos.fen_string() << std::endl;
   PositionPacked pp = pos.pack();
+  Position ppp;
+  ppp.unpack(pp);
+  std::cout << ppp.fen_string() << std::endl;
   PosInfo posinfo(get_position_id(CLEVEL), PosInfo(), Move().pack());
   // this should be put into initpos, but for now
   insert_unresolved(pp,posinfo);
@@ -158,14 +161,14 @@ int main() {
   std::cout << "base,mov/p/c/5/1,parent,mov,dist,dis50,coll_cnt,init_cnt,res_cnt,unr,unr1,fifty,FEN" << std::endl;
 
   for (int i = 0; i < THREAD_COUNT; i++) {
-    threads.push_back(std::thread(worker, CLEVEL, workfilepath));
+      threads.push_back(std::thread(worker, CLEVEL, workfilepath));
   }
 
   // also use this main thread
   // worker(CLEVEL, workfilepath);
 
   for (int i = 0; i < THREAD_COUNT; i++) {
-    threads[i].join();
+      threads[i].join();
   }
 
   time_t tend = time(0);

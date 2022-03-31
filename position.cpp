@@ -52,92 +52,19 @@ Position::Position(const Position& o)
 // specifically as an array of 32 4-bit values that identify each
 // specific piece.
 //
-#ifndef USE_NEW_POSITION_PACK_UNPACK
-
-uint32_t Position::unpack(const PositionPacked& p)
-{
-    uint32_t bitcnt(0);
-    uint32_t mapidx(0);
-    uint64_t map(p.lo);
-    for(uint64_t square = 0; square < 64; ++square)
-    {
-        if (p.pop & (1ULL<<square))
-        {
-            // determine which map the value should reside
-            uint8_t   pb  = static_cast<uint8_t>  (((map >> (mapidx << 2)) & 0xfULL));
-            PieceType pt  = static_cast<PieceType>(pb & PIECE_MASK);
-            Side      s   = static_cast<Side>     ((pb & SIDE_MASK) != 0);
-            set(square, pt, s);
-            bitcnt++;
-            mapidx++;
-            if (bitcnt == 16) {
-                map = p.hi;
-                mapidx = 0;
-            }
-        } else {
-            set(square, Piece::EMPTY);
-        }
-    }
-    _g.unpack(p.gi);
-    return bitcnt;
-}
-
-PositionPacked Position::pack()
-{
-    PositionPacked pp;
-    uint64_t pop{0};
-    uint64_t map{0};
-    uint64_t cnt{0};
-    uint32_t bitcnt{0};
-
-    for (int bit(0); bit < 64; bit++) {
-        PiecePtr ptr = _b[bit];
-        if (ptr->isEmpty())
-            continue;
-        uint64_t mask = static_cast<uint64_t>(ptr->toByte());
-        map |= static_cast<uint64_t>(mask << (cnt << 2ULL));
-        pop |= (1ULL << bit);
-        cnt++;
-        bitcnt++;
-        if (bitcnt == 16) {
-            pp.lo = map;
-            map = 0;
-            cnt = 0;
-        }
-    }
-
-    if(cnt < 16)
-        map <<= (16 - cnt) * 4;
-
-    pp.pop = pop;
-    if (bitcnt > 15)
-        pp.hi = map;
-
-    pp.gi = gi().pack();
-    return pp;
-}
-
-#else
-
 uint32_t Position::unpack(const PositionPacked& p)
 {
     uint32_t bitcnt{0};
     uint64_t pop{p.pop};
-    uint64_t map{p.lo};
-  	for (short bit{0}; bit < 64; bit++)
+    IndexedULL map({p.hi,p.lo});
+  	for (short bit{0}; bit < 64; ++bit)
   	{
-        if (pop & 1ULL)
+        if (pop & 1)
         {
-            uint8_t   pb = static_cast<uint8_t>  (map & 0x0fULL);
-            PieceType pt = static_cast<PieceType>(pb & PIECE_MASK);
+            uint8_t   pb = map.get(bitcnt++);
+            PieceType pt = static_cast<PieceType>( pb & PIECE_MASK);
             Side      s  = static_cast<Side>     ((pb & SIDE_MASK) != 0);
             set(bit, pt, s);
-            if( ++bitcnt == 16 )
-            {
-                map = p.hi;
-            } else {
-                map >>= 4;
-            }
         }
         else
         {
@@ -152,38 +79,31 @@ uint32_t Position::unpack(const PositionPacked& p)
 PositionPacked Position::pack()
 {
 	PositionPacked pp;
-    uint64_t pop{0};
-    uint64_t map{0};
-    uint32_t bitcnt{0};
+    uint64_t   pop{0};
+    IndexedULL map(2);
+    uint32_t   bitcnt{0};
 
-    for (short bit(0); bit < 64; bit++) {
+  	for (short bit{0}; bit < 64; ++bit)
+    {
         PiecePtr ptr = _b[bit];
         if (!ptr->isEmpty())
         {
-            pop |= 1ULL;    // mark square as occupied
-            map <<= 4;		// make room for piece info
-            map |= static_cast<uint64_t>(ptr->toByte());
-            if(++bitcnt == 16)
-            {
-                pp.lo = map;
-                map = 0;
-            }
+            pop |= 0x8000000000000000ULL;    // mark square as occupied
+            map.set(bitcnt++, ptr->toByte());
         }
         // This bothers me. We need to pack 64 bits, but we only want to do 63 shifts.
         // So we want to shift on every iteration but the last one.
         if ( bit < 63 )
-            pop <<= 1;
+            pop >>= 1;
   	}
-    if (bitcnt > 15)
-        pp.hi = map;
 
     pp.pop = pop;
+    pp.hi  = map[0];
+    pp.lo  = map[1];
     pp.gi  = gi().pack();
 
     return pp;
 }
-
-#endif //USE_NEW_POSITION_PACK_UNPACK
 
 void Position::init()
 {
