@@ -1,5 +1,5 @@
 CC = g++
-CFLAGS = -g -std=c++17
+CFLAGS = -g -std=c++20
 INCLUDES=-I /usr/include/mysql-cppconn-8
 LIBS=-L/usr/lib/x86_64-linux-gnu -lmysqlcppconn8 -lmysqlcppconn -lpthread
 HEADERS = constants.h csvtools.h

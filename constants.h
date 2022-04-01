@@ -13,7 +13,7 @@
 #include <set>
 #include <vector>
 
-#define THREAD_COUNT 8
+#define THREAD_COUNT 1
 // [8A3] castling permanently illegal if the king moves, or the castling
 // rook has moved.
 //#define ENFORCE_8A3_CASTLING
@@ -34,7 +34,7 @@ struct IndexedULL
 	uint64_t *_ull;
 	short	  _s;
 
-	IndexedULL(short s)
+	IndexedULL(size_t s)
 	: _s(s)
 	{
 		_ull = new uint64_t[s];
