@@ -1,7 +1,6 @@
 #include <sstream>
 #include "constants.h"
 
-
 Position::Position() {}
 
 Position::Position(const PositionPacked& p)
@@ -56,12 +55,15 @@ uint32_t Position::unpack(const PositionPacked& p)
 {
     uint32_t bitcnt{0};
     uint64_t pop{p.pop};
-    IndexedULL map({p.hi,p.lo});
+    uint8_t  map[32];
+    uint64_t buff[2] = {p.hi, p.lo};
+    std::memset(map, 0x00, sizeof(map));
+    unpack_array((uint8_t*)buff, map, 32);
   	for (short bit{0}; bit < 64; ++bit)
   	{
         if (pop & 1)
         {
-            uint8_t   pb = map.get(bitcnt++);
+            uint8_t   pb = map[bitcnt++];
             PieceType pt = static_cast<PieceType>( pb & PIECE_MASK);
             Side      s  = static_cast<Side>     ((pb & SIDE_MASK) != 0);
             set(bit, pt, s);
@@ -80,16 +82,16 @@ PositionPacked Position::pack()
 {
 	PositionPacked pp;
     uint64_t   pop{0};
-    IndexedULL map(2);
     uint32_t   bitcnt{0};
-
+    uint8_t    map[32];
+    uint64_t   buff[2];
   	for (short bit{0}; bit < 64; ++bit)
     {
         PiecePtr ptr = _b[bit];
         if (!ptr->isEmpty())
         {
             pop |= 0x8000000000000000ULL;    // mark square as occupied
-            map.set(bitcnt++, ptr->toByte());
+            map[bitcnt++] = ptr->toByte();
         }
         // This bothers me. We need to pack 64 bits, but we only want to do 63 shifts.
         // So we want to shift on every iteration but the last one.
@@ -98,8 +100,9 @@ PositionPacked Position::pack()
   	}
 
     pp.pop = pop;
-    pp.hi  = map[0];
-    pp.lo  = map[1];
+    pack_array(map, (uint8_t*)buff, bitcnt);
+    pp.hi = buff[0];
+    pp.lo = buff[1];
     pp.gi  = gi().pack();
 
     return pp;
@@ -164,6 +167,57 @@ std::vector<PiecePtr> Position::get_pieces(Side side)
 const bool Position::is_square_empty(Pos pos) const
 {
     return get(pos)->isEmpty();
+}
+
+
+// in is an octet array of len s
+// out is an octet array of len s/2
+// pack every two entries into one entry
+void Position::pack_array(uint8_t *in, uint8_t *out, size_t s)
+{
+    // bool     hi = true;
+    uint8_t *p  = in;
+    uint8_t *q  = out;
+    for(int i(0); i < s; i += 2, p += 2)
+    {
+        *q++ =  ((p[0] << 4) & 0xf0) | (p[1] & 0x0f);
+
+        // if ( hi )
+        // {
+        //     *q = (*q & 0x0f) | ((*p << 4) & 0xf0);
+        // }
+        // else
+        // {
+        //     *q = (*q & 0xf0) | (*p & 0x0f);
+        //     q++;
+        // }
+        // hi = !hi;
+    }
+}
+
+// in is an octet array of len s
+// out is an octet array of len s*2
+// upack every entry of in into two entries of out
+void Position::unpack_array(uint8_t* in, uint8_t* out, size_t s)
+{
+    // bool     hi = true;
+    uint8_t *p  = in;
+    uint8_t *q  = out;
+    for(int i(0); i < s; i += 2)
+    {
+        *q++ = ((*p >> 4) & 0x0f);
+        *q++ = ( *p++ & 0x0f );
+        // if ( hi )
+        // {
+        //     *q = ((*p >> 4) & 0x0f);
+        // }
+        // else
+        // {
+        //     *q = (*p & 0x0f);
+        //     p++;
+        // }
+        // hi = !hi;
+    }
 }
 
 

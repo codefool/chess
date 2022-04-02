@@ -13,7 +13,9 @@
 #include <set>
 #include <vector>
 
-#define THREAD_COUNT 1
+#ifndef THREAD_COUNT
+#define THREAD_COUNT 8
+#endif
 // [8A3] castling permanently illegal if the king moves, or the castling
 // rook has moved.
 //#define ENFORCE_8A3_CASTLING
@@ -26,74 +28,6 @@
 
 // define to cache n-1 positions rather than shunt to files
 #define CACHE_N_1_POSITIONS
-
-// a simple class to allow a 64-bit var to be used as a
-// 16-position 4-bit array.
-struct IndexedULL
-{
-	uint64_t *_ull;
-	short	  _s;
-
-	IndexedULL(size_t s)
-	: _s(s)
-	{
-		_ull = new uint64_t[s];
-		std::memset(_ull, 0x00, sizeof(uint64_t) * _s);
-	}
-
-	IndexedULL(std::initializer_list<uint64_t> i)
-	{
-		_s   = i.size();
-		_ull = new uint64_t[_s];
-		std::memset(_ull, 0x00, sizeof(uint64_t) * _s);
-		uint64_t *q = _ull;
-		for(auto itr = i.begin(); itr != i.end(); ++itr)
-			*q++ = *itr;
-	}
-
-	~IndexedULL()
-	{
-		free(_ull);
-		_s = 0;
-	}
-
-	uint64_t operator[](size_t idx)
-	{
-		return _ull[idx];
-	}
-
-	uint8_t get(short idx)
-	{
-		short widx  = idx / 16;	// the word it's in
-		short bidx  = idx % 16;	// the entry in the word
-		short byidx = bidx / 2; // the byte it's actually in
-		uint8_t  *w = (uint8_t*)(_ull + widx);
-		uint8_t  va = w[byidx];
-		if ( bidx & 1 )
-		{
-			va >>= 4;
-		}
-		return va & 0x0f;
-	}
-
-	void set(short idx, uint8_t val)
-	{
-		short widx  = idx / 16;	// the word it's in
-		short bidx  = idx % 16;	// the entry in the word
-		short byidx = bidx / 2; // the byte it's actually in
-		uint8_t  *w = (uint8_t*)(_ull + widx);
-		if ( bidx & 1 )
-		{
-			// odd index - high nibble
-			w[byidx] = ( w[byidx] & 0x0f ) | (( val << 4 ) & 0xf0);
-		}
-		else
-		{
-			// even index - low nibble
-			w[byidx] = ( w[byidx] & 0xf0 ) | ( val & 0x0f );
-		}
-	}
-};
 
 enum Side {
 	SIDE_WHITE = 0,
@@ -537,6 +471,10 @@ public:
     const bool is_square_empty(Pos pos) const;
 
 	std::string fen_string(int move_no = 0) const;
+
+private:
+	void pack_array(uint8_t *in, uint8_t *out, size_t s);
+	void unpack_array(uint8_t* in, uint8_t* out, size_t s);
 };
 
 class Board {

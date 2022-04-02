@@ -121,6 +121,7 @@ const int CLEVEL = 32;
 const int CLEVELSUB1 = CLEVEL - 1;
 unsigned long long collisions = 0ULL;
 
+
 int main() {
   set_stop_handler();
 
