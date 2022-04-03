@@ -236,3 +236,5 @@ less than the heat-death of the universe.
 
 // define to cache n-1 positions rather than shunt to files
 #define CACHE_N_1_POSITIONS
+
+Process unresolved positions by distance.

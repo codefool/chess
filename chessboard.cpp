@@ -125,36 +125,36 @@ unsigned long long collisions = 0ULL;
 int main() {
   set_stop_handler();
 
-  { // dummy scope
-  Position pos;
-  pos.init();
-  std::cout << pos.fen_string() << std::endl;
-  PositionPacked pp = pos.pack();
-  Position ppp;
-  ppp.unpack(pp);
-  std::cout << ppp.fen_string() << std::endl;
-  PosInfo posinfo(get_position_id(CLEVEL), PosInfo(), Move().pack());
-  // this should be put into initpos, but for now
-  insert_unresolved(pp,posinfo);
-  } // end dummy scope
-
   // { // dummy scope
-  // PositionPacked pp;
-  // pp.gi.i     = 0x20078000;
-  // pp.pop      = 0xffff00000000ffff;
-  // pp.hi       = 0xdb9abdeeeeeeee44;
-  // pp.lo       = 0x666666665c31235c;
-  // PosInfo pi;
-  // pi.id       = 0x8000000000185682;
-  // pi.src      = 0x80000000001855e2;
-  // pi.move.i   = 0x9f71;
-  // pi.distance = 0x2b;
+  // Position pos;
+  // pos.init();
+  // std::cout << pos.fen_string() << std::endl;
+  // PositionPacked pp = pos.pack();
+  // Position ppp;
+  // ppp.unpack(pp);
+  // std::cout << ppp.fen_string() << std::endl;
+  // PosInfo posinfo(get_position_id(CLEVEL), PosInfo(), Move().pack());
   // // this should be put into initpos, but for now
-  // insert_unresolved(pp,pi);
-  // set_global_id_cnt(0x8000000004d00000);
+  // insert_unresolved(pp,posinfo);
   // } // end dummy scope
 
-  std::string workfilepath("/mnt/c/tmp/cg/");
+  { // dummy scope
+  PositionPacked pp;
+  pp.gi.i     = 0x207f8000;
+  pp.pop      = 0x7d7f00800003ffff;
+  pp.hi       = 0x6666666645133245;
+  pp.lo       = 0xbda9dbeeeeeeeecc;
+  PosInfo pi;
+  pi.id       = 0x80000000000c560c;
+  pi.src      = 0x80000000000c5564;
+  pi.move.i   = 0x9f71;
+  pi.distance = 0x2b;
+  // this should be put into initpos, but for now
+  insert_unresolved(pp,pi);
+  set_global_id_cnt(0x8000000004d00000);
+  } // end dummy scope
+
+  std::string workfilepath("/mnt/c/tmp/cg_1/");
 
   std::vector<std::thread> threads;
 
