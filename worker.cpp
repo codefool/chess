@@ -153,15 +153,24 @@ int checkmate = 0;
 std::mutex unresolved_mtx;
 std::mutex resolved_mtx;
 
-#ifdef CACHE_PAWN_MOVE_POSITIONS
+#ifndef CACHE_PAWN_MOVE_POSITIONS
 std::mutex pawn_init_pos_mtx;
 PosMap pawn_init_pos;
 #endif
 
-PosMap unresolved;
+// We process unresolved positions by distance. Since a position of
+// distance n can only generate a position of distance n+1, we only
+// have to keep two queues. When the queue at distance n depletes,
+// we switch to the n+1 queue which becomes the new n, and the
+// old queue becomes the n+1 queue.
+PosMap  unresolved0;  // the 'n' queue
+PosMap  unresolved1;  // the 'n+1' queue
+PosMap* get_queue = &unresolved0;    // the 'n' queue
+PosMap* put_queue = &unresolved1;    // the 'n+1' queue
+
 PosMap resolved;
 
-bool stop = false;
+bool stop = false;    // global halt flag
 
 void ctrl_c_handler(int s) {
   stop = true;
@@ -182,7 +191,39 @@ void set_stop_handler()
 void insert_unresolved(PositionPacked& pp, PosInfo& pi)
 {
     std::lock_guard<std::mutex> lock(unresolved_mtx);
-    unresolved.insert({pp,pi});
+    put_queue->insert({pp,pi});
+}
+
+bool get_unresolved(PositionPacked& pos, PosInfo& pi)
+{
+    std::lock_guard<std::mutex> lock0(unresolved_mtx);
+    bool retried = false;
+    while (true)
+    {
+        if (get_queue->size())
+        {
+            auto itr = get_queue->begin();
+            if (itr != get_queue->end())
+            {
+                pos = itr->first;
+                pi  = itr->second;
+                get_queue->erase(pos);
+                std::lock_guard<std::mutex> lock1(resolved_mtx);
+                resolved.insert({pos,pi});
+                return true;
+            }
+        }
+
+        if (retried)
+            // if we've already swapped the queues, then there's
+            // nothing to do at all!
+            return false;
+
+        // get here if the current queue has run dry.
+        // swap the queues
+        std::swap(get_queue, put_queue);
+        retried = true;
+    }
 }
 
 void worker(int level, std::string base_path)
@@ -205,31 +246,8 @@ void worker(int level, std::string base_path)
   while (!stop) {
     PositionPacked base_pos;
     PosInfo        base_info;
-    PosMap::iterator itr;
-    { // dummy scope
-        std::lock_guard<std::mutex> lock0(unresolved_mtx);
-        if (unresolved.size())
-        {
-            itr = unresolved.begin();
-            if (itr != unresolved.end()) {
-                base_pos  = itr->first;
-                base_info = itr->second;
-                unresolved.erase(base_pos);
-                std::lock_guard<std::mutex> lock1(resolved_mtx);
-                resolved.insert({base_pos,base_info});
-            }
-        }
-    } // end dummy scope
-
-    if (base_pos.pop == 0) {
-      using namespace std::chrono_literals;
-      std::this_thread::sleep_for(500ms);
-      if (retry_cnt++ > 3) {
-        // more than two seconds with no new entries - assume we're done!
+    if ( !get_unresolved(base_pos, base_info) )
         break;
-      }
-      continue;
-    }
 
     retry_cnt = 0;
 
@@ -302,7 +320,7 @@ void worker(int level, std::string base_path)
           bool found = false;
           { // dummy scope
             std::lock_guard<std::mutex> lock(resolved_mtx);
-            itr = resolved.find(posprime);
+            auto itr = resolved.find(posprime);
             if (itr != resolved.end()) {
               itr->second.add_ref(mv, base_info.id);
               collisioncnt++;
@@ -313,14 +331,14 @@ void worker(int level, std::string base_path)
           if (!found)
           {
             std::lock_guard<std::mutex> lock(unresolved_mtx);
-            itr = unresolved.find(posprime);
-            if ( itr != unresolved.end() ) {
+            auto itr = put_queue->find(posprime);
+            if ( itr != put_queue->end() ) {
               itr->second.add_ref(mv, base_info.id);
               collisioncnt++;
               coll_cnt++;
             } else {
               posinfo.id = get_position_id(level);
-              unresolved.insert({posprime, posinfo});
+              put_queue->insert({posprime, posinfo});
             }
           }
         } else {
@@ -334,7 +352,7 @@ void worker(int level, std::string base_path)
         resolved[base_pos] = base_info;
       } // end dummy scope
 
-      // std::cout << "base,parent,mov/p/c/5/1,move,dist,dis50,coll_cnt,init_cnt,res_cnt,unr,unr1,fifty,FEN\n";
+      // std::cout << "base,parent,mov/p/c/5/1,move,dist,dis50,coll_cnt,init_cnt,res_cnt,get,put,unr1,fifty,FEN\n";
       ss.str(std::string());
       ss.flags(std::ios::hex);
       ss.fill('0');
@@ -357,7 +375,8 @@ void worker(int level, std::string base_path)
          << ',' << initposcnt
 #endif
          << ',' << resolved.size()
-         << ',' << unresolved.size()
+         << ',' << get_queue->size()
+         << ',' << put_queue->size()
          << ',' << unresolvedn1cnt
          << ',' << fiftymovedrawcnt
          << ',' << sub_board.getPosition().fen_string(base_info.distance)

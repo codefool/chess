@@ -24,7 +24,7 @@
 // #define ENFORCE_14F_50_MOVE_RULE
 
 // define to cache pawn-move positions rather than shunt to files
-#define CACHE_PAWN_MOVE_POSITIONS
+// #define CACHE_PAWN_MOVE_POSITIONS
 
 // define to cache n-1 positions rather than shunt to files
 #define CACHE_N_1_POSITIONS
@@ -471,6 +471,7 @@ public:
     const bool is_square_empty(Pos pos) const;
 
 	std::string fen_string(int move_no = 0) const;
+	static Position parse_fen_string(std::string fen);
 
 private:
 	void pack_array(uint8_t *in, uint8_t *out, size_t s);

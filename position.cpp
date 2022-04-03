@@ -1,3 +1,4 @@
+#include <cctype>
 #include <sstream>
 #include "constants.h"
 
@@ -247,7 +248,6 @@ void Position::unpack_array(uint8_t* in, uint8_t* out, size_t s)
 //    fifty-move rule.
 // 6. Fullmove number: The number of the full move. It starts at 1, and is incremented after Black's move.
 //
-
 std::string Position::fen_string(int move_no) const
 {
     std::stringstream ss;
@@ -309,3 +309,27 @@ std::string Position::fen_string(int move_no) const
     return ss.str();
 }
 
+Position Position::parse_fen_string(std::string fen)
+{
+    Position pos;
+    Rank r(R8);
+    File f(Fa);
+    for (int i(0); i < fen.size(); ++i)
+    {
+        char c = fen[i];
+        if ( c == ' ')
+            break;
+        if (std::isalpha(c))
+        {
+            // a specific piece
+        } else if (std::isdigit(c))
+        {
+            // series of EMPTY
+        } else if (c == '/')
+        {
+            // advance to next rank
+        }
+    }
+
+    return pos;
+}
