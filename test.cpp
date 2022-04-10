@@ -3,6 +3,7 @@
 #include "constants.h"
 #include "worker.h"
 #include "csvtools.h"
+#include "md5.h"
 
 // "id",           "parent","gameinfo", "population",   "hi",            "lo",            "move_cnt","move_packed","distance","50_cnt","ref_cnt","move/parent..."
 // uint64,          uin1t64, uint32,    uint64,          uint64,          uint64,          int,       uint16,       int,       int,     int,      uint16/uint64
@@ -22,30 +23,50 @@ int main()
     // dupe_cnt = csv_cmp("/mnt/c/tmp/cg_7/31/init_pos_31_139632456021760.csv", lhs);
 
     std::string filz[] = {
-        "init_pos_31_140386760644352.csv",
-        "init_pos_31_140386769037056.csv",
-        "init_pos_31_140386777429760.csv",
-        "init_pos_31_140386989344512.csv",
-        "init_pos_31_140386997737216.csv",
-        "init_pos_31_140387006129920.csv",
-        "init_pos_31_140387014522624.csv",
-        "init_pos_31_140387022915328.csv"
+        "resolved_32.csv"
+        // "init_pos_31_140386760644352.csv",
+        // "init_pos_31_140386769037056.csv",
+        // "init_pos_31_140386777429760.csv",
+        // "init_pos_31_140386989344512.csv",
+        // "init_pos_31_140386997737216.csv",
+        // "init_pos_31_140387006129920.csv",
+        // "init_pos_31_140387014522624.csv",
+        // "init_pos_31_140387022915328.csv"
     };
 
     for(auto fil : filz) {
-        auto dupe_cnt = csv_cmp(base_path + "31/" + fil, lhs);
+        auto dupe_cnt = csv_cmp(base_path + "32/" + fil, lhs);
     }
     std::cout << "lhs " << lhs.size() << std::endl;
 
-    write_results(lhs, 31, base_path, "init-pos-combined");
+    std::map<std::string,int> dist;
 
-    // Position p;
-    // PositionPacked pp;
-    // pp.gi.i = 0x20000000;
-    // pp.pop  = 0x7dff00000007fffd;
-    // pp.hi   = 0xdb9abdeeeeeeee4c;
-    // pp.lo   = 0x4666666665c31235;
-    // p.unpack(pp);
-    // std::cout << p.fen_string() << std::endl;
+    // write_results(lhs, 31, base_path, "init-pos-combined");
+    for(auto r : lhs)
+    {
+        MD5 md5;
+        md5.update((const unsigned char*)&r.first, sizeof(PositionPacked));
+        md5.finalize();
+        std::string hash = md5.hexdigest().substr(0,2);
+        if (dist.contains(hash))
+            dist[hash]++;
+        else
+            dist[hash] = 1;
+    }
+
+    for(auto h : dist)
+    {
+        std::cout << h.first << ' ' << h.second << ' ' << (h.second / lhs.size()) << std::endl;
+    }
+
+    Position p;
+    PositionPacked pp;
+    pp.gi.i = 0x20000000;
+    pp.pop  = 0x7dff00000007fffd;
+    pp.hi   = 0xdb9abdeeeeeeee4c;
+    pp.lo   = 0x4666666665c31235;
+    p.unpack(pp);
+    std::cout << p.fen_string() << std::endl;
+
     return 0;
 }

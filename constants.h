@@ -13,21 +13,7 @@
 #include <set>
 #include <vector>
 
-#ifndef THREAD_COUNT
-#define THREAD_COUNT 8
-#endif
-// [8A3] castling permanently illegal if the king moves, or the castling
-// rook has moved.
-//#define ENFORCE_8A3_CASTLING
-
-// 50-move rule
-// #define ENFORCE_14F_50_MOVE_RULE
-
-// define to cache pawn-move positions rather than shunt to files
-// #define CACHE_PAWN_MOVE_POSITIONS
-
-// define to cache n-1 positions rather than shunt to files
-#define CACHE_N_1_POSITIONS
+#include "config.h"
 
 enum Side {
 	SIDE_WHITE = 0,

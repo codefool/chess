@@ -125,19 +125,20 @@ unsigned long long collisions = 0ULL;
 int main() {
   set_stop_handler();
 
-//   { // dummy scope
-//   Position pos;
-//   pos.init();
-//   std::cout << pos.fen_string() << std::endl;
-//   PositionPacked pp = pos.pack();
-//   Position ppp;
-//   ppp.unpack(pp);
-//   std::cout << ppp.fen_string() << std::endl;
-//   PosInfo posinfo(get_position_id(CLEVEL), PosInfo(), Move().pack());
-//   // this should be put into initpos, but for now
-//   insert_unresolved(pp,posinfo);
-//   } // end dummy scope
-
+#if 1
+  { // dummy scope
+  Position pos;
+  pos.init();
+  std::cout << pos.fen_string() << std::endl;
+  PositionPacked pp = pos.pack();
+  Position ppp;
+  ppp.unpack(pp);
+  std::cout << ppp.fen_string() << std::endl;
+  PosInfo posinfo(get_position_id(CLEVEL), PosInfo(), Move().pack());
+  // this should be put into initpos, but for now
+  insert_unresolved(pp,posinfo);
+  } // end dummy scope
+#else
   { // dummy scope
   PositionPacked pp;
   pp.gi.i     = 0x207f8000;
@@ -153,8 +154,8 @@ int main() {
   insert_unresolved(pp,pi);
   set_global_id_cnt(0x8000000004d00000);
   } // end dummy scope
-
-  std::string workfilepath("/mnt/c/tmp/cg_1/");
+#endif
+  std::string workfilepath(WORK_FILE_PATH);
 
   std::vector<std::thread> threads;
 

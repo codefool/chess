@@ -238,3 +238,24 @@ less than the heat-death of the universe.
 #define CACHE_N_1_POSITIONS
 
 Process unresolved positions by distance.
+
+Analysis of the first tier level 32 moves shows that there is a maximum distance of 5 between
+conflicts, so modify the resolved list to retain no more than five tiers and spool the rest.
+
+Don't cache resolved. This will results in millions of additional results, and no collission
+detection, but maybe we can trade disk space for completeness.
+
+IF YOU DON'T CHECK FOR COLLISSIONS THEN THE TRAVERSAL WILL NEVER TERMINATE.
+
+Since the depth of the game tree is extreme, a database must be employed. Berkeley DB seems
+to be a good choice, and its license does not present any concerns.
+
+The "database" in BDB terms is a single data set - there are no "tables" per sey.
+
+cg_xxxxxxxxxxxxxxxx.pp
+where: pp is the two-decimal-digit piece count
+       xxxxxxxxxxxxxxxx is the 16-hexadecimal-digit initial position id.
+
+rp_0000000000000000.32 - resolved positions
+pp_0000000000000000.32 - pawn-move initial positions from rp_0000000000000000.32
+

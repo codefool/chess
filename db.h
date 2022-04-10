@@ -24,9 +24,10 @@
 
 #pragma once
 #include <cstring>
-#include <mysqlx/xdevapi.h>
 #include "constants.h"
 
+#ifdef USE_MYSQL
+#include <mysqlx/xdevapi.h>
 struct PositionRecord
 {
     PositionId     id;
@@ -53,3 +54,4 @@ public:
     mysqlx::RowResult exec(std::string sql);
 
 };
+#endif
