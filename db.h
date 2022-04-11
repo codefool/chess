@@ -1,57 +1,63 @@
-// CREATE TABLE `position_xx` (
-// 	`id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-// 	`gi` SMALLINT,
-// 	`hi` BIGINT,
-// 	`lo` BIGINT,
-// 	`move_cnt` SMALLINT DEFAULT 0,
-// 	`ref_cnt` SMALLINT DEFAULT 0,
-//  `resolved` BOOLEAN DEFAULT FALSE,
-// 	UNIQUE KEY `pos_idx` (`gi`,`hi`,`lo`) USING BTREE,
-// );
-
-// create table position_31 select id, gi, hi, lo, move_cnt, ref_cnt from position_32;
-// create table position_30 select id, gi, hi, lo, move_cnt, ref_cnt from position_32;
-
-
-// CREATE TABLE `moves_xx` (
-// 	`src` BIGINT,
-// 	`move` SMALLINT(1),
-// 	`trg` BIGINT(1),
-// 	KEY `src_idx` (`src`, `move`) USING BTREE
-// );
-
-// create table moves_31 select src, move, trg from moves_32;
-
+// db - simple database for chessgen
+//
+// This is not a general-purpose tool, but a bare-bones and (hopefully)
+// freakishly fast way to collect positions and check for collissions
+// without thrashing the disk.
+//
+// Use the high two-digits of MD5 as hash into 256 buckets.
+// Files are binary with fixed-length records.
+//
+//
 #pragma once
+#include <cstdio>
 #include <cstring>
-#include "constants.h"
+#include <map>
+#include <mutex>
+#include <string>
+#include <sstream>
 
-#ifdef USE_MYSQL
-#include <mysqlx/xdevapi.h>
-struct PositionRecord
+#include "constants.h"
+#include "md5.h"
+
+struct BucketFile
 {
-    PositionId     id;
-    PositionId     src;
-    MovePacked     move;
-    PositionPacked pp;
+    std::mutex  _mtx;
+    std::FILE*  _fp;
+    std::string _fspec;
+
+    BucketFile(std::string fspec);
+    ~BucketFile();
+    long search(const unsigned char *data, size_t data_len);
+    void append(const unsigned char *data, size_t data_len);
+    size_t seek();
 };
 
-class DatabaseObject
+class DiskHashTable
 {
 private:
-      mysqlx::Session sess;
+    std::map<std::string, BucketFile*> fp_map;
+    size_t                             reclen;
+    // the target filename for a bucket is
+    // <path>/<name>_dd
+    std::string                        path;
+    std::string                        name;
 
 public:
-    DatabaseObject(std::string& url);
+    DiskHashTable(
+        const std::string path_name,
+        const std::string base_name,
+        size_t            rec_len);
+    virtual ~DiskHashTable();
 
-    void create_position_table(int level);
+    std::string calc_bucket_id(const unsigned char *data);
+    bool search(const unsigned char *data);
+    void append(const unsigned char *data);
+    void append(const std::string& bucket, const unsigned char *data);
 
-    PositionRecord get_next_unresolved_position(int level);
-    PositionRecord get_position(int level, PositionId id);
-    PositionId create_position(int level, PositionId src, Move move, PositionPacked& pos);
-    void set_endgame_reason(int level, PositionId id, EndGameReason egr);
-    void set_move_count(int level, PositionId id, int size);
-    mysqlx::RowResult exec(std::string sql);
-
+private:
+    BucketFile* get_bucket(const std::string& bucket);
+    std::string get_bucket_fspec(const std::string& bucket);
 };
-#endif
+
+
+

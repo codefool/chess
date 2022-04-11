@@ -1,180 +1,115 @@
-#include <iostream>
-#include <mutex>
+#include <sstream>
 
-#include "constants.h"
 #include "db.h"
+#include "md5.h"
 
-std::istream& operator>>(std::istream& is, PositionPacked& p) {
-    return is;
-}
-
-std::mutex ins_mtx;
-
-DatabaseObject::DatabaseObject(std::string& url)
-: sess(url)
+BucketFile::BucketFile(std::string fspec)
+: _fspec(fspec)
 {
-    sess.sql("USE chess;").execute();
-}
-
-void DatabaseObject::create_position_table(int level)
-{
-    std::stringstream ss;
-    ss << "CREATE TABLE IF NOT EXISTS "
-        "position_" << level << "("
-            "id BIGINT unsigned NOT NULL AUTO_INCREMENT,"
-            "src BIGINT unsigned NOT NULL,"
-            "move SMALLINT unsigned NOT NULL,"
-            "gi INT unsigned DEFAULT NULL,"
-            "pop BIGINT unsigned DEFAULT NULL,"
-            "hi BIGINT unsigned DEFAULT NULL,"
-            "lo BIGINT unsigned DEFAULT NULL,"
-            "move_cnt SMALLINT DEFAULT 0,"
-            "ref_cnt SMALLINT DEFAULT 0,"
-            "resolved BOOLEAN DEFAULT FALSE,"
-            "endgame TINYINT DEFAULT 0,"
-        "PRIMARY KEY (id),"
-        "INDEX src_idx (src) USING BTREE,"
-        "UNIQUE KEY pos_idx (gi,pop,hi,lo) USING BTREE);";
-    sess.sql(ss.str()).execute();
-}
-
-PositionRecord DatabaseObject::get_next_unresolved_position(int level)
-{
-    PositionRecord pr;
-    std::stringstream ss;
-    sess.sql("START TRANSACTION").execute();
-    ss << "SELECT id, src, move, gi, pop, hi, lo FROM position_" << level
-       << " WHERE resolved=false "
-       << "ORDER BY id ASC "
-       << "LIMIT 1 FOR UPDATE SKIP LOCKED;";
-    mysqlx::RowResult res = sess.sql(ss.str()).execute();
-    if (res.count() > 0) {
-        mysqlx::Row row = res.fetchOne();
-        pr.id     = row.get(0).get<uint64_t>();
-        pr.src    = row.get(1).get<uint64_t>();
-        pr.move.i = row.get(2).get<int>();
-        pr.pp.gi  = row.get(3).get<uint32_t>();
-        pr.pp.pop = row.get(4).get<uint64_t>();
-        pr.pp.hi  = row.get(5).get<uint64_t>();
-        pr.pp.lo  = row.get(6).get<uint64_t>();
-        ss.str(std::string());
-        ss << "UPDATE position_" << level << " SET resolved = true WHERE id=" << pr.id << ";";
-        sess.sql(ss.str()).execute();
-        sess.sql("COMMIT;").execute();
-    } else {
-        sess.sql("ROLLBACK;").execute();
-        pr.id = 0;
-    }
-    return pr;
-}
-
-PositionRecord DatabaseObject::get_position(int level, PositionId id)
-{
-    PositionRecord pr;
-    std::stringstream ss;
-    ss << "SELECT src, move, gi, pop, hi, lo FROM position_" << level << " WHERE id=" << id << ';';
-    try
+    std::cout << "Opening bucket file " << _fspec << std::endl;
+    _fp = std::fopen( _fspec.c_str(), "w+" );
+    if ( _fp == nullptr )
     {
-        mysqlx::RowResult res = sess.sql(ss.str()).execute();
-        if (res.count() > 0) {
-            mysqlx::Row row = res.fetchOne();
-            pr.id     = id;
-            pr.src    = row.get(0).get<uint64_t>();
-            pr.move.i = row.get(1).get<int>();
-            pr.pp.gi  = row.get(2).get<uint32_t>();
-            pr.pp.pop = row.get(3).get<uint64_t>();
-            pr.pp.hi  = row.get(4).get<uint64_t>();
-            pr.pp.lo  = row.get(5).get<uint64_t>();
-        }
-    } catch(mysqlx::abi2::r0::Error e) {
-        std::cerr << ss.str() << ' ' << e.what() << '\n';
+        std::cout << "Error opening bucket file " << _fspec << ' ' << errno << " - terminating" << std::endl;
+        exit(1);
     }
-    return pr;
 }
 
-// check to see if the position exists in the level table. If so,
-// up its reference count, otherwise create the new position.
-//
-// Return the PositionId of the position.
-PositionId DatabaseObject::create_position(int level, PositionId src, Move move, PositionPacked& pos)
+BucketFile::~BucketFile()
 {
-    PositionId id;
-    std::stringstream ss;
-    // std::lock_guard<std::mutex> lock(ins_mtx);
-    sess.sql("START TRANSACTION").execute();
-    try
+    std::lock_guard<std::mutex> lock(_mtx);
+    if ( _fp != nullptr)
     {
-        ss << "INSERT INTO position_" << level
-           << "(src,move,gi,pop,hi,lo) VALUES ("
-           << uint64_t(src) << ','
-           << uint16_t(move.pack().i) << ','
-           << uint32_t(pos.gi.i) << ','
-           << uint64_t(pos.pop) << ','
-           << uint64_t(pos.hi) << ','
-           << uint64_t(pos.lo)
-           << ");";
-        sess.sql(ss.str()).execute();
-        mysqlx::RowResult res = sess.sql("SELECT LAST_INSERT_ID();").execute();
-        id = res.fetchOne().get(0).get<uint64_t>();
-    } catch(mysqlx::abi2::r0::Error e) {
-        // std::cerr << ss.str() << ' ' << e.what() << '\n';
-        // key already exists - so increment reference count
-        for (int retryCnt = 0; retryCnt < 4; retryCnt++)
+        std::fclose(_fp);
+        _fp = nullptr;
+    }
+}
+
+long BucketFile::search(const unsigned char *data, size_t data_len)
+{
+    std::lock_guard<std::mutex> lock(_mtx);
+    int buff_size = data_len * 4096;
+    std::unique_ptr<unsigned char> buff( new unsigned char[buff_size] );
+    std::fseek(_fp, 0, SEEK_SET);
+    size_t rec_cnt = std::fread(buff.get(), data_len, 4096, _fp);
+    while ( rec_cnt > 0 )
+    {
+        unsigned char *p = buff.get();
+        for ( int i(0); i < rec_cnt; ++i )
         {
-            try
-            {
-                ss.str(std::string());
-                ss << "SELECT id, ref_cnt FROM position_" << level
-                   << " WHERE gi=" << uint32_t(pos.gi.i)
-                   << " AND pop=" << uint64_t(pos.pop)
-                   << " AND hi=" << uint64_t(pos.hi)
-                   << " AND lo=" << uint64_t(pos.lo)
-                   << " FOR UPDATE;";
-                mysqlx::RowResult res = sess.sql(ss.str()).execute();
-                mysqlx::Row row = res.fetchOne();
-                id = row.get(0).get<uint64_t>();
-                int ref_cnt = row.get(1).get<int>() + 1;
-                ss.str(std::string());
-                ss << "UPDATE position_" << level
-                   << " SET ref_cnt = " << ref_cnt
-                   << " WHERE id = " << id << ";";
-                sess.sql(ss.str()).execute();
-                break;
-            } catch(const std::exception& e) {
-                std::cerr << ss.str() << ' ' << e.what() << '\n';
-            }
+            if ( !std::memcmp(p, data, data_len) )
+                return (long)(p - buff.get());
+            p += data_len;
         }
+        rec_cnt = std::fread(buff.get(), data_len, 4096, _fp);
     }
-    sess.sql("COMMIT;").execute();
-
-    return id;
+    return -1;
 }
 
-void DatabaseObject::set_endgame_reason(int level, PositionId id, EndGameReason egr)
+void BucketFile::append(const unsigned char *data, size_t data_len)
+{
+    std::lock_guard<std::mutex> lock(_mtx);
+    std::fseek(_fp, 0, SEEK_END);
+    std::fwrite(data, data_len, 1, _fp);
+}
+
+DiskHashTable::DiskHashTable(
+    const std::string path_name,
+    const std::string base_name,
+    size_t            rec_len
+)
+: path(path_name), name(base_name), reclen(rec_len)
+{}
+
+DiskHashTable::~DiskHashTable()
+{}
+
+std::string DiskHashTable::calc_bucket_id(const unsigned char *data)
+{
+    MD5 md5;
+    md5.update((const unsigned char *)data, reclen);
+    md5.finalize();
+    return md5.hexdigest().substr(0,2);
+}
+
+bool DiskHashTable::search(const unsigned char *data)
+{
+    std::string bucket = calc_bucket_id(data);
+    BucketFile *bp = get_bucket(bucket);
+    return bp->search(data, reclen) != -1;
+}
+
+void DiskHashTable::append(const unsigned char *data)
+{
+    std::string bucket = calc_bucket_id(data);
+    append(bucket, data);
+}
+
+void DiskHashTable::append(const std::string& bucket, const unsigned char *data)
+{
+    BucketFile *bp = get_bucket(bucket);
+    if ( bp->search(data, reclen) == -1 )
+        bp->append(data, reclen);
+}
+
+
+// return the file pointer for the given bucket
+// Open the file pointer if it's not already
+BucketFile* DiskHashTable::get_bucket(const std::string& bucket)
+{
+    auto itr = fp_map.find(bucket);
+    if (itr != fp_map.end())
+        return itr->second;
+
+    std::string fspec = get_bucket_fspec(bucket);
+    BucketFile* bf = new BucketFile(fspec);
+    fp_map.insert({bucket, bf});
+    return bf;
+}
+
+std::string DiskHashTable::get_bucket_fspec(const std::string& bucket)
 {
     std::stringstream ss;
-    sess.sql("START TRANSACTION").execute();
-    ss << "UPDATE position_" << level << " SET"
-       << " endgame="  << egr
-       << " WHERE id=" << uint64_t(id)
-       << ";";
-    sess.sql(ss.str()).execute();
-    sess.sql("COMMIT;").execute();
+    ss << path << '/' << name << '_' << bucket;
+    return ss.str();
 }
-
-void DatabaseObject::set_move_count(int level, PositionId id, int size)
-{
-    std::stringstream ss;
-    sess.sql("START TRANSACTION").execute();
-    ss << "UPDATE position_" << level << " SET"
-       << " move_cnt="  << int32_t(size)
-       << " WHERE id=" << uint64_t(id);
-    sess.sql(ss.str()).execute();
-    sess.sql("COMMIT;").execute();
-}
-
-mysqlx::RowResult DatabaseObject::exec(std::string sql)
-{
-    return sess.sql(sql).execute();
-}
-

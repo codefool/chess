@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "config.h"
+#include "db.h"
 
 enum Side {
 	SIDE_WHITE = 0,

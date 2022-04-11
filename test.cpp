@@ -23,7 +23,7 @@ int main()
     // dupe_cnt = csv_cmp("/mnt/c/tmp/cg_7/31/init_pos_31_139632456021760.csv", lhs);
 
     std::string filz[] = {
-        "resolved_32.csv"
+        "init-pos-combined_31.csv"
         // "init_pos_31_140386760644352.csv",
         // "init_pos_31_140386769037056.csv",
         // "init_pos_31_140386777429760.csv",
@@ -35,28 +35,16 @@ int main()
     };
 
     for(auto fil : filz) {
-        auto dupe_cnt = csv_cmp(base_path + "32/" + fil, lhs);
+        auto dupe_cnt = csv_cmp(base_path + "31/" + fil, lhs);
     }
     std::cout << "lhs " << lhs.size() << std::endl;
 
-    std::map<std::string,int> dist;
+    DiskHashTable dummy("/mnt/c/tmp/aa", "base_pos", sizeof(PositionPacked));
 
     // write_results(lhs, 31, base_path, "init-pos-combined");
     for(auto r : lhs)
     {
-        MD5 md5;
-        md5.update((const unsigned char*)&r.first, sizeof(PositionPacked));
-        md5.finalize();
-        std::string hash = md5.hexdigest().substr(0,2);
-        if (dist.contains(hash))
-            dist[hash]++;
-        else
-            dist[hash] = 1;
-    }
-
-    for(auto h : dist)
-    {
-        std::cout << h.first << ' ' << h.second << ' ' << (h.second / lhs.size()) << std::endl;
+        dummy.append((const unsigned char *)&r.first);
     }
 
     Position p;
