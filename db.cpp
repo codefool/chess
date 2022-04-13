@@ -1,7 +1,9 @@
-#include <sstream>
-
 #include "db.h"
 #include "md5.h"
+
+#define FILE_BUFF_SIZE 1024*1024
+
+std::map<size_t, std::shared_ptr<unsigned char>> BucketFile::buff_map;
 
 BucketFile::BucketFile(std::string fspec)
 : _fspec(fspec)
@@ -25,41 +27,63 @@ BucketFile::~BucketFile()
     }
 }
 
-long BucketFile::search(const unsigned char *data, size_t data_len)
+long BucketFile::search(const unsigned char *data, size_t data_size)
 {
     std::lock_guard<std::mutex> lock(_mtx);
-    int buff_size = data_len * 4096;
-    std::unique_ptr<unsigned char> buff( new unsigned char[buff_size] );
+    int max_item_cnt = FILE_BUFF_SIZE / data_size;
+    std::shared_ptr<unsigned char> buff = get_file_buff();
     std::fseek(_fp, 0, SEEK_SET);
-    size_t rec_cnt = std::fread(buff.get(), data_len, 4096, _fp);
+    size_t rec_cnt = std::fread(buff.get(), data_size, max_item_cnt, _fp);
     while ( rec_cnt > 0 )
     {
         unsigned char *p = buff.get();
         for ( int i(0); i < rec_cnt; ++i )
         {
-            if ( !std::memcmp(p, data, data_len) )
+            if ( !std::memcmp(p, data, data_size) )
                 return (long)(p - buff.get());
-            p += data_len;
+            p += data_size;
         }
-        rec_cnt = std::fread(buff.get(), data_len, 4096, _fp);
+        rec_cnt = std::fread(buff.get(), data_size, max_item_cnt, _fp);
     }
     return -1;
 }
 
-void BucketFile::append(const unsigned char *data, size_t data_len)
+void BucketFile::append(const unsigned char *data, size_t data_size)
 {
     std::lock_guard<std::mutex> lock(_mtx);
     std::fseek(_fp, 0, SEEK_END);
-    std::fwrite(data, data_len, 1, _fp);
+    std::fwrite(data, data_size, 1, _fp);
 }
 
+// maintain a map of file buffers - one for each thread
+std::shared_ptr<unsigned char> BucketFile::get_file_buff()
+{
+    std::hash<std::thread::id> hasher;
+    size_t id_hash = hasher(std::this_thread::get_id());
+    auto itr = buff_map.find(id_hash);
+    if (itr == buff_map.end())
+    {
+        buff_map[id_hash] = std::shared_ptr<unsigned char>(new unsigned char[FILE_BUFF_SIZE]);
+    }
+    return buff_map[id_hash];
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// DiskHashTable
+//
 DiskHashTable::DiskHashTable(
     const std::string path_name,
     const std::string base_name,
+    int               level,
     size_t            rec_len
 )
-: path(path_name), name(base_name), reclen(rec_len)
-{}
+: name(base_name), reclen(rec_len), reccnt(0)
+{
+    std::stringstream ss;
+    ss << path_name << level << '/';
+    path = ss.str();
+    std::filesystem::create_directories(path);
+}
 
 DiskHashTable::~DiskHashTable()
 {}
@@ -79,19 +103,32 @@ bool DiskHashTable::search(const unsigned char *data)
     return bp->search(data, reclen) != -1;
 }
 
+long DiskHashTable::insert(const unsigned char *data)
+{
+    std::string bucket = calc_bucket_id(data);
+    BucketFile *bp = get_bucket(bucket);
+    long recno = bp->search(data, reclen);
+    if (  recno == -1 )
+    {
+        bp->append(data, reclen);
+        reccnt++;
+    }
+    return recno;
+}
+
 void DiskHashTable::append(const unsigned char *data)
 {
     std::string bucket = calc_bucket_id(data);
     append(bucket, data);
+    reccnt++;
 }
 
 void DiskHashTable::append(const std::string& bucket, const unsigned char *data)
 {
     BucketFile *bp = get_bucket(bucket);
-    if ( bp->search(data, reclen) == -1 )
-        bp->append(data, reclen);
+    bp->append(data, reclen);
+    reccnt++;
 }
-
 
 // return the file pointer for the given bucket
 // Open the file pointer if it's not already

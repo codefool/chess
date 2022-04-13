@@ -11,6 +11,7 @@
 #include <map>
 #include <memory>
 #include <set>
+#include <thread>
 #include <vector>
 
 #include "config.h"

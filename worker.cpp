@@ -159,12 +159,18 @@ int checkmate = 0;
 
 std::mutex unresolved_mtx;
 
+#ifdef CACHE_RESOLVED_POSITIONS
 std::mutex resolved_mtx;
 PosMap resolved;
+#else
+DiskHashTable dht_resolved(WORK_FILE_PATH, "resolved", 32, sizeof(PositionPacked));
+#endif
 
-#ifndef CACHE_PAWN_MOVE_POSITIONS
+#ifdef CACHE_PAWN_MOVE_POSITIONS
 std::mutex pawn_init_pos_mtx;
 PosMap pawn_init_pos;
+#else
+DiskHashTable dht_pawn_init_pos(WORK_FILE_PATH, "pawn_init", 32, sizeof(PositionPacked));
 #endif
 
 // We process unresolved positions by distance. Since a position of
@@ -219,10 +225,14 @@ bool get_unresolved(PositionPacked& pos, PosInfo& pi, int level, std::string& ba
                 pos = itr->first;
                 pi  = itr->second;
                 get_queue->erase(pos);
+#ifdef CACHE_RESOLVED_POSITIONS
                 std::lock_guard<std::mutex> lock1(resolved_mtx);
                 resolved.insert({pos,pi});
                 resolved_min_dist = std::min(resolved_min_dist, pi.distance);
                 resolved_max_dist = std::max(resolved_max_dist, pi.distance);
+#else
+                dht_resolved.insert((const unsigned char*)&pos);
+#endif
                 return true;
             }
         }
@@ -237,6 +247,7 @@ bool get_unresolved(PositionPacked& pos, PosInfo& pi, int level, std::string& ba
         std::swap(get_queue, put_queue);
         retried = true;
 
+#ifdef CACHE_RESOLVED_POSITIONS
         // check if we have more than 3 tiers of results in the
         // resolved list. If so, spool to extra tiers out
         if ( resolved_max_dist - resolved_min_dist >= 3 )
@@ -244,6 +255,7 @@ bool get_unresolved(PositionPacked& pos, PosInfo& pi, int level, std::string& ba
             resolved_min_dist = resolved_max_dist - 3;
             write_resolved(level, base_path, resolved_min_dist);
         }
+#endif
     }
 }
 
@@ -251,7 +263,7 @@ void worker(int level, std::string base_path)
 {
   std::cout << std::this_thread::get_id() << " starting level " << level << std::endl;
 
-#ifndef CACHE_PAWN_MOVE_POSITIONS
+#ifdef CACHE_PAWN_MOVE_POSITIONS
   PositionFile f_pawninitpos(base_path, "pawn_init_pos", level);
 #endif
   PositionFile f_downlevel(base_path, "init_pos", level - 1);
@@ -322,7 +334,8 @@ void worker(int level, std::string base_path)
           else
               it->second.add_ref(mv, base_info.id);
 #else
-          f_pawninitpos.write(posprime,posinfo);
+        //   f_pawninitpos.write(posprime,posinfo);
+        dht_pawn_init_pos.insert((const unsigned char*)&posprime);
 #endif
 #ifdef ENFORCE_14F_50_MOVE_RULE
         } else if (posinfo.fifty_cnt == 50) {
@@ -340,6 +353,7 @@ void worker(int level, std::string base_path)
         } else if(bprime.gi().getPieceCnt() == level) {
             bool found = false;
             { // dummy scope
+#ifdef CACHE_RESOLVED_POSITIONS
                 std::lock_guard<std::mutex> lock(resolved_mtx);
                 auto itr = resolved.find(posprime);
                 if (itr != resolved.end()) {
@@ -348,6 +362,15 @@ void worker(int level, std::string base_path)
                     coll_cnt++;
                     found = true;
                 }
+#else
+                if (dht_resolved.search((const unsigned char*)&pprime))
+                {
+                    // TODO: add reference
+                    collisioncnt++;
+                    coll_cnt++;
+                    found = true;
+                }
+#endif
             } // end dummy scope
             if (!found)
             {
@@ -368,10 +391,14 @@ void worker(int level, std::string base_path)
         }
         }
 
+#ifdef CACHE_RESOLVED_POSITIONS
         { // dummy scope
             std::lock_guard<std::mutex> lock(resolved_mtx);
             resolved[base_pos] = base_info;
         } // end dummy scope
+#else
+        // TODO: update base info
+#endif
 
         // std::cout << "base,parent,mov/p/c/5/1,move,dist,dis50,coll_cnt,init_cnt,res_cnt,get,put,unr1,fifty,FEN\n";
         ss.str(std::string());
@@ -395,9 +422,14 @@ void worker(int level, std::string base_path)
 #ifdef CACHE_PAWN_MOVE_POSITIONS
             << ',' << pawn_init_pos.size()
 #else
-            << ',' << initposcnt
+            // << ',' << initposcnt
+            << ',' << dht_pawn_init_pos.size()
 #endif
+#ifdef CACHE_RESOLVED_POSITIONS
             << ',' << resolved.size()
+#else
+            << ',' << dht_resolved.size()
+#endif
             << ',' << get_queue->size()
             << ',' << put_queue->size()
             << ',' << unresolvedn1cnt
@@ -434,6 +466,7 @@ void worker(int level, std::string base_path)
 
 void write_resolved(int level, std::string& base_path, int max_distance)
 {
+#ifdef CACHE_RESOLVED_POSITIONS
     static bool first = true;
     std::lock_guard<std::mutex> lock1(resolved_mtx);
     if (!max_distance)
@@ -457,11 +490,18 @@ void write_resolved(int level, std::string& base_path, int max_distance)
         std::cout << "\tSpooled " << cnt << " resvoled positions" << std::endl;
     }
     first = false;
+#else
+    ;   // do nothing
+#endif
 }
 
 void write_pawn_init_pos(int level, std::string& base_path)
 {
+#ifdef CACHE_PAWN_MOVE_POSITIONS
     write_results(pawn_init_pos, level, base_path, "pawn_init_pos");
+#else
+    ;   // do nothing
+#endif
 }
 
 void write_results(PosMap& map, int level, std::string& base_path, std::string disp_name, bool use_thread_id)

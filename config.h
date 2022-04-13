@@ -2,7 +2,7 @@
 
 #define THREAD_COUNT 8
 
-#define WORK_FILE_PATH "/mnt/c/tmp/cg/"
+#define WORK_FILE_PATH "/mnt/d/tmp/cg/"
 
 // [8A3] castling permanently illegal if the king moves, or the castling
 // rook has moved.
@@ -10,6 +10,9 @@
 
 // 50-move rule
 // #define ENFORCE_14F_50_MOVE_RULE
+
+// uncomment to cache resolved positions
+// #define CACHE_RESOLVED_POSITIONS
 
 // uncomment to cache pawn-move positions rather than shunt to files
 // #define CACHE_PAWN_MOVE_POSITIONS

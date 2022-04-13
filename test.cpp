@@ -23,7 +23,8 @@ int main()
     // dupe_cnt = csv_cmp("/mnt/c/tmp/cg_7/31/init_pos_31_139632456021760.csv", lhs);
 
     std::string filz[] = {
-        "init-pos-combined_31.csv"
+        "resolved_32.csv"
+        // "init-pos-combined_31.csv"
         // "init_pos_31_140386760644352.csv",
         // "init_pos_31_140386769037056.csv",
         // "init_pos_31_140386777429760.csv",
@@ -35,11 +36,11 @@ int main()
     };
 
     for(auto fil : filz) {
-        auto dupe_cnt = csv_cmp(base_path + "31/" + fil, lhs);
+        auto dupe_cnt = csv_cmp(base_path + "32/" + fil, lhs);
     }
     std::cout << "lhs " << lhs.size() << std::endl;
 
-    DiskHashTable dummy("/mnt/c/tmp/aa", "base_pos", sizeof(PositionPacked));
+    DiskHashTable dummy("/mnt/d/tmp/aa", "base_pos", 32, sizeof(PositionPacked));
 
     // write_results(lhs, 31, base_path, "init-pos-combined");
     for(auto r : lhs)
