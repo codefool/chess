@@ -146,7 +146,13 @@ BucketFile* DiskHashTable::get_bucket(const std::string& bucket)
 
 std::string DiskHashTable::get_bucket_fspec(const std::string& bucket)
 {
+    return DiskHashTable::get_bucket_fspec(path, name, bucket);
+}
+
+std::string DiskHashTable::get_bucket_fspec(const std::string path, const std::string base, const std::string bucket)
+{
     std::stringstream ss;
-    ss << path << '/' << name << '_' << bucket;
+    ss << path << '/' << base << '_' << bucket;
     return ss.str();
 }
+

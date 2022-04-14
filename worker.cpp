@@ -173,6 +173,10 @@ PosMap pawn_init_pos;
 DiskHashTable dht_pawn_init_pos(WORK_FILE_PATH, "pawn_init", 32, sizeof(PositionPacked));
 #endif
 
+#ifndef CACHE_N_1_POSITIONS
+DiskHashTable dht_pawn_n1(WORK_FILE_PATH, "pawn_init", 31, sizeof(PositionPacked));
+#endif
+
 // We process unresolved positions by distance. Since a position of
 // distance n can only generate a position of distance n+1, we only
 // have to keep two queues. When the queue at distance n depletes,
@@ -266,7 +270,9 @@ void worker(int level, std::string base_path)
 #ifdef CACHE_PAWN_MOVE_POSITIONS
   PositionFile f_pawninitpos(base_path, "pawn_init_pos", level);
 #endif
+#ifdef CACHE_N_1_POSITIONS
   PositionFile f_downlevel(base_path, "init_pos", level - 1);
+#endif
   std::stringstream ss;
 
   MoveList moves;
@@ -347,7 +353,11 @@ void worker(int level, std::string base_path)
         } else if (bprime.gi().getPieceCnt() == level-1) {
             unresolvedn1cnt++;
             posinfo.id = get_position_id(level-1);
+#ifdef CACHE_N_1_POSITIONS
             f_downlevel.write(posprime,posinfo);
+#else
+            dht_pawn_n1.insert((const unsigned char *)&posprime);
+#endif
             nsub1_cnt++;
 
         } else if(bprime.gi().getPieceCnt() == level) {
@@ -377,12 +387,19 @@ void worker(int level, std::string base_path)
                 std::lock_guard<std::mutex> lock(unresolved_mtx);
                 auto itr = put_queue->find(posprime);
                 if ( itr != put_queue->end() ) {
-                itr->second.add_ref(mv, base_info.id);
+                    itr->second.add_ref(mv, base_info.id);
                     collisioncnt++;
                     coll_cnt++;
                 } else {
-                    posinfo.id = get_position_id(level);
-                    put_queue->insert({posprime, posinfo});
+                    itr = get_queue->find(posprime);
+                    if ( itr != get_queue->end() ) {
+                        itr->second.add_ref(mv, base_info.id);
+                        collisioncnt++;
+                        coll_cnt++;
+                    } else {
+                        posinfo.id = get_position_id(level);
+                        put_queue->insert({posprime, posinfo});
+                    }
                 }
             }
         } else {
@@ -405,38 +422,38 @@ void worker(int level, std::string base_path)
         ss.flags(std::ios::hex);
         ss.fill('0');
         auto ow = ss.width(16);
-        ss << base_info.id
+        ss  << base_info.id
             << ',' << base_info.src;
         ss.width(ow);
-        ss << ',' << moves.size()
+        ss  << ',' << get_queue->size()
+            << ',' << put_queue->size();
+        ss.width(2);
+        ss  << ',' << moves.size()
             << '/' << pawn_moves
             << '/' << coll_cnt
             << '/' << fifty_cnt
-            << '/' << nsub1_cnt
-            << ',' << Move::unpack(base_info.move)
+            << '/' << nsub1_cnt;
+        ss.width(ow);
+        ss  << ',' << Move::unpack(base_info.move)
             << ',' << base_info.distance
-#ifdef ENFORCE_14F_50_MOVE_RULE
-            << ',' << base_info.fifty_cnt
-#endif
             << ',' << collisioncnt
+            << ',' << unresolvedn1cnt;
+#ifdef ENFORCE_14F_50_MOVE_RULE
+        ss  << ',' << base_info.fifty_cnt
+            << ',' << fiftymovedrawcnt;
+#endif
 #ifdef CACHE_PAWN_MOVE_POSITIONS
-            << ',' << pawn_init_pos.size()
+        ss  << ',' << pawn_init_pos.size();
 #else
             // << ',' << initposcnt
-            << ',' << dht_pawn_init_pos.size()
+        ss  << ',' << dht_pawn_init_pos.size();
 #endif
 #ifdef CACHE_RESOLVED_POSITIONS
-            << ',' << resolved.size()
+        ss  << ',' << resolved.size();
 #else
-            << ',' << dht_resolved.size()
+        ss  << ',' << dht_resolved.size();
 #endif
-            << ',' << get_queue->size()
-            << ',' << put_queue->size()
-            << ',' << unresolvedn1cnt
-#ifdef ENFORCE_14F_50_MOVE_RULE
-            << ',' << fiftymovedrawcnt
-#endif
-            << ',' << sub_board.getPosition().fen_string(base_info.distance)
+        ss  << ',' << sub_board.getPosition().fen_string(base_info.distance)
             << '\n';
         std::cout << ss.str();
     }

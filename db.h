@@ -61,6 +61,8 @@ public:
     void append(const unsigned char *data);
     void append(const std::string& bucket, const unsigned char *data);
 
+    static std::string get_bucket_fspec(const std::string path, const std::string base, const std::string bucket);
+
 private:
     BucketFile* get_bucket(const std::string& bucket);
     std::string get_bucket_fspec(const std::string& bucket);

@@ -2,7 +2,7 @@
 
 #define THREAD_COUNT 8
 
-#define WORK_FILE_PATH "/mnt/d/tmp/cg/"
+#define WORK_FILE_PATH "/home/codefool/work/data/"
 
 // [8A3] castling permanently illegal if the king moves, or the castling
 // rook has moved.

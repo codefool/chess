@@ -160,7 +160,16 @@ int main() {
   std::vector<std::thread> threads;
 
   time_t tstart = time(0);
-  std::cout << "base,mov/p/c/5/1,parent,mov,dist,dis50,coll_cnt,init_cnt,res_cnt,unr,unr1,fifty,FEN" << std::endl;
+  std::stringstream ss;
+  ss << "base,parent,get,put,mov/p/c/5/1,move,coll,unres";
+#ifdef ENFORCE_14F_50_MOVE_RULE
+  ss << ",dis50,draw50";
+#endif
+#ifdef CACHE_PAWN_MOVE_POSITIONS
+#endif
+  ss << ",pawn,resolved,FEN" << std::endl;
+
+  std::cout << ss.str();
 
   for (int i = 0; i < THREAD_COUNT; i++) {
       threads.push_back(std::thread(worker, CLEVEL, workfilepath));
