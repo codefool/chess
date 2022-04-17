@@ -8,7 +8,7 @@ OBJECTS = board.o util.o gameinfo.o piece.o position.o worker.o csvtools.o md5.o
 .cpp.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c $<
 
-all: cg bang0 bang1 test
+all: cg
 
 cg : chessboard.o $(OBJECTS) $(HEADERS)
 	$(CC) $(CFLAGS) chessboard.o $(OBJECTS) $(LIBS) -o cg
@@ -19,8 +19,8 @@ bang0 : bang0.o $(OBJECTS) $(HEADERS)
 bang1 : bang1.o $(OBJECTS) $(HEADERS)
 	$(CC) $(CFLAGS) bang1.o $(OBJECTS) $(LIBS) -o bang1
 
-dht : dht.o $(OBJECTS) $(HEADERS)
-	$(CC) $(CFLAGS) dht.o $(OBJECTS) $(LIBS) -o dht
+dht : dht.o db.o md5.o util.o $(HEADERS)
+	$(CC) $(CFLAGS) dht.o db.o md5.o util.o $(LIBS) -o dht
 
 test : test.o $(OBJECTS) $(HEADERS)
 	$(CC) $(CFLAGS) test.o $(OBJECTS) $(LIBS) -o test

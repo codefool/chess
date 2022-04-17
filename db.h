@@ -20,28 +20,36 @@
 #include "constants.h"
 #include "md5.h"
 
+typedef unsigned char * ucharptr;
+typedef const ucharptr  ucharptr_c;
+
 struct BucketFile
 {
+
     static std::map<size_t, std::shared_ptr<unsigned char>> buff_map;
     std::mutex  _mtx;
     std::FILE*  _fp;
     std::string _fspec;
+    size_t      _keylen;
+    size_t      _vallen;
+    size_t      _reclen;
 
-    BucketFile(std::string fspec);
+    BucketFile(std::string fspec, size_t key_len, size_t val_len);
     ~BucketFile();
-    long search(const unsigned char *data, size_t data_size);
-    void append(const unsigned char *data, size_t data_size);
+    int  search(ucharptr_c key, ucharptr val = nullptr);
+    bool append(ucharptr_c key, ucharptr_c val);
+    bool update(ucharptr_c key, ucharptr_c val);
+
     size_t seek();
     std::shared_ptr<unsigned char> get_file_buff();
 };
-
 class DiskHashTable
 {
 private:
     std::map<std::string, BucketFile*> fp_map;
+    size_t                             keylen;
+    size_t                             vallen;
     size_t                             reclen;
-    // the target filename for a bucket is
-    // <path>/<name>_dd
     std::string                        path;
     std::string                        name;
     size_t                             reccnt;
@@ -51,15 +59,16 @@ public:
         const std::string path_name,
         const std::string base_name,
         int               level,
-        size_t            rec_len);
+        size_t            key_len,
+        size_t            val_len);
     virtual ~DiskHashTable();
 
     size_t size() const {return reccnt;}
-    std::string calc_bucket_id(const unsigned char *data);
-    bool search(const unsigned char *data);
-    long insert(const unsigned char *data);
-    void append(const unsigned char *data);
-    void append(const std::string& bucket, const unsigned char *data);
+    std::string calc_bucket_id(ucharptr_c key);
+    bool search(ucharptr_c key, ucharptr val = nullptr);
+    bool insert(ucharptr_c key, ucharptr_c val);
+    bool append(ucharptr_c key, ucharptr_c val);
+    bool update(ucharptr_c key, ucharptr_c val);
 
     static std::string get_bucket_fspec(const std::string path, const std::string base, const std::string bucket);
 

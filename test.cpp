@@ -40,7 +40,7 @@ int main()
     }
     std::cout << "lhs " << lhs.size() << std::endl;
 
-    DiskHashTable dummy("/mnt/d/tmp/aa", "base_pos", 32, sizeof(PositionPacked));
+    DiskHashTable dummy("/mnt/d/tmp/aa", "base_pos", 32, sizeof(PositionPacked), sizeof(PositionRec));
 
     // write_results(lhs, 31, base_path, "init-pos-combined");
     for(auto r : lhs)

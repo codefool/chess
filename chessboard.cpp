@@ -161,7 +161,7 @@ int main() {
 
   time_t tstart = time(0);
   std::stringstream ss;
-  ss << "base,parent,get,put,mov/p/c/5/1,move,coll,unres";
+  ss << "base,parent,get,put,coll,mov/p/c/5/1,move,unres";
 #ifdef ENFORCE_14F_50_MOVE_RULE
   ss << ",dis50,draw50";
 #endif

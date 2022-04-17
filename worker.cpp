@@ -9,113 +9,6 @@
 
 #include "worker.h"
 
-
-PosInfo::PosInfo()
-: id{0}, src{0}, move(Move().pack()), move_cnt{0}, distance{0}, fifty_cnt{0},
-egr{EGR_NONE}, refs{nullptr}
-{}
-
-PosInfo::PosInfo(PositionId i, PosInfo s, MovePacked m)
-: id{i}, src{s.id}, move(m), move_cnt{0},
-    distance{s.distance + 1},
-    fifty_cnt{s.fifty_cnt + 1},
-    egr{EGR_NONE}, refs{nullptr}
-{}
-
-// it's possible that multiple threads for the same position
-// can cause issues here. Since we have at most THREAD_COUNT
-// possible collisions, we only need that many mutex's.
-// We do a poor man's hash and just id mod THREAD_COUNT
-// should provide adequate protection without pausing all
-// threads every time we add a reference (of which there are
-// many)
-std::vector<std::mutex> posrefmtx(THREAD_COUNT);
-
-void PosInfo::add_ref(Move move, PositionId trg)
-{
-    std::lock_guard<std::mutex> lock(posrefmtx[id % THREAD_COUNT]);
-    if (refs == nullptr) {
-        refs = new PosRefMap();
-        refs->reserve(10);
-    }
-    refs->push_back(PosRef(move,trg));
-}
-
-PositionFile::PositionFile(std::string base_path, std::string base_name, int level, bool use_thread_id, bool write_header)
-: line_cnt{0}
-{
-    std::stringstream ss;
-    ss << base_path << level << '/';
-    std::filesystem::create_directories(ss.str());
-    ss << base_name << '_' << level;
-    if ( use_thread_id )
-        ss << '_' << std::this_thread::get_id();
-    ss << ".csv";
-    fspec = ss.str();
-    ofs.open(fspec, std::ios_base::app);
-    ofs.flags(std::ios::hex);
-    ofs.fill('0');
-    if ( write_header )
-    {
-        ofs << "\"id\","
-            << "\"parent\","
-            << "\"gameinfo\","
-            << "\"population\","
-            << "\"hi\","
-            << "\"lo\","
-            << "\"move_cnt\","
-            << "\"move_packed\","
-            << "\"distance\","
-            << "\"50_cnt\","
-            << "\"end_game\","
-            << "\"ref_cnt\","
-            << "\"move/parent...\""
-            << '\n';
-    }
-}
-
-PositionFile::~PositionFile()
-{
-    ofs << std::flush;
-    ofs.close();
-}
-
-void PositionFile::write(const PositionPacked& pos, const PosInfo& info)
-{
-    //id    gi   pop    hi     lo     src    mv   dist 50m
-    auto ow = ofs.width(16);
-    ofs << info.id << ','
-        << info.src << ',';
-    ofs.width(8);
-    ofs << pos.gi.i << ',';
-    ofs.width(16);
-    ofs << pos.pop << ','
-        << pos.hi << ','
-        << pos.lo << ',';
-    ofs.width(ow);
-    ofs << info.move_cnt << ','
-        << info.move.i << ','
-        << info.distance << ','
-        << info.fifty_cnt << ','
-        << static_cast<int>(info.egr) << ',';
-
-    if (info.refs == nullptr) {
-        ofs << 0;
-    } else {
-        ofs << info.refs->size() << ',';
-        bool second = false;
-        for (auto e : *info.refs) {
-            if (second)
-              ofs << ',';
-            ofs << e.move.i << ',' << e.trg;
-            second = true;
-        }
-    }
-    ofs << '\n';
-    if ((++line_cnt % 100) == 0)
-      ofs << std::flush;
-}
-
 std::mutex mtx_id;
 PositionId g_id_cnt = 0;
 
@@ -163,18 +56,18 @@ std::mutex unresolved_mtx;
 std::mutex resolved_mtx;
 PosMap resolved;
 #else
-DiskHashTable dht_resolved(WORK_FILE_PATH, "resolved", 32, sizeof(PositionPacked));
+DiskHashTable dht_resolved(WORK_FILE_PATH, "resolved", 32, sizeof(PositionPacked), sizeof(PosInfo));
 #endif
 
 #ifdef CACHE_PAWN_MOVE_POSITIONS
 std::mutex pawn_init_pos_mtx;
 PosMap pawn_init_pos;
 #else
-DiskHashTable dht_pawn_init_pos(WORK_FILE_PATH, "pawn_init", 32, sizeof(PositionPacked));
+DiskHashTable dht_pawn_init_pos(WORK_FILE_PATH, "pawn_init", 32, sizeof(PositionPacked), sizeof(PosInfo));
 #endif
 
 #ifndef CACHE_N_1_POSITIONS
-DiskHashTable dht_pawn_n1(WORK_FILE_PATH, "pawn_init", 31, sizeof(PositionPacked));
+DiskHashTable dht_pawn_n1(WORK_FILE_PATH, "pawn_init", 31, sizeof(PositionPacked), sizeof(PosInfo));
 #endif
 
 // We process unresolved positions by distance. Since a position of
@@ -186,7 +79,6 @@ PosMap  unresolved0;  // the 'n' queue
 PosMap  unresolved1;  // the 'n+1' queue
 PosMap* get_queue = &unresolved0;    // the 'n' queue
 PosMap* put_queue = &unresolved1;    // the 'n+1' queue
-
 
 bool stop = false;    // global halt flag
 
@@ -235,7 +127,7 @@ bool get_unresolved(PositionPacked& pos, PosInfo& pi, int level, std::string& ba
                 resolved_min_dist = std::min(resolved_min_dist, pi.distance);
                 resolved_max_dist = std::max(resolved_max_dist, pi.distance);
 #else
-                dht_resolved.insert((const unsigned char*)&pos);
+                dht_resolved.insert((ucharptr_c)&pos, (ucharptr_c)&pi);
 #endif
                 return true;
             }
@@ -341,7 +233,7 @@ void worker(int level, std::string base_path)
               it->second.add_ref(mv, base_info.id);
 #else
         //   f_pawninitpos.write(posprime,posinfo);
-        dht_pawn_init_pos.insert((const unsigned char*)&posprime);
+        dht_pawn_init_pos.insert((ucharptr_c)&posprime, (ucharptr_c)&posinfo);
 #endif
 #ifdef ENFORCE_14F_50_MOVE_RULE
         } else if (posinfo.fifty_cnt == 50) {
@@ -356,7 +248,7 @@ void worker(int level, std::string base_path)
 #ifdef CACHE_N_1_POSITIONS
             f_downlevel.write(posprime,posinfo);
 #else
-            dht_pawn_n1.insert((const unsigned char *)&posprime);
+            dht_pawn_n1.insert((ucharptr_c)&posprime, (ucharptr_c)&posinfo);
 #endif
             nsub1_cnt++;
 
@@ -373,7 +265,7 @@ void worker(int level, std::string base_path)
                     found = true;
                 }
 #else
-                if (dht_resolved.search((const unsigned char*)&pprime))
+                if (dht_resolved.search((ucharptr_c)&pprime))
                 {
                     // TODO: add reference
                     collisioncnt++;
@@ -414,7 +306,7 @@ void worker(int level, std::string base_path)
             resolved[base_pos] = base_info;
         } // end dummy scope
 #else
-        // TODO: update base info
+        dht_resolved.update((ucharptr_c)&base_pos, (ucharptr)&base_info);
 #endif
 
         // std::cout << "base,parent,mov/p/c/5/1,move,dist,dis50,coll_cnt,init_cnt,res_cnt,get,put,unr1,fifty,FEN\n";
@@ -426,7 +318,8 @@ void worker(int level, std::string base_path)
             << ',' << base_info.src;
         ss.width(ow);
         ss  << ',' << get_queue->size()
-            << ',' << put_queue->size();
+            << ',' << put_queue->size()
+            << ',' << collisioncnt;
         ss.width(2);
         ss  << ',' << moves.size()
             << '/' << pawn_moves
@@ -436,7 +329,6 @@ void worker(int level, std::string base_path)
         ss.width(ow);
         ss  << ',' << Move::unpack(base_info.move)
             << ',' << base_info.distance
-            << ',' << collisioncnt
             << ',' << unresolvedn1cnt;
 #ifdef ENFORCE_14F_50_MOVE_RULE
         ss  << ',' << base_info.fifty_cnt

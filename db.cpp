@@ -5,11 +5,12 @@
 
 std::map<size_t, std::shared_ptr<unsigned char>> BucketFile::buff_map;
 
-BucketFile::BucketFile(std::string fspec)
-: _fspec(fspec)
+BucketFile::BucketFile(std::string fspec, size_t key_len, size_t val_len)
+: _fspec(fspec), _keylen(key_len), _vallen(val_len), _reclen(key_len + val_len)
 {
     std::cout << "Opening bucket file " << _fspec << std::endl;
-    _fp = std::fopen( _fspec.c_str(), "w+" );
+    const char *mode = (std::filesystem::exists(fspec)) ? "r+" : "w+";
+    _fp = std::fopen( _fspec.c_str(), mode );
     if ( _fp == nullptr )
     {
         std::cout << "Error opening bucket file " << _fspec << ' ' << errno << " - terminating" << std::endl;
@@ -27,32 +28,56 @@ BucketFile::~BucketFile()
     }
 }
 
-long BucketFile::search(const unsigned char *data, size_t data_size)
+int BucketFile::search(ucharptr_c key, ucharptr val)
 {
     std::lock_guard<std::mutex> lock(_mtx);
-    int max_item_cnt = FILE_BUFF_SIZE / data_size;
+    int max_item_cnt = FILE_BUFF_SIZE / _reclen;
     std::shared_ptr<unsigned char> buff = get_file_buff();
     std::fseek(_fp, 0, SEEK_SET);
-    size_t rec_cnt = std::fread(buff.get(), data_size, max_item_cnt, _fp);
+    fpos_t pos;  // file position at start of block
+    std::fgetpos(_fp, &pos);
+    size_t rec_cnt = std::fread(buff.get(), _reclen, max_item_cnt, _fp);
     while ( rec_cnt > 0 )
     {
         unsigned char *p = buff.get();
         for ( int i(0); i < rec_cnt; ++i )
         {
-            if ( !std::memcmp(p, data, data_size) )
-                return (long)(p - buff.get());
-            p += data_size;
+            if ( !std::memcmp(p, key, _keylen) )
+            {
+                if ( val != nullptr )
+                    std::memcpy(val, p + _keylen, _vallen);
+                return pos.__pos + (p - buff.get());
+            }
+            p += _reclen;
         }
-        rec_cnt = std::fread(buff.get(), data_size, max_item_cnt, _fp);
+        std::fgetpos(_fp, &pos);
+        rec_cnt = std::fread(buff.get(), _reclen, max_item_cnt, _fp);
     }
     return -1;
 }
 
-void BucketFile::append(const unsigned char *data, size_t data_size)
+bool BucketFile::append(ucharptr_c key, ucharptr_c val)
 {
+    fpos_t pos;
     std::lock_guard<std::mutex> lock(_mtx);
     std::fseek(_fp, 0, SEEK_END);
-    std::fwrite(data, data_size, 1, _fp);
+    std::fgetpos(_fp, &pos);
+    std::fwrite(key, _keylen, 1, _fp);
+    std::fwrite(val, _vallen, 1, _fp);
+    return true;
+}
+
+bool BucketFile::update(ucharptr_c key, ucharptr_c val)
+{
+    int pos = search(key);
+    if( pos != -1 )
+    {
+        std::fseek(_fp, pos, SEEK_SET);
+        std::fwrite(key, _keylen, 1, _fp);
+        std::fwrite(val, _vallen, 1, _fp);
+        return true;
+    }
+    return false;
 }
 
 // maintain a map of file buffers - one for each thread
@@ -75,12 +100,13 @@ DiskHashTable::DiskHashTable(
     const std::string path_name,
     const std::string base_name,
     int               level,
-    size_t            rec_len
+    size_t            key_len,
+    size_t            val_len
 )
-: name(base_name), reclen(rec_len), reccnt(0)
+: name(base_name), keylen(key_len), vallen(val_len), reclen(key_len + val_len), reccnt(0)
 {
     std::stringstream ss;
-    ss << path_name << level << '/';
+    ss << path_name << level << '/' << name << '/';
     path = ss.str();
     std::filesystem::create_directories(path);
 }
@@ -88,46 +114,51 @@ DiskHashTable::DiskHashTable(
 DiskHashTable::~DiskHashTable()
 {}
 
-std::string DiskHashTable::calc_bucket_id(const unsigned char *data)
+std::string DiskHashTable::calc_bucket_id(ucharptr_c key)
 {
     MD5 md5;
-    md5.update((const unsigned char *)data, reclen);
+    md5.update(key, keylen);
     md5.finalize();
     return md5.hexdigest().substr(0,2);
 }
 
-bool DiskHashTable::search(const unsigned char *data)
+bool DiskHashTable::search(ucharptr_c key, ucharptr val)
 {
-    std::string bucket = calc_bucket_id(data);
+    std::string bucket = calc_bucket_id(key);
     BucketFile *bp = get_bucket(bucket);
-    return bp->search(data, reclen) != -1;
+    return bp->search(key, val) != -1;
 }
 
-long DiskHashTable::insert(const unsigned char *data)
+bool DiskHashTable::insert(ucharptr_c key, ucharptr_c val)
 {
-    std::string bucket = calc_bucket_id(data);
+    std::string bucket = calc_bucket_id(key);
     BucketFile *bp = get_bucket(bucket);
-    long recno = bp->search(data, reclen);
-    if (  recno == -1 )
+    int pos = bp->search(key, val);
+    if ( pos == -1 )
     {
-        bp->append(data, reclen);
-        reccnt++;
+        bool ok = bp->append(key, val);
+        if (ok)
+            reccnt++;
+        return ok;
     }
-    return recno;
+    return false;
 }
 
-void DiskHashTable::append(const unsigned char *data)
+bool  DiskHashTable::append(ucharptr_c key, ucharptr_c val)
 {
-    std::string bucket = calc_bucket_id(data);
-    append(bucket, data);
-    reccnt++;
-}
-
-void DiskHashTable::append(const std::string& bucket, const unsigned char *data)
-{
+    std::string bucket = calc_bucket_id(key);
     BucketFile *bp = get_bucket(bucket);
-    bp->append(data, reclen);
-    reccnt++;
+    bool ok = bp->append(key, val);
+    if (ok)
+        reccnt++;
+    return ok;
+}
+
+bool DiskHashTable::update(ucharptr_c key, ucharptr_c val)
+{
+    std::string bucket = calc_bucket_id(key);
+    BucketFile *bp = get_bucket(bucket);
+    return bp->update(key, val);
 }
 
 // return the file pointer for the given bucket
@@ -139,7 +170,7 @@ BucketFile* DiskHashTable::get_bucket(const std::string& bucket)
         return itr->second;
 
     std::string fspec = get_bucket_fspec(bucket);
-    BucketFile* bf = new BucketFile(fspec);
+    BucketFile* bf = new BucketFile(fspec, keylen, vallen);
     fp_map.insert({bucket, bf});
     return bf;
 }

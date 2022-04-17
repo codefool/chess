@@ -206,3 +206,108 @@ std::ostream& operator<<(std::ostream& os, const PositionPacked& pp)
 	return os;
 }
 
+PosInfo::PosInfo()
+: id{0}, src{0}, move(Move().pack()), move_cnt{0}, distance{0},
+fifty_cnt{0}, egr{EGR_NONE}, refs{nullptr}
+{}
+
+PosInfo::PosInfo(PositionId i, PosInfo s, MovePacked m)
+: id{i}, src{s.id}, move(m), move_cnt{0},
+    distance{s.distance + 1},
+    fifty_cnt{s.fifty_cnt + 1},
+    egr{EGR_NONE}, refs{nullptr}
+{}
+
+// it's possible that multiple threads for the same position
+// can cause issues here. Since we have at most THREAD_COUNT
+// possible collisions, we only need that many mutex's.
+// We do a poor man's hash and just id mod THREAD_COUNT
+// should provide adequate protection without pausing all
+// threads every time we add a reference (of which there are
+// many)
+std::vector<std::mutex> posrefmtx(THREAD_COUNT);
+
+void PosInfo::add_ref(Move move, PositionId trg)
+{
+    std::lock_guard<std::mutex> lock(posrefmtx[id % THREAD_COUNT]);
+    if (refs == nullptr) {
+        refs = new PosRefMap();
+        refs->reserve(10);
+    }
+    refs->push_back(PosRef(move,trg));
+}
+
+PositionFile::PositionFile(std::string base_path, std::string base_name, int level, bool use_thread_id, bool write_header)
+: line_cnt{0}
+{
+    std::stringstream ss;
+    ss << base_path << level << '/';
+    std::filesystem::create_directories(ss.str());
+    ss << base_name << '_' << level;
+    if ( use_thread_id )
+        ss << '_' << std::this_thread::get_id();
+    ss << ".csv";
+    fspec = ss.str();
+    ofs.open(fspec, std::ios_base::app);
+    ofs.flags(std::ios::hex);
+    ofs.fill('0');
+    if ( write_header )
+    {
+        ofs << "\"id\","
+            << "\"parent\","
+            << "\"gameinfo\","
+            << "\"population\","
+            << "\"hi\","
+            << "\"lo\","
+            << "\"move_cnt\","
+            << "\"move_packed\","
+            << "\"distance\","
+            << "\"50_cnt\","
+            << "\"end_game\","
+            << "\"ref_cnt\","
+            << "\"move/parent...\""
+            << '\n';
+    }
+}
+
+PositionFile::~PositionFile()
+{
+    ofs << std::flush;
+    ofs.close();
+}
+
+void PositionFile::write(const PositionPacked& pos, const PosInfo& info)
+{
+    //id    gi   pop    hi     lo     src    mv   dist 50m
+    auto ow = ofs.width(16);
+    ofs << info.id << ','
+        << info.src << ',';
+    ofs.width(8);
+    ofs << pos.gi.i << ',';
+    ofs.width(16);
+    ofs << pos.pop << ','
+        << pos.hi << ','
+        << pos.lo << ',';
+    ofs.width(ow);
+    ofs << info.move_cnt << ','
+        << info.move.i << ','
+        << info.distance << ','
+        << info.fifty_cnt << ','
+        << static_cast<int>(info.egr) << ',';
+
+    if (info.refs == nullptr) {
+        ofs << 0;
+    } else {
+        ofs << info.refs->size() << ',';
+        bool second = false;
+        for (auto e : *info.refs) {
+            if (second)
+              ofs << ',';
+            ofs << e.move.i << ',' << e.trg;
+            second = true;
+        }
+    }
+    ofs << '\n';
+    if ((++line_cnt % 100) == 0)
+      ofs << std::flush;
+}

@@ -6,17 +6,6 @@
 #include "constants.h"
 #include "db.h"
 
-class PositionFile {
-private:
-  std::string   fspec;
-  std::ofstream ofs;
-  int            line_cnt;
-public:
-  PositionFile(std::string base_path, std::string base_name, int level, bool use_thread_id = true, bool write_header = true);
-  ~PositionFile();
-  void write(const PositionPacked& pos, const PosInfo& info);
-};
-
 void set_global_id_cnt(PositionId id);
 void insert_unresolved(PositionPacked& pp, PosInfo& pi);
 PositionId get_position_id(int level);

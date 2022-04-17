@@ -11,29 +11,31 @@
 
 void usage(std::string prog)
 {
-    std::cout << "Verify all records in DiskHashTable are unique\n"
-              << "usage: " << prog << " path_to_dht_root dht_base_name [options]\n"
-              << "(there are no options yet)"
+    std::cout << "DiskHashTable Utility\n"
+              << "usage:\n"
+              << '\t' << prog << " verify <path_to_dht_root> <dht_base_name> [options]\n"
+              << '\t' << prog << " test [options]\n"
+              << "note: there are no options yet\n"
               << std::endl;
     exit(1);
 }
 
-std::set<PositionPacked> cache;
-int rec_cnt(0);
-int dupe_cnt(0);
-
-int main(int argc, char **argv)
+void command_verify(int argc, char **argv)
 {
-    if (argc < 3)
+    if (argc < 4)
         usage(argv[0]);
 
-    std::filesystem::path path(argv[1]);
+    std::set<PositionPacked> cache;
+    int rec_cnt(0);
+    int dupe_cnt(0);
+
+    std::filesystem::path path(argv[2]);
     if (!std::filesystem::exists(path))
     {
         std::cerr << path << " does not exist" << std::endl;
         exit(1);
     }
-    std::string base(argv[2]);
+    std::string base(argv[3]);
     std::string min_buck;
     std::string max_buck;
     int frec_min(999999999);
@@ -55,15 +57,17 @@ int main(int argc, char **argv)
             std::cerr << "Error opening bucket file " << fspec << ' ' << errno << " - terminating" << std::endl;
             exit(errno);
         }
-        PositionPacked p;
+        PositionPacked pp;
+        PosInfo pi;
         int frec_cnt(0);
-        while (std::fread(&p, sizeof(PositionPacked), 1, fp) == 1)
+        while (std::fread(&pp, sizeof(PositionPacked), 1, fp) == 1)
         {
+            std::fread(&pi, sizeof(PosInfo), 1, fp);
             frec_cnt++;
-            if (cache.contains(p))
+            if (cache.contains(pp))
                 dupe_cnt++;
             else
-                cache.insert(p);
+                cache.insert(pp);
             if ((++rec_cnt % 1000) == 0 )
                 std::cout << fspec << ':' << cache.size() << ' ' << dupe_cnt << ' ' << frec_cnt << '\r' << std::flush;
         }
@@ -81,10 +85,57 @@ int main(int argc, char **argv)
         }
     }
     std::cout << '\n'
+              << cache.size() << ' '
               << min_buck << ':' << frec_min << ' '
               << max_buck << ':' << frec_max << ' '
               << (frec_max - frec_min)
               << std::endl;
+}
 
-    return 0;
+void command_test(int argc, char **argv)
+{
+    // create a temporary dht
+    // fill it with 10^4 key/values
+    // read them back and verify
+    // update all even-numbered keys
+    // verify the changes
+    // close and delete the dht
+    PositionPacked pp;
+    PosInfo pi;
+    DiskHashTable dht("/home/codefool/tmp/", "temp", 0, sizeof(PositionPacked), sizeof(PosInfo));
+    std::memset(&pp, 0x00, sizeof(PositionPacked));
+    std::memset(&pi, 0x00, sizeof(PosInfo));
+    for (int i = 0; i < 10000; ++i)
+    {
+        dht.append((ucharptr_c)&pp, (ucharptr_c)&pi);
+        pp.lo++;
+        pi.id++;
+    }
+    std::memset(&pp, 0x00, sizeof(PositionPacked));
+    std::memset(&pi, 0x00, sizeof(PosInfo));
+    for (int i = 0; i < 10000; ++i)
+    {
+        dht.search((ucharptr_c)&pp, (ucharptr)&pi);
+        if (pp.lo == i && pi.id == i)
+            std::cout << "hello" << std::endl;
+        pp.lo++;
+    }
+}
+
+int main(int argc, char **argv)
+{
+    if (argc < 2)
+        usage(argv[0]);
+
+    std::string cmd = argv[1];
+    if ( cmd == "verify" )
+        command_verify(argc, argv);
+    else if (cmd == "test" )
+        command_test(argc, argv);
+    else
+    {
+        std::cerr << "Unknown command '" << cmd << '\'' << std::endl;
+        exit(1);
+    }
+   return 0;
 }

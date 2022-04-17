@@ -7,6 +7,7 @@
 //
 #pragma once
 #include <iostream>
+#include <fstream>
 #include <cstring>
 #include <map>
 #include <memory>
@@ -536,3 +537,14 @@ struct PosInfo {
 typedef std::map<PositionPacked,PosInfo> PosMap;
 typedef std::set<PositionPacked>		 PosSet;
 typedef PosMap *PosMapPtr;
+
+class PositionFile {
+private:
+  std::string   fspec;
+  std::ofstream ofs;
+  int            line_cnt;
+public:
+  PositionFile(std::string base_path, std::string base_name, int level, bool use_thread_id = true, bool write_header = true);
+  ~PositionFile();
+  void write(const PositionPacked& pos, const PosInfo& info);
+};
