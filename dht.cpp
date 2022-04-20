@@ -1,141 +1,204 @@
-//
-// Verify that all records in a DiskHashTable are unique, even accross buckets.
-//
-#include <iostream>
-#include <filesystem>
-#include <fstream>
-#include <set>
-#include <sstream>
+#include "dht.h"
+#include "md5.h"
 
-#include "constants.h"
+#define FILE_BUFF_SIZE 1024*1024
 
-void usage(std::string prog)
+const char *BucketFile::p_naught = "\0";
+
+std::map<size_t, std::shared_ptr<unsigned char>> BucketFile::buff_map;
+// fopen is failing with errno 24 (too many files) on unlimited ulimit,
+// so postulating that I'm opening file too fast.
+std::mutex fopen_mtx;
+int opencnt(0);
+
+BucketFile::BucketFile(std::string fspec, size_t key_len, size_t val_len)
+: _fspec(fspec), _keylen(key_len), _vallen(val_len), _reclen(key_len + val_len)
 {
-    std::cout << "DiskHashTable Utility\n"
-              << "usage:\n"
-              << '\t' << prog << " verify <path_to_dht_root> <dht_base_name> [options]\n"
-              << '\t' << prog << " test [options]\n"
-              << "note: there are no options yet\n"
-              << std::endl;
-    exit(1);
-}
-
-void command_verify(int argc, char **argv)
-{
-    if (argc < 4)
-        usage(argv[0]);
-
-    std::set<PositionPacked> cache;
-    int rec_cnt(0);
-    int dupe_cnt(0);
-
-    std::filesystem::path path(argv[2]);
-    if (!std::filesystem::exists(path))
+    std::lock_guard<std::mutex> lock(fopen_mtx);
+    opencnt++;
+    std::cout << opencnt << " Opening bucket file " << _fspec << std::endl;
+    const char *mode = (std::filesystem::exists(fspec)) ? "r+" : "w+";
+    _fp = std::fopen( _fspec.c_str(), mode );
+    if ( _fp == nullptr )
     {
-        std::cerr << path << " does not exist" << std::endl;
+        std::cout << "Error opening bucket file " << _fspec << ' ' << errno << " - terminating" << std::endl;
         exit(1);
     }
-    std::string base(argv[3]);
-    std::string min_buck;
-    std::string max_buck;
-    int frec_min(999999999);
-    int frec_max(-1);
-    for (int i = 0; i < 256; i++)
-    {
-        char bucket[3];
-        std::sprintf(bucket, "%02x", i);
-
-        std::string fspec = DiskHashTable::get_bucket_fspec(path, base, bucket);
-        if (!std::filesystem::exists(fspec))
-        {
-            std::cerr << fspec << " does not exist" << std::endl;
-            exit(2);
-        }
-        std::FILE *fp = std::fopen( fspec.c_str(), "r" );
-        if ( fp == nullptr )
-        {
-            std::cerr << "Error opening bucket file " << fspec << ' ' << errno << " - terminating" << std::endl;
-            exit(errno);
-        }
-        PositionPacked pp;
-        PosInfo pi;
-        int frec_cnt(0);
-        while (std::fread(&pp, sizeof(PositionPacked), 1, fp) == 1)
-        {
-            std::fread(&pi, sizeof(PosInfo), 1, fp);
-            frec_cnt++;
-            if (cache.contains(pp))
-                dupe_cnt++;
-            else
-                cache.insert(pp);
-            if ((++rec_cnt % 1000) == 0 )
-                std::cout << fspec << ':' << cache.size() << ' ' << dupe_cnt << ' ' << frec_cnt << '\r' << std::flush;
-        }
-        std::fclose(fp);
-        std::cout << std::endl;
-        if ( frec_cnt < frec_min)
-        {
-            frec_min = frec_cnt;
-            min_buck = bucket;
-        }
-        if ( frec_cnt > frec_max)
-        {
-            frec_max = frec_cnt;
-            max_buck = bucket;
-        }
-    }
-    std::cout << '\n'
-              << cache.size() << ' '
-              << min_buck << ':' << frec_min << ' '
-              << max_buck << ':' << frec_max << ' '
-              << (frec_max - frec_min)
-              << std::endl;
 }
 
-void command_test(int argc, char **argv)
+BucketFile::~BucketFile()
 {
-    // create a temporary dht
-    // fill it with 10^4 key/values
-    // read them back and verify
-    // update all even-numbered keys
-    // verify the changes
-    // close and delete the dht
-    PositionPacked pp;
-    PosInfo pi;
-    DiskHashTable dht("/home/codefool/tmp/", "temp", 0, sizeof(PositionPacked), sizeof(PosInfo));
-    std::memset(&pp, 0x00, sizeof(PositionPacked));
-    std::memset(&pi, 0x00, sizeof(PosInfo));
-    for (int i = 0; i < 10000; ++i)
+    std::lock_guard<std::mutex> lock(_mtx);
+    if ( _fp != nullptr)
     {
-        dht.append((ucharptr_c)&pp, (ucharptr_c)&pi);
-        pp.lo++;
-        pi.id++;
-    }
-    std::memset(&pp, 0x00, sizeof(PositionPacked));
-    std::memset(&pi, 0x00, sizeof(PosInfo));
-    for (int i = 0; i < 10000; ++i)
-    {
-        dht.search((ucharptr_c)&pp, (ucharptr)&pi);
-        if (pp.lo == i && pi.id == i)
-            std::cout << "hello" << std::endl;
-        pp.lo++;
+        std::fclose(_fp);
+        _fp = nullptr;
     }
 }
 
-int main(int argc, char **argv)
+off_t BucketFile::search(ucharptr_c key, ucharptr val)
 {
-    if (argc < 2)
-        usage(argv[0]);
-
-    std::string cmd = argv[1];
-    if ( cmd == "verify" )
-        command_verify(argc, argv);
-    else if (cmd == "test" )
-        command_test(argc, argv);
-    else
+    std::lock_guard<std::mutex> lock(_mtx);
+    int max_item_cnt = FILE_BUFF_SIZE / _reclen;
+    std::shared_ptr<unsigned char> buff = get_file_buff();
+    std::fseek(_fp, 0, SEEK_SET);
+    fpos_t pos;  // file position at start of block
+    std::fgetpos(_fp, &pos);
+    size_t rec_cnt = std::fread(buff.get(), _reclen, max_item_cnt, _fp);
+    while ( rec_cnt > 0 )
     {
-        std::cerr << "Unknown command '" << cmd << '\'' << std::endl;
-        exit(1);
+        unsigned char *p = buff.get();
+        for ( int i(0); i < rec_cnt; ++i )
+        {
+            if ( !std::memcmp(p, key, _keylen) )
+            {
+                if ( val != nullptr )
+                    std::memcpy(val, p + _keylen, _vallen);
+                off_t off = pos.__pos + (p - buff.get());
+                return off;
+            }
+            p += _reclen;
+        }
+        std::fgetpos(_fp, &pos);
+        rec_cnt = std::fread(buff.get(), _reclen, max_item_cnt, _fp);
     }
-   return 0;
+    return -1;
 }
+
+bool BucketFile::append(ucharptr_c key, ucharptr_c val)
+{
+    fpos_t pos;
+    std::lock_guard<std::mutex> lock(_mtx);
+    std::fseek(_fp, 0, SEEK_END);
+    std::fgetpos(_fp, &pos);
+    std::fwrite(key, _keylen, 1, _fp);
+    if (val != nullptr)
+        std::fwrite(val, _vallen, 1, _fp);
+    else if(_vallen != 0)
+        std::fwrite(p_naught, 1, _vallen, _fp);
+    return true;
+}
+
+bool BucketFile::update(ucharptr_c key, ucharptr_c val)
+{
+    int pos = search(key);
+    if( pos != -1 )
+    {
+        std::fseek(_fp, pos, SEEK_SET);
+        std::fwrite(key, _keylen, 1, _fp);
+        if (val != nullptr)
+            std::fwrite(val, _vallen, 1, _fp);
+        else if(_vallen != 0)
+            std::fwrite(p_naught, 1, _vallen, _fp);
+        return true;
+    }
+    return false;
+}
+
+// maintain a map of file buffers - one for each thread
+std::shared_ptr<unsigned char> BucketFile::get_file_buff()
+{
+    std::hash<std::thread::id> hasher;
+    size_t id_hash = hasher(std::this_thread::get_id());
+    auto itr = buff_map.find(id_hash);
+    if (itr == buff_map.end())
+    {
+        buff_map[id_hash] = std::shared_ptr<unsigned char>(new unsigned char[FILE_BUFF_SIZE]);
+    }
+    return buff_map[id_hash];
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// DiskHashTable
+//
+DiskHashTable::DiskHashTable(
+    const std::string path_name,
+    const std::string base_name,
+    int               level,
+    size_t            key_len,
+    size_t            val_len
+)
+: name(base_name), keylen(key_len), vallen(val_len), reclen(key_len + val_len), reccnt(0)
+{
+    std::stringstream ss;
+    ss << path_name << level << '/' << name << '/';
+    path = ss.str();
+    std::filesystem::create_directories(path);
+}
+
+DiskHashTable::~DiskHashTable()
+{}
+
+std::string DiskHashTable::calc_bucket_id(ucharptr_c key)
+{
+    MD5 md5;
+    md5.update(key, keylen);
+    md5.finalize();
+    return md5.hexdigest().substr(0,2);
+}
+
+bool DiskHashTable::search(ucharptr_c key, ucharptr val)
+{
+    std::string bucket = calc_bucket_id(key);
+    BucketFile *bp = get_bucket(bucket);
+    return bp->search(key, val) != -1;
+}
+
+bool DiskHashTable::insert(ucharptr_c key, ucharptr_c val)
+{
+    std::string bucket = calc_bucket_id(key);
+    BucketFile *bp = get_bucket(bucket);
+    int pos = bp->search(key, val);
+    if ( pos == -1 )
+    {
+        bool ok = bp->append(key, val);
+        if (ok)
+            reccnt++;
+        return ok;
+    }
+    return false;
+}
+
+bool DiskHashTable::append(ucharptr_c key, ucharptr_c val)
+{
+    std::string bucket = calc_bucket_id(key);
+    BucketFile *bp = get_bucket(bucket);
+    bool ok = bp->append(key, val);
+    if (ok)
+        reccnt++;
+    return ok;
+}
+
+bool DiskHashTable::update(ucharptr_c key, ucharptr_c val)
+{
+    std::string bucket = calc_bucket_id(key);
+    BucketFile *bp = get_bucket(bucket);
+    return bp->update(key, val);
+}
+
+// return the file pointer for the given bucket
+// Open the file pointer if it's not already
+BucketFile* DiskHashTable::get_bucket(const std::string& bucket)
+{
+    auto itr = fp_map.find(bucket);
+    if (itr != fp_map.end())
+        return itr->second;
+
+    std::string fspec = get_bucket_fspec(bucket);
+    BucketFile* bf = new BucketFile(fspec, keylen, vallen);
+    fp_map.insert({bucket, bf});
+    return bf;
+}
+
+std::string DiskHashTable::get_bucket_fspec(const std::string& bucket)
+{
+    return DiskHashTable::get_bucket_fspec(path, name, bucket);
+}
+
+std::string DiskHashTable::get_bucket_fspec(const std::string path, const std::string base, const std::string bucket)
+{
+    std::stringstream ss;
+    ss << path << '/' << base << '_' << bucket;
+    return ss.str();
+}
+

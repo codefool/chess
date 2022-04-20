@@ -25,7 +25,7 @@ typedef const ucharptr  ucharptr_c;
 
 struct BucketFile
 {
-
+    static const char *p_naught;
     static std::map<size_t, std::shared_ptr<unsigned char>> buff_map;
     std::mutex  _mtx;
     std::FILE*  _fp;
@@ -34,11 +34,11 @@ struct BucketFile
     size_t      _vallen;
     size_t      _reclen;
 
-    BucketFile(std::string fspec, size_t key_len, size_t val_len);
+    BucketFile(std::string fspec, size_t key_len, size_t val_len = 0);
     ~BucketFile();
-    int  search(ucharptr_c key, ucharptr val = nullptr);
-    bool append(ucharptr_c key, ucharptr_c val);
-    bool update(ucharptr_c key, ucharptr_c val);
+    off_t search(ucharptr_c key, ucharptr   val = nullptr);
+    bool  append(ucharptr_c key, ucharptr_c val = nullptr);
+    bool  update(ucharptr_c key, ucharptr_c val = nullptr);
 
     size_t seek();
     std::shared_ptr<unsigned char> get_file_buff();
@@ -60,15 +60,15 @@ public:
         const std::string base_name,
         int               level,
         size_t            key_len,
-        size_t            val_len);
+        size_t            val_len = 0);
     virtual ~DiskHashTable();
 
     size_t size() const {return reccnt;}
     std::string calc_bucket_id(ucharptr_c key);
     bool search(ucharptr_c key, ucharptr val = nullptr);
-    bool insert(ucharptr_c key, ucharptr_c val);
-    bool append(ucharptr_c key, ucharptr_c val);
-    bool update(ucharptr_c key, ucharptr_c val);
+    bool insert(ucharptr_c key, ucharptr_c val = nullptr);
+    bool append(ucharptr_c key, ucharptr_c val = nullptr);
+    bool update(ucharptr_c key, ucharptr_c val = nullptr);
 
     static std::string get_bucket_fspec(const std::string path, const std::string base, const std::string bucket);
 

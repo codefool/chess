@@ -97,12 +97,12 @@ Which pieces do we need to know if they have moved or not?
 The "order" of a position is the number of pieces in the position. Since chess games
 must naturally lose material as the game progresses, then once all possible edges from
 P(32) are known, then only those less than P(32) remain. So, we exhaust all P(32) positions,
-which will generate some number of P(31) positions. Then repeat with P(31) all the way down theoretically to P(2), but drawn games will be determined before then. 
+which will generate some number of P(31) positions. Then repeat with P(31) all the way down theoretically to P(2), but drawn games will be determined before then.
 
 P(32) - initial position
     move 1 - 20 white moves,  21 total positions, 0 collisions
     move 2 - 20 black moves, 401 total positions, 0 collisions
-    move 3 - 
+    move 3 -
 
 For each position P:
 1. Marked P as WIP
@@ -259,3 +259,10 @@ where: pp is the two-decimal-digit piece count
 rp_0000000000000000.32 - resolved positions
 pp_0000000000000000.32 - pawn-move initial positions from rp_0000000000000000.32
 
+1. dht_util needs to be expanded to work with all dht file types.
+    1. Need to add a header that contains file structure information? hash, rec_len, key_len, val_len, ???
+1. Need to define a disk-based queue so that cg can be restarted and work is not lost.
+    1. so a parm will need to passed to cg to "continue" vs start from the beginning.
+    1. Looking at STXXL - STL templates with a disk backend - but may be overkill for what I need.
+        That is, the objects will want to behave like STL containers, so real-time sorting etc might
+        thrash the disk. Casually considering this.

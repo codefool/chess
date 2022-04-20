@@ -4,7 +4,7 @@
 #include <string>
 
 #include "constants.h"
-#include "db.h"
+#include "dht.h"
 
 void set_global_id_cnt(PositionId id);
 void insert_unresolved(PositionPacked& pp, PosInfo& pi);

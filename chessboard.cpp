@@ -22,7 +22,7 @@
 // #include <mysqlx/xdevapi.h>
 
 #include "constants.h"
-#include "db.h"
+#include "dht.h"
 #include "worker.h"
 
 /*
@@ -126,34 +126,34 @@ int main() {
   set_stop_handler();
 
 #if 1
-  { // dummy scope
-  Position pos;
-  pos.init();
-  std::cout << pos.fen_string() << std::endl;
-  PositionPacked pp = pos.pack();
-  Position ppp;
-  ppp.unpack(pp);
-  std::cout << ppp.fen_string() << std::endl;
-  PosInfo posinfo(get_position_id(CLEVEL), PosInfo(), Move().pack());
-  // this should be put into initpos, but for now
-  insert_unresolved(pp,posinfo);
-  } // end dummy scope
+    BeginDummyScope
+        Position pos;
+        pos.init();
+        std::cout << pos.fen_string() << std::endl;
+        PositionPacked pp = pos.pack();
+        Position ppp;
+        ppp.unpack(pp);
+        std::cout << ppp.fen_string() << std::endl;
+        PosInfo posinfo(get_position_id(CLEVEL), PosInfo(), Move().pack());
+        // this should be put into initpos, but for now
+        insert_unresolved(pp,posinfo);
+    EndDummyScope
 #else
-  { // dummy scope
-  PositionPacked pp;
-  pp.gi.i     = 0x207f8000;
-  pp.pop      = 0x7d7f00800003ffff;
-  pp.hi       = 0x6666666645133245;
-  pp.lo       = 0xbda9dbeeeeeeeecc;
-  PosInfo pi;
-  pi.id       = 0x8000000004c82dff;
-  pi.src      = 0x800000000453974e;
-  pi.move.i   = 0x9f71;
-  pi.distance = 0x15;
-  // this should be put into initpos, but for now
-  insert_unresolved(pp,pi);
-  set_global_id_cnt(0x8000000004d00000);
-  } // end dummy scope
+    BeginDummyScope
+        PositionPacked pp;
+        pp.gi.i     = 0x207f8000;
+        pp.pop      = 0x7d7f00800003ffff;
+        pp.hi       = 0x6666666645133245;
+        pp.lo       = 0xbda9dbeeeeeeeecc;
+        PosInfo pi;
+        pi.id       = 0x8000000004c82dff;
+        pi.src      = 0x800000000453974e;
+        pi.move.i   = 0x9f71;
+        pi.distance = 0x15;
+        // this should be put into initpos, but for now
+        insert_unresolved(pp,pi);
+        set_global_id_cnt(0x8000000004d00000);
+    EndDummyScope
 #endif
   std::string workfilepath(WORK_FILE_PATH);
 
@@ -190,10 +190,12 @@ int main() {
             << ' ' << hang << "s (" << (hang/60.0) << "m)"
             << std::endl;
 
-  write_resolved(CLEVEL, workfilepath);
+#ifdef CACHE_RESOLVED_POSITIONS
+    write_resolved(CLEVEL, workfilepath);
+#endif
 
 #ifdef CACHE_PAWN_MOVE_POSITIONS
-  write_pawn_init_pos(CLEVEL, workfilepath);
+    write_pawn_init_pos(CLEVEL, workfilepath);
 #endif
 	return 0;
 }

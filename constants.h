@@ -16,7 +16,10 @@
 #include <vector>
 
 #include "config.h"
-#include "db.h"
+#include "dht.h"
+
+#define BeginDummyScope {
+#define EndDummyScope }
 
 enum Side {
 	SIDE_WHITE = 0,
@@ -505,14 +508,29 @@ public:
 typedef unsigned long long PositionId;
 
 #pragma pack(1)
-struct PosRef {
-  MovePacked move;
-  PositionId trg;
+struct PosRef
+{
+    MovePacked move;
+    PositionId trg;
 
-  PosRef() {}
-  PosRef(Move m, PositionId t)
-  : move{m.pack()}, trg{t}
-  {}
+    PosRef() {}
+    PosRef(Move m, PositionId t)
+    : move{m.pack()}, trg{t}
+    {}
+};
+struct PosRefRec
+{
+    PositionId src;
+    PositionId trg;
+    MovePacked move;
+
+    PosRefRec() {}
+    PosRefRec(PositionId from, Move m, PositionId to)
+    : src(from), move{m.pack()}, trg(to)
+    {}
+    PosRefRec(PositionId from, MovePacked m, PositionId to)
+    : src(from), move{m}, trg(to)
+    {}
 };
 #pragma pack()
 
@@ -532,6 +550,7 @@ struct PosInfo {
   PosInfo();
   PosInfo(PositionId i, PosInfo s, MovePacked m);
   void add_ref(Move move, PositionId trg);
+  bool operator==(const PosInfo& other);
 };
 
 typedef std::map<PositionPacked,PosInfo> PosMap;

@@ -237,6 +237,29 @@ void PosInfo::add_ref(Move move, PositionId trg)
     refs->push_back(PosRef(move,trg));
 }
 
+bool PosInfo::operator==(const PosInfo& other)
+{
+    if (id       != other.id
+    || src       != other.src
+    || move.i    != other.move.i
+    || move_cnt  != other.move_cnt
+    || distance  != other.distance
+    || fifty_cnt != other.fifty_cnt
+    || egr       != other.egr
+    || (refs == nullptr && other.refs != nullptr)
+    || (refs != nullptr && other.refs == nullptr)
+    )
+        return false;
+    if (refs != nullptr && other.refs != nullptr)
+    {
+        if(refs->size() != other.refs->size())
+            return false;
+        // deep compare all of the references
+    }
+    return true;
+}
+
+
 PositionFile::PositionFile(std::string base_path, std::string base_name, int level, bool use_thread_id, bool write_header)
 : line_cnt{0}
 {
