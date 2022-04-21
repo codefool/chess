@@ -24,13 +24,14 @@
 #pragma once
 
 #include <filesystem>
+#include <list>
 #include <mutex>
 
-typedef uint32_t        dq_block_id;
-typedef uint32_t        dq_rec_no;
-typedef uint64_t        dq_sn_t;
+typedef uint32_t        dq_block_id_t;
+typedef uint32_t        dq_rec_no_t;
 typedef unsigned char * dq_data_t;
-typedef const dq_data_t dq_data_c_t;
+
+const dq_block_id_t BLOCK_NIL = -1;
 
 #pragma pack(1)
 
@@ -38,79 +39,81 @@ struct IndexRec
 {
     std::fpos_t _start;
     std::fpos_t _free;
-    dq_block_id _next;
+    dq_block_id_t _next;
 };
 
-struct Pos
+struct QueueRecPos
 {
-    dq_block_id _block_id;
-    dq_rec_no   _rec_no;
+    dq_block_id_t _block_id;
+    dq_rec_no_t   _rec_no;
+
+    bool operator==(const QueueRecPos& o)
+    {
+        return _block_id == o._block_id && _rec_no == o._rec_no;
+    }
+
+    // off_t pos()
+    // {
+    //     return (_block_id * _header._block_size) +
+    //            (_rec_no   * _header._rec_len);
+    // }
+
 };
 
 struct QueueHeader
 {
-    size_t      _block_size;
-    size_t      _rec_len;
-    size_t      _recs_per_block;
-    dq_block_id _alloc_head;
-    dq_block_id _alloc_tail;
-    dq_block_id _free_head;
-    dq_block_id _free_tail;
-    dq_sn_t     _init_ser_no;
-    dq_sn_t     _last_ser_no;
+    dq_rec_no_t   _block_size;
+    dq_rec_no_t   _rec_len;
+    dq_rec_no_t   _recs_per_block;
+    dq_block_id_t _block_cnt;
+    dq_block_id_t _alloc_head;
+    dq_block_id_t _alloc_tail;
+    dq_block_id_t _free_head;
+    dq_block_id_t _free_tail;
+    QueueRecPos   _push;
+    QueueRecPos   _pop;
 };
 
 #pragma pack()
 
-class QueueBaseFile
+class QueueFile
 {
 protected:
     std::string _fspec;
     FILE*       _fp;
     std::mutex  _mtx;
 public:
-    QueueBaseFile();
-    virtual ~QueueBaseFile();
-    virtual bool init(std::string fspec);
-    virtual void save() = 0;
+    QueueFile();
+    virtual ~QueueFile();
+    operator FILE*();
+    bool open(std::string fspec);
+    std::mutex& mtx();
 };
 
-class QueueIndex : public QueueBaseFile
-{
-private:
-    QueueHeader  _header;
-
-public:
-    QueueIndex();
-    virtual ~QueueIndex();
-    virtual bool init(std::string fspec);
-    virtual void save();
-};
-
-class QueueData : public QueueBaseFile
-{
-public:
-    QueueData();
-    virtual ~QueueData();
-    virtual bool init(std::string fspec);
-    virtual void save();
-};
+typedef std::list<dq_block_id_t> BlockList;
 
 class DiskQueue
 {
 private:
     std::string _path;
     std::string _name;
-    QueueIndex  _idx;
-    QueueData   _dat;
+    QueueHeader _header;
+    QueueFile   _idx;
+    QueueFile   _dat;
+    QueueRecPos _push;
+    QueueRecPos _pop;
+    BlockList   _alloc;
+    BlockList   _free;
 
 public:
-    DiskQueue(std::string path, std::string name);
+    DiskQueue(std::string path, std::string name, dq_rec_no_t reclen);
     virtual ~DiskQueue();
-    void push();
-    void pop();
-
-private:
-    void add_block();
+    bool empty()
+    {
+        // if the push position is the pop position, the queue is empty.
+        return _push == _pop;
+    };
+    void push(const dq_data_t data);
+    bool pop(dq_data_t data);
 };
 
