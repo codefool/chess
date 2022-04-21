@@ -1,22 +1,60 @@
 #include "dq.h"
 
-FileInfo::FileInfo()
+QueueBaseFile::QueueBaseFile()
 : _fp(nullptr)
 {}
 
-FileInfo::~FileInfo()
+QueueBaseFile::~QueueBaseFile()
 {
     if (_fp != nullptr)
         std::fclose(_fp);
     _fp = nullptr;
 }
 
-void FileInfo::init(std::string fspec)
+// return true if file existed
+bool QueueBaseFile::init(std::string fspec)
 {
     _fspec = fspec;
-    _fp = std::fopen( _fspec.c_str(), "r+" );
+    std::filesystem::path path(fspec);
+    bool exists = std::filesystem::exists(path);
+    const char *mode = (exists) ? "r+" : "w+";
+    _fp = std::fopen( _fspec.c_str(), mode );
+    return exists;
 }
 
+QueueIndex::QueueIndex()
+: QueueBaseFile()
+{}
+
+bool QueueIndex::init(std::string fspec)
+{
+    bool exists = QueueBaseFile::init(fspec);
+    if ( !exists )
+    {
+        // initialize the index file
+        std::fwrite(&_header, sizeof(QueueHeader), 1, _fp);
+    }
+    else
+    {
+        std::fread(&_header, sizeof(QueueHeader), 1, _fp);
+    }
+    return exists;
+}
+
+
+QueueData::QueueData()
+: QueueBaseFile()
+{}
+
+bool QueueData::init(std::string fspec)
+{
+    bool exists = QueueBaseFile::init(fspec);
+    if ( !exists )
+    {
+        // initialize the data file
+    }
+    return exists;
+}
 
 
 DiskQueue::DiskQueue(std::string path, std::string name)

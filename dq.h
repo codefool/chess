@@ -47,7 +47,7 @@ struct Pos
     dq_rec_no   _rec_no;
 };
 
-struct HeaderRec
+struct QueueHeader
 {
     size_t      _block_size;
     size_t      _rec_len;
@@ -60,29 +60,49 @@ struct HeaderRec
     dq_sn_t     _last_ser_no;
 };
 
-struct FileInfo
+#pragma pack()
+
+class QueueBaseFile
 {
+protected:
     std::string _fspec;
     FILE*       _fp;
     std::mutex  _mtx;
-
-    FileInfo();
-    virtual ~FileInfo();
-    void init(std::string fspec);
+public:
+    QueueBaseFile();
+    virtual ~QueueBaseFile();
+    virtual bool init(std::string fspec);
+    virtual void save() = 0;
 };
 
-#pragma pack()
+class QueueIndex : public QueueBaseFile
+{
+private:
+    QueueHeader  _header;
+
+public:
+    QueueIndex();
+    virtual ~QueueIndex();
+    virtual bool init(std::string fspec);
+    virtual void save();
+};
+
+class QueueData : public QueueBaseFile
+{
+public:
+    QueueData();
+    virtual ~QueueData();
+    virtual bool init(std::string fspec);
+    virtual void save();
+};
 
 class DiskQueue
 {
 private:
     std::string _path;
     std::string _name;
-    FileInfo    _idx;
-    FileInfo    _dat;
-    FILE*       _fp_idx;
-    FILE*       _fp_dat;
-    HeaderRec   _header;
+    QueueIndex  _idx;
+    QueueData   _dat;
 
 public:
     DiskQueue(std::string path, std::string name);
