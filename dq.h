@@ -115,5 +115,6 @@ public:
     };
     void push(const dq_data_t data);
     bool pop(dq_data_t data);
+    bool contains(const dq_data_t data);
 };
 

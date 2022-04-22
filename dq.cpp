@@ -1,5 +1,6 @@
 #include "dq.h"
 
+const dq_rec_no_t MAX_BLOCK_SIZE = 1024*1024;
 const char * dq_naught = "\0";
 
 QueueFile::QueueFile()
@@ -54,7 +55,7 @@ DiskQueue::DiskQueue(std::string path, std::string name, dq_rec_no_t reclen)
     {
         _header._block_cnt      = 0;
         _header._rec_len        = reclen;
-        _header._recs_per_block = 1024*1024 / reclen;
+        _header._recs_per_block = MAX_BLOCK_SIZE / reclen;
         _header._block_size     = _header._recs_per_block * reclen;
         _header._alloc_head     =
         _header._alloc_tail     =
@@ -108,6 +109,8 @@ void DiskQueue::push(const dq_data_t data)
     std::lock_guard<std::mutex> lock(_dat.mtx());
     std::fseek(_dat, pos, SEEK_SET);
     std::fwrite((const void *)data, 1, _header._rec_len, _dat);
+    if ( _pop._block_id == BLOCK_NIL )
+        _pop = _push;
     _push._rec_no++;
 }
 
@@ -116,6 +119,8 @@ bool DiskQueue::pop(dq_data_t data)
     // pop record off the top of the queue
     // if last record in the block, move block to end of
     // free chain
+    if ( empty() )
+        return false;
     if ( _pop._rec_no == _header._recs_per_block )
     {
         // put this block on the free chain,
@@ -136,8 +141,6 @@ bool DiskQueue::pop(dq_data_t data)
             _pop._rec_no   = 0;
         }
     }
-    if ( empty() )
-        return false;
 
     off_t pos = (_pop._block_id * _header._block_size) +
                 (_pop._rec_no   * _header._rec_len);
@@ -147,4 +150,12 @@ bool DiskQueue::pop(dq_data_t data)
     _pop._rec_no++;
 
     return true;
+}
+
+bool DiskQueue::contains(const dq_data_t data)
+{
+    // starting from the current pop block,
+    // compare each record looking for data
+    // EXTREMELEY INEFFICIENT
+    return false;
 }
