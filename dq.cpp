@@ -116,7 +116,35 @@ bool DiskQueue::pop(dq_data_t data)
     // pop record off the top of the queue
     // if last record in the block, move block to end of
     // free chain
+    if ( _pop._rec_no == _header._recs_per_block )
+    {
+        // put this block on the free chain,
+        // setup next block (if any)
+        if ( _pop._block_id != BLOCK_NIL )
+        {
+            _alloc.pop_front();
+            _free.push_back(_pop._block_id);
+        }
+        if ( _alloc.empty() )
+        {
+            _pop._block_id = BLOCK_NIL;
+            _pop._rec_no   = _header._recs_per_block;
+        }
+        else
+        {
+            _pop._block_id = _alloc.front();
+            _pop._rec_no   = 0;
+        }
+    }
     if ( empty() )
         return false;
+
+    off_t pos = (_pop._block_id * _header._block_size) +
+                (_pop._rec_no   * _header._rec_len);
+    std::lock_guard<std::mutex> lock(_dat.mtx());
+    std::fseek(_dat, pos, SEEK_SET);
+    std::fread((void *)data, 1, _header._rec_len, _dat);
+    _pop._rec_no++;
+
     return true;
 }

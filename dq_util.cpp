@@ -1,3 +1,4 @@
+#include <iostream>
 #include "dq.h"
 
 struct Data
@@ -16,5 +17,7 @@ int main(int argc, char **argv)
         d.b = i * 2;
         dq.push((const dq_data_t)&d);
     }
+    while( dq.pop((dq_data_t)&d) )
+        std::cout << d.a << ' ' << d.b << std::endl;
     return 0;
 }

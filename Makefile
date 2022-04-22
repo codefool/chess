@@ -24,6 +24,7 @@ dht : dht_util.o dht.o md5.o util.o $(HEADERS)
 
 dq : dq_util.o dq.o $(HEADERS)
 	$(CC) $(CFLAGS) dq_util.o dq.o $(LIBS) -o dq
+	rm -rf ~/tmp/testqueue
 
 test : test.o $(OBJECTS) $(HEADERS)
 	$(CC) $(CFLAGS) test.o $(OBJECTS) $(LIBS) -o test
