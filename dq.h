@@ -51,13 +51,6 @@ struct QueueRecPos
     {
         return _block_id == o._block_id && _rec_no == o._rec_no;
     }
-
-    // off_t pos()
-    // {
-    //     return (_block_id * _header._block_size) +
-    //            (_rec_no   * _header._rec_len);
-    // }
-
 };
 
 struct QueueHeader
@@ -66,10 +59,8 @@ struct QueueHeader
     dq_rec_no_t   _rec_len;
     dq_rec_no_t   _recs_per_block;
     dq_block_id_t _block_cnt;
-    dq_block_id_t _alloc_head;
-    dq_block_id_t _alloc_tail;
-    dq_block_id_t _free_head;
-    dq_block_id_t _free_tail;
+    dq_block_id_t _alloc_cnt;
+    dq_block_id_t _free_cnt;
     QueueRecPos   _push;
     QueueRecPos   _pop;
 };
@@ -86,7 +77,10 @@ public:
     QueueFile();
     virtual ~QueueFile();
     operator FILE*();
+    bool open();
     bool open(std::string fspec);
+    void close();
+    bool is_open() { return _fp != nullptr; }
     std::mutex& mtx();
 };
 
@@ -100,8 +94,6 @@ private:
     QueueHeader _header;
     QueueFile   _idx;
     QueueFile   _dat;
-    QueueRecPos _push;
-    QueueRecPos _pop;
     BlockList   _alloc;
     BlockList   _free;
 
@@ -111,10 +103,12 @@ public:
     bool empty()
     {
         // if the push position is the pop position, the queue is empty.
-        return _push == _pop;
+        return _header._push == _header._pop;
     };
     void push(const dq_data_t data);
     bool pop(dq_data_t data);
-    bool contains(const dq_data_t data);
+private:
+    void write_index();
+    void read_index();
 };
 
