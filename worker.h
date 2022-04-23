@@ -5,6 +5,9 @@
 
 #include "constants.h"
 #include "dht.h"
+#ifdef USE_DISK_QUEUE
+#   include "dq.h"
+#endif
 
 void set_global_id_cnt(PositionId id);
 void insert_unresolved(PositionPacked& pp, PosInfo& pi);

@@ -208,16 +208,23 @@ std::ostream& operator<<(std::ostream& os, const PositionPacked& pp)
 
 PosInfo::PosInfo()
 : id{0}, src{0}, move(Move().pack()), move_cnt{0}, distance{0},
-fifty_cnt{0}, egr{EGR_NONE}, refs{nullptr}
+  fifty_cnt{0}, egr{EGR_NONE}
+#ifdef POSINFO_HAS_REFS
+  , refs{nullptr}
+#endif
 {}
 
 PosInfo::PosInfo(PositionId i, PosInfo s, MovePacked m)
 : id{i}, src{s.id}, move(m), move_cnt{0},
-    distance{s.distance + 1},
-    fifty_cnt{s.fifty_cnt + 1},
-    egr{EGR_NONE}, refs{nullptr}
+  distance{s.distance + 1},
+  fifty_cnt{s.fifty_cnt + 1},
+  egr{EGR_NONE}
+#ifdef POSINFO_HAS_REFS
+  , refs{nullptr}
+#endif
 {}
 
+#ifdef POSINFO_HAS_REFS
 // it's possible that multiple threads for the same position
 // can cause issues here. Since we have at most THREAD_COUNT
 // possible collisions, we only need that many mutex's.
@@ -236,6 +243,7 @@ void PosInfo::add_ref(Move move, PositionId trg)
     }
     refs->push_back(PosRef(move,trg));
 }
+#endif
 
 bool PosInfo::operator==(const PosInfo& other)
 {
@@ -246,16 +254,20 @@ bool PosInfo::operator==(const PosInfo& other)
     || distance  != other.distance
     || fifty_cnt != other.fifty_cnt
     || egr       != other.egr
+#ifdef POSINFO_HAS_REFS
     || (refs == nullptr && other.refs != nullptr)
     || (refs != nullptr && other.refs == nullptr)
+#endif
     )
         return false;
+#ifdef POSINFO_HAS_REFS
     if (refs != nullptr && other.refs != nullptr)
     {
         if(refs->size() != other.refs->size())
             return false;
         // deep compare all of the references
     }
+#endif
     return true;
 }
 
@@ -318,6 +330,7 @@ void PositionFile::write(const PositionPacked& pos, const PosInfo& info)
         << info.fifty_cnt << ','
         << static_cast<int>(info.egr) << ',';
 
+#ifdef POSINFO_HAS_REFS
     if (info.refs == nullptr) {
         ofs << 0;
     } else {
@@ -330,6 +343,7 @@ void PositionFile::write(const PositionPacked& pos, const PosInfo& info)
             second = true;
         }
     }
+#endif
     ofs << '\n';
     if ((++line_cnt % 100) == 0)
       ofs << std::flush;

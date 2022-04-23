@@ -62,12 +62,13 @@ std::mutex unresolved_mtx;
     DiskHashTable dht_resolved_ref(WORK_FILE_PATH, "resolved_ref", 32, sizeof(PosRefRec));
 #endif
 
-#ifdef CACHE_PAWN_MOVE_POSITIONS
-    std::mutex pawn_init_pos_mtx;
-    PosMap pawn_init_pos;
-#else
-    DiskHashTable dht_pawn_init_pos(WORK_FILE_PATH, "pawn_init", 32, sizeof(PositionPacked), sizeof(PosInfo));
-    DiskHashTable dht_pawn_init_ref(WORK_FILE_PATH, "pawn_init_ref", 32, sizeof(PosRefRec));
+#ifdef SEGREGATE_PAWN_MOVES
+#   ifdef CACHE_PAWN_MOVE_POSITIONS
+        std::mutex pawn_init_pos_mtx;
+        PosMap pawn_init_pos;
+#   else
+        DiskHashTable dht_pawn_init_pos(WORK_FILE_PATH, "pawn_init", 32, sizeof(PositionPacked), sizeof(PosInfo));
+#   endif
 #endif
 
 #ifndef CACHE_N_1_POSITIONS
@@ -80,10 +81,29 @@ std::mutex unresolved_mtx;
 // have to keep two queues. When the queue at distance n depletes,
 // we switch to the n+1 queue which becomes the new n, and the
 // old queue becomes the n+1 queue.
-PosMap  unresolved0;  // the 'n' queue
-PosMap  unresolved1;  // the 'n+1' queue
-PosMap* get_queue = &unresolved0;    // the 'n' queue
-PosMap* put_queue = &unresolved1;    // the 'n+1' queue
+#ifdef USE_DISK_QUEUE
+#   pragma pack(1)
+    struct PositionRec
+    {
+        PositionPacked  pp;
+        PosInfo         pi;
+
+        PositionRec() {}
+        PositionRec(PositionPacked& p, PosInfo& i)
+        : pp(p), pi(i)
+        {}
+    };
+#   pragma pack()
+    DiskQueue dq_unr0(WORK_FILE_PATH, "unresolved0", sizeof( PositionRec ));
+    DiskQueue dq_unr1(WORK_FILE_PATH, "unresolved1", sizeof( PositionRec ));
+    DiskQueue *dq_get = &dq_unr0;
+    DiskQueue *dq_put = &dq_unr1;
+#else
+    PosMap  unresolved0;  // the 'n' queue
+    PosMap  unresolved1;  // the 'n+1' queue
+    PosMap* get_queue = &unresolved0;    // the 'n' queue
+    PosMap* put_queue = &unresolved1;    // the 'n+1' queue
+#endif
 
 bool stop = false;    // global halt flag
 
@@ -106,7 +126,12 @@ void set_stop_handler()
 void insert_unresolved(PositionPacked& pp, PosInfo& pi)
 {
     std::lock_guard<std::mutex> lock(unresolved_mtx);
+#ifdef USE_DISK_QUEUE
+    PositionRec pr(pp,pi);
+    dq_put->push( (const dq_data_t)&pr );
+#else
     put_queue->insert({pp,pi});
+#endif
 }
 
 short resolved_min_dist = 9999;
@@ -138,6 +163,25 @@ bool get_unresolved(PositionPacked& pos, PosInfo& pi, int level, std::string& ba
         for (int retry(0); retry < 3; ++retry)
         {
             std::unique_lock<std::mutex> lock(unresolved_mtx);
+#ifdef USE_DISK_QUEUE
+            PositionRec pr;
+            if ( dq_get->pop( (dq_data_t)&pr ))
+            {
+                pos = pr.pp;
+                pi  = pr.pi;
+                PosInfo pii;
+                if (dht_resolved.search((ucharptr_c)&pos, (ucharptr_c)&pii))
+                {
+                    PosRefRec prr(pi.src, pi.move, pii.id);
+                    dht_resolved_ref.append((ucharptr_c)&prr);
+                    collisioncnt++;
+                    retry--;
+                    continue;
+                }
+                dht_resolved.insert((ucharptr_c)&pos, (ucharptr_c)&pi);
+                return true;
+            }
+#else
             if ( get_queue->size() )
             {
                 auto itr = get_queue->begin();
@@ -157,6 +201,7 @@ bool get_unresolved(PositionPacked& pos, PosInfo& pi, int level, std::string& ba
                     return true;
                 }
             }
+#endif
             else
             {
                 lock.unlock();
@@ -175,10 +220,14 @@ bool get_unresolved(PositionPacked& pos, PosInfo& pi, int level, std::string& ba
 
         BeginDummyScope
             std::unique_lock<std::mutex> lock(unresolved_mtx);
+#ifdef USE_DISK_QUEUE
+            std::swap(dq_get, dq_put);
+#else
             // get here if the current queue has run dry.
             // swap the queues
             if (put_queue->size())
                 std::swap(get_queue, put_queue);
+#endif
             retried = true;
         EndDummyScope
 
@@ -213,7 +262,8 @@ void worker(int level, std::string base_path)
 
     int loop_cnt{0};
     int retry_cnt{0};
-    while (!stop) {
+    while (!stop)
+    {
         PositionPacked base_pos;
         PosInfo        base_info;
         if ( !get_unresolved(base_pos, base_info, level, base_path) )
@@ -260,6 +310,7 @@ void worker(int level, std::string base_path)
                     posinfo.fifty_cnt = 0;  // pawn move - reset 50-move counter
                 }
 
+#               ifdef SEGREGATE_PAWN_MOVES
                 if (isPawnMove)
                 {
                     // new initial position
@@ -278,16 +329,20 @@ void worker(int level, std::string base_path)
                         //   f_pawninitpos.write(posprime,posinfo);
                         dht_pawn_init_pos.insert((ucharptr_c)&posprime, (ucharptr_c)&posinfo);
 #                   endif
+                    continue;
                 }
+#               endif
 #ifdef ENFORCE_14F_50_MOVE_RULE
-                else if (posinfo.fifty_cnt == 50)
+                if (posinfo.fifty_cnt == 50)
                 {
                     // if no pawn move or capture in past fifty moves, draw the game
                     base_info.egr = EGR_14F_50_MOVE_RULE;
                     fiftymovedrawcnt++;
                     fifty_cnt++;
+                    continue;
+                }
 #endif
-                else if (bprime.gi().getPieceCnt() == level-1)
+                if (bprime.gi().getPieceCnt() == level-1)
                 {
                     unresolvedn1cnt++;
                     posinfo.id = get_position_id(level-1);
@@ -335,6 +390,11 @@ void worker(int level, std::string base_path)
                     if (!found)
                     {
                         std::lock_guard<std::mutex> lock(unresolved_mtx);
+#ifdef USE_DISK_QUEUE
+                        posinfo.id = get_position_id(level);
+                        PositionRec pr(posprime, posinfo);
+                        dq_put->push((const dq_data_t)&pr);
+#else
                         auto itr = put_queue->find(posprime);
                         if ( itr != put_queue->end() ) {
                             itr->second.add_ref(mv, base_info.id);
@@ -346,6 +406,7 @@ void worker(int level, std::string base_path)
                             posinfo.id = get_position_id(level);
                             put_queue->insert({posprime, posinfo});
                         }
+#endif
                     }
                 }
                 else
@@ -362,6 +423,7 @@ void worker(int level, std::string base_path)
         EndDummyScope
 #       else
             dht_resolved.update((ucharptr_c)&base_pos, (ucharptr)&base_info);
+#ifdef POSINFO_HAS_REFS
             if (base_info.refs != nullptr && base_info.refs->size() > 0)
             {
                 for(PosRef r : *(base_info.refs))
@@ -370,6 +432,7 @@ void worker(int level, std::string base_path)
                     dht_resolved_ref.append((ucharptr_c)&prr);
                 }
             }
+#endif
 #       endif
 
         // std::cout << "base,parent,mov/p/c/5/1,move,dist,dis50,coll_cnt,init_cnt,res_cnt,get,put,unr1,fifty,FEN\n";
@@ -380,8 +443,13 @@ void worker(int level, std::string base_path)
         ss  << base_info.id
             << ',' << base_info.src;
         ss.width(ow);
+#ifdef USE_DISK_QUEUE
+        ss  << ',' << dq_get->size()
+            << ',' << dq_put->size()
+#else
         ss  << ',' << get_queue->size()
             << ',' << put_queue->size()
+#endif
             << ',' << collisioncnt;
         ss  << ',' << Move::unpack(base_info.move)
             << ',' << base_info.distance
@@ -390,10 +458,12 @@ void worker(int level, std::string base_path)
             ss  << ',' << base_info.fifty_cnt
                 << ',' << fiftymovedrawcnt;
 #       endif
-#       ifdef CACHE_PAWN_MOVE_POSITIONS
-            ss  << ',' << pawn_init_pos.size();
-#       else
-            ss  << ',' << dht_pawn_init_pos.size();
+#       ifdef SEGREGATE_PAWN_MOVES
+#           ifdef CACHE_PAWN_MOVE_POSITIONS
+                ss  << ',' << pawn_init_pos.size();
+#           else
+                ss  << ',' << dht_pawn_init_pos.size();
+#           endif
 #       endif
 #       ifdef CACHE_RESOLVED_POSITIONS
             ss  << ',' << resolved.size();
@@ -431,7 +501,9 @@ void worker(int level, std::string base_path)
   //   //           << ' ' << hang << '(' << (hang/60.0) << ") secs"
   //   //           << std::endl;
   // }
-  std::cout << std::this_thread::get_id() << " stopping" << std::endl;
+    ss.str(std::string());
+    ss << std::this_thread::get_id() << " stopping\n";
+    std::cout << ss.str();
 }
 
 #ifdef CACHE_RESOLVED_POSITIONS

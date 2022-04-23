@@ -545,12 +545,16 @@ struct PosInfo {
   short          distance;  // number of moves from the initial position
   short          fifty_cnt; // number of moves since last capture or pawn move (50-move rule [14F])
   EndGameReason  egr;       // end game reason
+#ifdef POSINFO_HAS_REFS
   PosRefMapPtr   refs;      // additional references to this position
+#endif
 
   PosInfo();
   PosInfo(PositionId i, PosInfo s, MovePacked m);
-  void add_ref(Move move, PositionId trg);
   bool operator==(const PosInfo& other);
+#ifdef POSINFO_HAS_REFS
+  void add_ref(Move move, PositionId trg);
+#endif
 };
 
 typedef std::map<PositionPacked,PosInfo> PosMap;
@@ -561,7 +565,7 @@ class PositionFile {
 private:
   std::string   fspec;
   std::ofstream ofs;
-  int            line_cnt;
+  int           line_cnt;
 public:
   PositionFile(std::string base_path, std::string base_name, int level, bool use_thread_id = true, bool write_header = true);
   ~PositionFile();

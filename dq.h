@@ -58,6 +58,7 @@ struct QueueHeader
     dq_rec_no_t   _block_size;
     dq_rec_no_t   _rec_len;
     dq_rec_no_t   _recs_per_block;
+    dq_rec_no_t   _rec_cnt;
     dq_block_id_t _block_cnt;
     dq_block_id_t _alloc_cnt;
     dq_block_id_t _free_cnt;
@@ -107,6 +108,7 @@ public:
     };
     void push(const dq_data_t data);
     bool pop(dq_data_t data);
+    dq_rec_no_t size() { return _header._rec_cnt; }
 private:
     void write_index();
     void read_index();

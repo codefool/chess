@@ -1,6 +1,6 @@
 #include "dq.h"
 
-const dq_rec_no_t MAX_BLOCK_SIZE = 1024*1024;
+const dq_rec_no_t MAX_BLOCK_SIZE = 1024*1024*256;   // 256 MiB
 const char * dq_naught = "\0";
 
 QueueFile::QueueFile()
@@ -64,6 +64,7 @@ DiskQueue::DiskQueue(std::string path, std::string name, dq_rec_no_t reclen)
         _header._block_cnt      = 0;
         _header._rec_len        = reclen;
         _header._recs_per_block = MAX_BLOCK_SIZE / reclen;
+        _header._rec_cnt        = 0;
         _header._block_size     = _header._recs_per_block * reclen;
         _header._alloc_cnt      = 0;
         _header._free_cnt       = 0;
@@ -119,6 +120,7 @@ void DiskQueue::push(const dq_data_t data)
     if ( _header._pop._block_id == BLOCK_NIL )
         _header._pop = _header._push;
     _header._push._rec_no++;
+    _header._rec_cnt++;
 }
 
 bool DiskQueue::pop(dq_data_t data)
@@ -156,6 +158,7 @@ bool DiskQueue::pop(dq_data_t data)
     std::fseek(_dat, pos, SEEK_SET);
     std::fread((void *)data, 1, _header._rec_len, _dat);
     _header._pop._rec_no++;
+    _header._rec_cnt--;
 
     return true;
 }

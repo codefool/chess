@@ -3,7 +3,7 @@ CFLAGS = -g -std=c++20
 INCLUDES=#-I /usr/local/BerkeleyDB.18.1/include # -I /usr/include/mysql-cppconn-8
 LIBS=-L/usr/lib/x86_64-linux-gnu -lpthread # -lmysqlcppconn8 -lmysqlcppconn
 HEADERS = config.h constants.h csvtools.h dht.h dq.h
-OBJECTS = board.o util.o gameinfo.o piece.o position.o worker.o csvtools.o md5.o dht.o
+OBJECTS = board.o util.o gameinfo.o piece.o position.o worker.o csvtools.o md5.o dht.o dq.o
 
 .cpp.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c $<
@@ -22,9 +22,14 @@ bang1 : bang1.o $(OBJECTS) $(HEADERS)
 dht : dht_util.o dht.o md5.o util.o $(HEADERS)
 	$(CC) $(CFLAGS) dht_util.o dht.o md5.o util.o $(LIBS) -o dht
 
-dq : dq_util.o dq.o $(HEADERS)
+dq : dq_util.o dq.o $(HEADERS) clean_dq
 	$(CC) $(CFLAGS) dq_util.o dq.o $(LIBS) -o dq
+
+clean_dq :
 	rm -rf ~/tmp/testqueue
+
+clean_cg :
+	rm -rf ~/work/data
 
 test : test.o $(OBJECTS) $(HEADERS)
 	$(CC) $(CFLAGS) test.o $(OBJECTS) $(LIBS) -o test
