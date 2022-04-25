@@ -93,6 +93,7 @@ void load_stats_file(int level, std::string fspec)
     }
     else
     {
+        std::memset(&stats, 0x00, sizeof(stats));
         stats.level = level;
         stats.first_id.set(level, 0);
         stats.last_id .set(stats.first_id.get());
@@ -348,8 +349,11 @@ void worker(int level, std::string base_path)
                 }
                 else
                 {
-                    std::cout << "ERROR! too many captures " << bprime.gi().getPieceCnt() << std::endl;
-                    exit(1);
+                    std::cout << "ERROR! too many captures "
+                              << bprime.gi().getPieceCnt()
+                              << ' ' << bprime.getPosition().fen_string()
+                              << std::endl;
+                    // stop = true;
                 }
             }   // end for()
         }
