@@ -43,6 +43,7 @@ struct BucketFile
     size_t seek();
     std::shared_ptr<unsigned char> get_file_buff();
 };
+
 class DiskHashTable
 {
 private:
@@ -55,13 +56,16 @@ private:
     size_t                             reccnt;
 
 public:
-    DiskHashTable(
+    DiskHashTable();
+
+    virtual ~DiskHashTable();
+
+    bool open(
         const std::string path_name,
         const std::string base_name,
         int               level,
         size_t            key_len,
         size_t            val_len = 0);
-    virtual ~DiskHashTable();
 
     size_t size() const {return reccnt;}
     std::string calc_bucket_id(ucharptr_c key);

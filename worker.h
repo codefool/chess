@@ -5,17 +5,14 @@
 
 #include "constants.h"
 #include "dht.h"
-#ifdef USE_DISK_QUEUE
-#   include "dq.h"
-#endif
+#include "dq.h"
 
-void set_global_id_cnt(PositionId id);
+void load_stats_file(int level, std::string fspec);
+void save_stats_file(std::string fspec);
 void insert_unresolved(PositionPacked& pp, PosInfo& pi);
 PositionId get_position_id(int level);
 void set_stop_handler();
+bool open_tables(int level);
 void worker(int level, std::string base_path);
-void write_resolved(int level, std::string& base_path, int max_distance = 0);
-void write_pawn_init_pos(int level, std::string& base_path);
-void write_results(PosMap& map, int level, std::string& base_path, std::string disp_name, bool use_thread_id = false);
 
 

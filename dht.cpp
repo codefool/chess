@@ -1,7 +1,7 @@
 #include "dht.h"
 #include "md5.h"
 
-#define FILE_BUFF_SIZE 1024*1024
+#define TABLE_BUFF_SIZE 1024*1024
 
 const char *BucketFile::p_naught = "\0";
 
@@ -39,7 +39,7 @@ BucketFile::~BucketFile()
 off_t BucketFile::search(ucharptr_c key, ucharptr val)
 {
     std::lock_guard<std::mutex> lock(_mtx);
-    int max_item_cnt = FILE_BUFF_SIZE / _reclen;
+    int max_item_cnt = TABLE_BUFF_SIZE / _reclen;
     std::shared_ptr<unsigned char> buff = get_file_buff();
     std::fseek(_fp, 0, SEEK_SET);
     fpos_t pos;  // file position at start of block
@@ -103,7 +103,7 @@ std::shared_ptr<unsigned char> BucketFile::get_file_buff()
     auto itr = buff_map.find(id_hash);
     if (itr == buff_map.end())
     {
-        buff_map[id_hash] = std::shared_ptr<unsigned char>(new unsigned char[FILE_BUFF_SIZE]);
+        buff_map[id_hash] = std::shared_ptr<unsigned char>(new unsigned char[TABLE_BUFF_SIZE]);
     }
     return buff_map[id_hash];
 }
@@ -111,19 +111,27 @@ std::shared_ptr<unsigned char> BucketFile::get_file_buff()
 //////////////////////////////////////////////////////////////////////////////
 // DiskHashTable
 //
-DiskHashTable::DiskHashTable(
+DiskHashTable::DiskHashTable()
+{}
+
+bool DiskHashTable::open(
     const std::string path_name,
     const std::string base_name,
     int               level,
     size_t            key_len,
     size_t            val_len
 )
-: name(base_name), keylen(key_len), vallen(val_len), reclen(key_len + val_len), reccnt(0)
 {
+    name   = base_name;
+    keylen = key_len;
+    vallen = val_len;
+    reclen = key_len;
+    reccnt = 0;
     std::stringstream ss;
     ss << path_name << level << '/' << name << '/';
     path = ss.str();
     std::filesystem::create_directories(path);
+    return true;
 }
 
 DiskHashTable::~DiskHashTable()
