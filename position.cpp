@@ -2,6 +2,34 @@
 #include <sstream>
 #include "constants.h"
 
+
+PosInfo::PosInfo()
+: id{0}, src{0}, move(Move().pack()),
+  move_cnt{0}, distance{0},
+  fifty_cnt{0}, egr{EGR_NONE}
+{}
+
+PosInfo::PosInfo(PositionHash i, PosInfo s, MovePacked m)
+: id{i}, src{s.id}, move(m), move_cnt{0},
+  distance{s.distance + 1},
+  fifty_cnt{s.fifty_cnt + 1},
+  egr{EGR_NONE}
+{}
+
+bool PosInfo::operator==(const PosInfo& other)
+{
+    if (id       != other.id
+    || src       != other.src
+    || move.i    != other.move.i
+    || move_cnt  != other.move_cnt
+    || distance  != other.distance
+    || fifty_cnt != other.fifty_cnt
+    || egr       != other.egr
+    )
+        return false;
+    return true;
+}
+
 Position::Position() {}
 
 Position::Position(const PositionPacked& p)
@@ -10,13 +38,19 @@ Position::Position(const PositionPacked& p)
 }
 
 Position::Position(const Position& o)
-:_g{o._g}
+:_g{o._g}, _i{o._i}
 {
     // deep copy the board buffer so that smart pointers
     // are copied.
     int cnt = 64;
     while(cnt--)
         _b[cnt] = o._b[cnt];
+}
+
+Position::Position(const PositionPacked& p, const PosInfo& i)
+: _i{i}
+{
+    unpack(p);
 }
 
 // how this works

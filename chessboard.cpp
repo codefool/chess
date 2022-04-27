@@ -129,74 +129,39 @@ int main() {
     open_tables(CLEVEL);
 
     set_stop_handler();
-// #if 1
-//     BeginDummyScope
-//         Position pos;
-//         pos.init();
-//         PositionPacked pp = pos.pack();
-//         PosInfo posinfo(get_position_id(CLEVEL), PosInfo(), Move().pack());
-//         // this should be put into initpos, but for now
-//         insert_unresolved(pp,posinfo);
-//     EndDummyScope
-// #else
-//     BeginDummyScope
-//         PositionPacked pp;
-//         pp.gi.i     = 0x207f8000;
-//         pp.pop      = 0x7d7f00800003ffff;
-//         pp.hi       = 0x6666666645133245;
-//         pp.lo       = 0xbda9dbeeeeeeeecc;
-//         PosInfo pi;
-//         pi.id       = 0x8000000004c82dff;
-//         pi.src      = 0x800000000453974e;
-//         pi.move.i   = 0x9f71;
-//         pi.distance = 0x15;
-//         // this should be put into initpos, but for now
-//         insert_unresolved(pp,pi);
-//         set_global_id_cnt(0x8000000004d00000);
-//     EndDummyScope
-// #endif
 
-  std::vector<std::thread> threads;
+    std::vector<std::thread> threads;
 
-  time_t tstart = time(0);
-  std::stringstream ss;
-  ss << "base,parent,get,put,coll,mov/p/c/5/1,move,unres";
+    time_t tstart = time(0);
+    std::stringstream ss;
+    ss << "base,parent,get,put,coll,mov/p/c/5/1,move,unres";
 #ifdef ENFORCE_14F_50_MOVE_RULE
-  ss << ",dis50,draw50";
+    ss << ",dis50,draw50";
 #endif
-#ifdef CACHE_PAWN_MOVE_POSITIONS
-#endif
-  ss << ",pawn,resolved,FEN" << std::endl;
+    ss << ",pawn,resolved,FEN" << std::endl;
 
-  std::cout << ss.str();
+    std::cout << ss.str();
 
-  for (int i = 0; i < THREAD_COUNT; i++) {
-      threads.push_back(std::thread(worker, CLEVEL, workfilepath));
-  }
+    for (int i = 0; i < THREAD_COUNT; i++) {
+        threads.push_back(std::thread(worker, CLEVEL, workfilepath));
+    }
 
   // also use this main thread
   // worker(CLEVEL, workfilepath);
 
-  for (int i = 0; i < THREAD_COUNT; i++) {
-      threads[i].join();
-  }
+    for (int i = 0; i < THREAD_COUNT; i++) {
+        threads[i].join();
+    }
 
-  save_stats_file(fspec);
+    save_stats_file(fspec);
 
-  time_t tend = time(0);
-  double hang = std::difftime(tend, tstart);
+    time_t tend = time(0);
+    double hang = std::difftime(tend, tstart);
 
-  std::cout << std::asctime(std::localtime(&tstart))
-            << std::asctime(std::localtime(&tend))
-            << ' ' << hang << "s (" << (hang/60.0) << "m)"
-            << std::endl;
+    std::cout << std::asctime(std::localtime(&tstart))
+              << std::asctime(std::localtime(&tend))
+              << ' ' << hang << "s (" << (hang/60.0) << "m)"
+              << std::endl;
 
-#ifdef CACHE_RESOLVED_POSITIONS
-    write_resolved(CLEVEL, workfilepath);
-#endif
-
-#ifdef CACHE_PAWN_MOVE_POSITIONS
-    write_pawn_init_pos(CLEVEL, workfilepath);
-#endif
 	return 0;
 }

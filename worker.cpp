@@ -85,7 +85,7 @@ struct PositionRec
     PosInfo         pi;
 
     PositionRec() {}
-    PositionRec(PositionPacked& p, PosInfo& i)
+    PositionRec(PositionPacked p, PosInfo i)
     : pp(p), pi(i)
     {}
 };
@@ -127,15 +127,12 @@ bool open_tables(int level)
     dht_pawn_n1     .open(WORK_FILE_PATH, "pawn_init", level - 1 , sizeof(PositionPacked), sizeof(PosInfo));
     dht_pawn_n1_ref .open(WORK_FILE_PATH, "pawn_init_ref", level - 1, sizeof(PosRefRec));
 
-    if (dq_get->size() == 0)
+    if (dq_get->size() == 0 && dq_put->size() == 0)
     {
         // start from the beginning
         Position pos;
         pos.init();
-        PositionPacked pp = pos.pack();
-        PosInfo pi(pos.zobrist_hash(), PosInfo(), Move().pack());
-        // this should be put into initpos, but for now
-        PositionRec pr(pp, pi);
+        PositionRec pr{pos.pack(), PosInfo(pos.zobrist_hash(), PosInfo(), Move().pack())};
         dq_get->push((const dq_data_t)&pr);
     }
     return true;

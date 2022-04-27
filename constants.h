@@ -21,6 +21,8 @@
 #define BeginDummyScope {
 #define EndDummyScope }
 
+typedef uint64_t PositionHash;
+
 enum Side {
 	SIDE_WHITE = 0,
 	SIDE_BLACK = 1
@@ -430,18 +432,36 @@ public:
 	friend std::ostream& operator<<(std::ostream& os, const GameInfo& o);
 };
 
-typedef uint64_t PositionHash;
+struct PosInfo {
+  PositionHash   id;        // unique id for this position
+  PositionHash   src;       // the parent of this position
+  MovePacked     move;      // the Move that created in this position
+  short          move_cnt;  // number of valid moves for this position
+  short          distance;  // number of moves from the initial position
+  short          fifty_cnt; // number of moves since last capture or pawn move (50-move rule [14F])
+  EndGameReason  egr;       // end game reason
+
+  PosInfo();
+  PosInfo(PositionHash i, PosInfo s, MovePacked m);
+  bool operator==(const PosInfo& other);
+};
+
+typedef std::map<PositionPacked,PosInfo> PosMap;
+typedef std::set<PositionPacked>		 PosSet;
+typedef PosMap *PosMapPtr;
 
 class Position {
 private:
     GameInfo _g;
     PiecePtr _b[64];
     Pos      _k[2];
+    PosInfo  _i;
 
 public:
     Position();
     Position(const PositionPacked& p);
     Position(const Position& o);
+    Position(const PositionPacked& p, const PosInfo& i);
     uint32_t unpack(const PositionPacked& p);
     PositionPacked pack();
 
@@ -532,30 +552,6 @@ struct PosRefRec
 
 typedef std::vector<PosRef> PosRefMap;
 typedef PosRefMap *PosRefMapPtr;
-
-struct PosInfo {
-  PositionHash   id;        // unique id for this position
-  PositionHash   src;       // the parent of this position
-  MovePacked     move;      // the Move that created in this position
-  short          move_cnt;  // number of valid moves for this position
-  short          distance;  // number of moves from the initial position
-  short          fifty_cnt; // number of moves since last capture or pawn move (50-move rule [14F])
-  EndGameReason  egr;       // end game reason
-#ifdef POSINFO_HAS_REFS
-  PosRefMapPtr   refs;      // additional references to this position
-#endif
-
-  PosInfo();
-  PosInfo(PositionHash i, PosInfo s, MovePacked m);
-  bool operator==(const PosInfo& other);
-#ifdef POSINFO_HAS_REFS
-  void add_ref(Move move, PositionHash trg);
-#endif
-};
-
-typedef std::map<PositionPacked,PosInfo> PosMap;
-typedef std::set<PositionPacked>		 PosSet;
-typedef PosMap *PosMapPtr;
 
 class PositionFile {
 private:

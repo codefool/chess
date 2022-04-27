@@ -206,72 +206,6 @@ std::ostream& operator<<(std::ostream& os, const PositionPacked& pp)
 	return os;
 }
 
-PosInfo::PosInfo()
-: id{0}, src{0}, move(Move().pack()), move_cnt{0}, distance{0},
-  fifty_cnt{0}, egr{EGR_NONE}
-#ifdef POSINFO_HAS_REFS
-  , refs{nullptr}
-#endif
-{}
-
-PosInfo::PosInfo(PositionHash i, PosInfo s, MovePacked m)
-: id{i}, src{s.id}, move(m), move_cnt{0},
-  distance{s.distance + 1},
-  fifty_cnt{s.fifty_cnt + 1},
-  egr{EGR_NONE}
-#ifdef POSINFO_HAS_REFS
-  , refs{nullptr}
-#endif
-{}
-
-#ifdef POSINFO_HAS_REFS
-// it's possible that multiple threads for the same position
-// can cause issues here. Since we have at most THREAD_COUNT
-// possible collisions, we only need that many mutex's.
-// We do a poor man's hash and just id mod THREAD_COUNT
-// should provide adequate protection without pausing all
-// threads every time we add a reference (of which there are
-// many)
-std::vector<std::mutex> posrefmtx(THREAD_COUNT);
-
-void PosInfo::add_ref(Move move, PositionHash trg)
-{
-    std::lock_guard<std::mutex> lock(posrefmtx[id % THREAD_COUNT]);
-    if (refs == nullptr) {
-        refs = new PosRefMap();
-        refs->reserve(10);
-    }
-    refs->push_back(PosRef(move,trg));
-}
-#endif
-
-bool PosInfo::operator==(const PosInfo& other)
-{
-    if (id       != other.id
-    || src       != other.src
-    || move.i    != other.move.i
-    || move_cnt  != other.move_cnt
-    || distance  != other.distance
-    || fifty_cnt != other.fifty_cnt
-    || egr       != other.egr
-#ifdef POSINFO_HAS_REFS
-    || (refs == nullptr && other.refs != nullptr)
-    || (refs != nullptr && other.refs == nullptr)
-#endif
-    )
-        return false;
-#ifdef POSINFO_HAS_REFS
-    if (refs != nullptr && other.refs != nullptr)
-    {
-        if(refs->size() != other.refs->size())
-            return false;
-        // deep compare all of the references
-    }
-#endif
-    return true;
-}
-
-
 PositionFile::PositionFile(std::string base_path, std::string base_name, int level, bool use_thread_id, bool write_header)
 : line_cnt{0}
 {
@@ -329,21 +263,6 @@ void PositionFile::write(const PositionPacked& pos, const PosInfo& info)
         << info.distance << ','
         << info.fifty_cnt << ','
         << static_cast<int>(info.egr) << ',';
-
-#ifdef POSINFO_HAS_REFS
-    if (info.refs == nullptr) {
-        ofs << 0;
-    } else {
-        ofs << info.refs->size() << ',';
-        bool second = false;
-        for (auto e : *info.refs) {
-            if (second)
-              ofs << ',';
-            ofs << e.move.i << ',' << e.trg;
-            second = true;
-        }
-    }
-#endif
     ofs << '\n';
     if ((++line_cnt % 100) == 0)
       ofs << std::flush;
