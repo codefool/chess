@@ -503,30 +503,28 @@ public:
 	friend std::ostream& operator<<(std::ostream& os, const Board& b);
 };
 
-typedef unsigned long long PositionId;
-
 #pragma pack(1)
 struct PosRef
 {
-    MovePacked move;
-    PositionId trg;
+    MovePacked   move;
+    PositionHash trg;
 
     PosRef() {}
-    PosRef(Move m, PositionId t)
+    PosRef(Move m, PositionHash t)
     : move{m.pack()}, trg{t}
     {}
 };
 struct PosRefRec
 {
-    PositionId src;
-    PositionId trg;
+    PositionHash src;
+    PositionHash trg;
     MovePacked move;
 
     PosRefRec() {}
-    PosRefRec(PositionId from, Move m, PositionId to)
+    PosRefRec(PositionHash from, Move m, PositionHash to)
     : src(from), move{m.pack()}, trg(to)
     {}
-    PosRefRec(PositionId from, MovePacked m, PositionId to)
+    PosRefRec(PositionHash from, MovePacked m, PositionHash to)
     : src(from), move{m}, trg(to)
     {}
 };
@@ -536,8 +534,8 @@ typedef std::vector<PosRef> PosRefMap;
 typedef PosRefMap *PosRefMapPtr;
 
 struct PosInfo {
-  PositionId     id;        // unique id for this position
-  PositionId     src;       // the parent of this position
+  PositionHash   id;        // unique id for this position
+  PositionHash   src;       // the parent of this position
   MovePacked     move;      // the Move that created in this position
   short          move_cnt;  // number of valid moves for this position
   short          distance;  // number of moves from the initial position
@@ -548,10 +546,10 @@ struct PosInfo {
 #endif
 
   PosInfo();
-  PosInfo(PositionId i, PosInfo s, MovePacked m);
+  PosInfo(PositionHash i, PosInfo s, MovePacked m);
   bool operator==(const PosInfo& other);
 #ifdef POSINFO_HAS_REFS
-  void add_ref(Move move, PositionId trg);
+  void add_ref(Move move, PositionHash trg);
 #endif
 };
 

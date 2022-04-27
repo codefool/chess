@@ -12,51 +12,9 @@
 #include "worker.h"
 
 #pragma pack(1)
-// a position id is a 64-bit value, with the high
-// six bits being the piece population
-union PositionIdPacked {
-    PositionId  uul;
-    struct {
-        PositionId m:58;
-        PositionId l:6;
-    } f;
-
-    PositionIdPacked()
-    {}
-
-    PositionIdPacked(int level, PositionId cnt)
-    {
-        set(level, cnt);
-    }
-
-    void set(PositionId id)
-    {
-        uul = id;
-    }
-
-    void set(int level, PositionId cnt)
-    {
-        f.m = cnt;
-        f.l = level;
-    }
-
-    PositionId get()
-    {
-        return static_cast<PositionId>(uul);
-    }
-
-    PositionId get_next()
-    {
-        f.m++;
-        return get();
-    }
-};
-
 struct Stats
 {
     int               level;
-    PositionIdPacked  first_id;
-    PositionIdPacked  last_id;
     uint64_t          col_cnt;
     uint64_t          initpos_cnt;
     uint64_t          unr_n1_cnt;
@@ -75,8 +33,6 @@ void print_stats()
     ss.fill('0');
     auto ow = ss.width(16);
     ss << "Stats " << stats.level
-       << ' ' << stats.first_id.get()
-       << ' ' << stats.last_id.get()
        << std::endl;
     std::cout << ss.str();
 }
@@ -95,8 +51,6 @@ void load_stats_file(int level, std::string fspec)
     {
         std::memset(&stats, 0x00, sizeof(stats));
         stats.level = level;
-        stats.first_id.set(level, 0);
-        stats.last_id .set(stats.first_id.get());
     }
     std::fclose(fp);
     print_stats();
@@ -110,12 +64,6 @@ void save_stats_file(std::string fspec)
     std::fwrite(&stats, sizeof(stats), 1, fp);
     std::fclose(fp);
     print_stats();
-}
-
-PositionId get_position_id(int level)
-{
-    std::lock_guard<std::mutex> lock(mtx_stats);
-    return stats.last_id.get_next();
 }
 
 std::mutex unresolved_mtx;
@@ -185,7 +133,7 @@ bool open_tables(int level)
         Position pos;
         pos.init();
         PositionPacked pp = pos.pack();
-        PosInfo pi(get_position_id(level), PosInfo(), Move().pack());
+        PosInfo pi(pos.zobrist_hash(), PosInfo(), Move().pack());
         // this should be put into initpos, but for now
         PositionRec pr(pp, pi);
         dq_get->push((const dq_data_t)&pr);
@@ -300,7 +248,6 @@ void worker(int level, std::string base_path)
                 pprime.gi().toggleOnMove();
                 // std::cout << std::this_thread::get_id() << ' ' << pprime.fen_string() << std::endl;
                 PositionPacked posprime = pprime.pack();
-                // PosInfo posinfo(get_position_id(), base_info, mv.pack());
                 PosInfo posinfo(0, base_info, mv.pack());
 
                 // 50-move rule: drawn game if no pawn move or capture in the last 50 moves.
@@ -312,7 +259,7 @@ void worker(int level, std::string base_path)
                 if (bprime.gi().getPieceCnt() == level-1)
                 {
                     stats.unr_n1_cnt++;
-                    posinfo.id = get_position_id(level-1);
+                    posinfo.id = pprime.zobrist_hash();
                     PosInfo pi;
                     if (dht_pawn_n1.search((ucharptr_c)&pprime, (ucharptr)&pi))
                     {
@@ -327,22 +274,18 @@ void worker(int level, std::string base_path)
                 }
                 else if(bprime.gi().getPieceCnt() == level)
                 {
-                    bool found = false;
-                    BeginDummyScope
-                        PosInfo pi;
-                        if (dht_resolved.search((ucharptr_c)&pprime, (ucharptr_c)&pi))
-                        {
-                            PosRefRec prr(base_info.id, mv, pi.id);
-                            dht_resolved_ref.append((ucharptr_c)&prr);
-                            stats.col_cnt++;
-                            coll_cnt++;
-                            found = true;
-                        }
-                    EndDummyScope
-                    if (!found)
+                    PosInfo pi;
+                    if (dht_resolved.search((ucharptr_c)&pprime, (ucharptr_c)&pi))
+                    {
+                        PosRefRec prr(base_info.id, mv, pi.id);
+                        dht_resolved_ref.append((ucharptr_c)&prr);
+                        stats.col_cnt++;
+                        coll_cnt++;
+                    }
+                    else
                     {
                         std::lock_guard<std::mutex> lock(unresolved_mtx);
-                        posinfo.id = get_position_id(level);
+                        posinfo.id = pprime.zobrist_hash();
                         PositionRec pr(posprime, posinfo);
                         dq_put->push((const dq_data_t)&pr);
                     }

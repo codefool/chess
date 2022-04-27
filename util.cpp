@@ -214,7 +214,7 @@ PosInfo::PosInfo()
 #endif
 {}
 
-PosInfo::PosInfo(PositionId i, PosInfo s, MovePacked m)
+PosInfo::PosInfo(PositionHash i, PosInfo s, MovePacked m)
 : id{i}, src{s.id}, move(m), move_cnt{0},
   distance{s.distance + 1},
   fifty_cnt{s.fifty_cnt + 1},
@@ -234,7 +234,7 @@ PosInfo::PosInfo(PositionId i, PosInfo s, MovePacked m)
 // many)
 std::vector<std::mutex> posrefmtx(THREAD_COUNT);
 
-void PosInfo::add_ref(Move move, PositionId trg)
+void PosInfo::add_ref(Move move, PositionHash trg)
 {
     std::lock_guard<std::mutex> lock(posrefmtx[id % THREAD_COUNT]);
     if (refs == nullptr) {

@@ -25,10 +25,10 @@ dht : dht_util.o dht.o md5.o util.o $(HEADERS)
 dq : dq_util.o dq.o $(HEADERS) clean_dq
 	$(CC) $(CFLAGS) dq_util.o dq.o $(LIBS) -o dq
 
-clean_dq :
+clean-dq :
 	rm -rf ~/tmp/testqueue
 
-clean_cg :
+clean-cg :
 	rm -rf ~/work/data
 
 test : test.o $(OBJECTS) $(HEADERS)
