@@ -5,6 +5,8 @@
 #include "csvtools.h"
 #include "md5.h"
 
+#include <random>
+
 // "id",           "parent","gameinfo", "population",   "hi",            "lo",            "move_cnt","move_packed","distance","50_cnt","ref_cnt","move/parent..."
 // uint64,          uin1t64, uint32,    uint64,          uint64,          uint64,          int,       uint16,       int,       int,     int,      uint16/uint64
 // 0000000008119239,81191b4, 20800000,  ffffc0000000ffbe,4db9abcdeeeeeeee,4c66666666531235,14,        be51,         30,        30,      4,        bde1,811928e, 401,a59f3ba, 401,e93f96e, 1c61,e94019e
@@ -57,6 +59,11 @@ int main()
     p.unpack(pp);
     p.zobrist_hash();
     std::cout << p.fen_string() << std::endl;
+
+    std::mt19937_64 gen(0xc0def001c0def001ULL);
+    std::uniform_int_distribution<uint64_t> dis;
+    for(int i = 0; i < 30; i++)
+        std::cout << std::hex << dis(gen) << std::endl;
 
     return 0;
 }

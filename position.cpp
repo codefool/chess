@@ -365,7 +365,7 @@ Position Position::parse_fen_string(std::string fen)
 //
 // Amen.
 //
-const uint64_t zob_table[12][64] =
+const uint64_t zob_pos_table[12][64] =
 {
     // White King
     {
@@ -501,14 +501,35 @@ const uint64_t zob_table[12][64] =
     }
 };
 
+const uint64_t zob_on_move[2] = { 0x9a7b4c6c05e721e5, 0x25aa84c007a5c43f, };
+
+const uint64_t zob_castle_rights[16] =
+{
+    0x61ba65ed4548472d, 0xc08204caa6ae8765, 0x35bed27bb77282a0, 0x68ce1586a3b71d87,
+    0xbd7cde6879e1b7a5, 0x8a575f1ed033d7a7, 0x054aea91d5026eea, 0x05a5e486ad1a2e5f,
+    0x569762d9a1d649ab, 0x34d72dc0aa9e0680, 0xda868509e1439471, 0xaf9b08136c58c550,
+    0xd89b1a405f7758f6, 0xb91ffd40a2fd7794, 0xd0a453d758a24c81, 0xd5ad14b2326f4635,
+};
+
+const uint64_t zob_en_passant[8] =
+{
+    0x090b15eb7eee60fd, 0xf6818e5a552e24ef, 0x179e2a7aa74c54db, 0x9dcd74a7b84ddaa6,
+    0x0d8cc5f337cc25db, 0x42a499ebb1ac7550, 0x729ca37bada0062e, 0x814159a4349e082f,
+};
+
 PositionHash Position::zobrist_hash()
 {
     PositionHash hash(0);
+    // This is how the hash should be initialized, but we have to
+    // get PosInfo into Position first.
+    // PositionHash hash = sob_on_move[ pi.on_move() ]
+    //                   ^ zob_castle_rights[ pi.castle_rights() ]
+    //                   ^ zob_en_passant[ pi.en_passant_file() ];
     for (int square(0); square < 64; square++)
     {
         PiecePtr pp = _b[square];
         if (!pp->isEmpty())
-            hash ^= zob_table[pp->get_zob_idx()][square];
+            hash ^= zob_pos_table[pp->get_zob_idx()][square];
     }
     return hash;
 }
