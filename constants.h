@@ -186,41 +186,35 @@ private:
 
 private:
 	static std::map<PieceType, const char *> s_n;
+    static std::map<unsigned char, short>    s_z;
 
 public:
-	Piece(PieceType t, Side s)
-	: _t{t}, _s{s}, _c{s_n[_t][_s]}
-	{}
+	Piece(PieceType t, Side s);
 
-	bool is_on_move(Side m) { return _s == m; }
+	bool is_on_move(Side m) const;
 
-	PieceType getType() { return _t; }
-	void setType(PieceType t) { _t = t; }
+	PieceType getType() const;
 
-	const char getPieceGlyph() const { return _c; }
+	void setType(PieceType t);
 
-	Pos getPos() { return _p; }
+	const char getPieceGlyph() const;
 
-	void setPos(Rank r, File f) {
-		_p.set(r,f);
-	}
+	Pos getPos() const;
 
-	void setPos(Pos p) {
-		_p = p;
-	}
+	void setPos(Rank r, File f);
 
-	bool isType(PieceType pt) const {
-		return _t == pt;
-	}
+	void setPos(Pos p);
 
-	bool isEmpty() const {
-		return this == EMPTY.get();
-	}
+	bool isType(PieceType pt) const;
 
-	Side getSide() { return _s; }
+	bool isEmpty() const;
+
+	const Side getSide() const;
 
 	// pack piece type and side into 4-bit value
 	uint8_t toByte() const;
+
+    short get_zob_idx();
 
 	static PiecePtr create(PieceType pt, Side s);
 	static PiecePtr EMPTY;
@@ -436,6 +430,8 @@ public:
 	friend std::ostream& operator<<(std::ostream& os, const GameInfo& o);
 };
 
+typedef uint64_t PositionHash;
+
 class Position {
 private:
     GameInfo _g;
@@ -464,6 +460,8 @@ public:
 
 	std::string fen_string(int move_no = 0) const;
 	static Position parse_fen_string(std::string fen);
+
+    PositionHash zobrist_hash();
 
 private:
 	void pack_array(uint8_t *in, uint8_t *out, size_t s);

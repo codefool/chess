@@ -35,18 +35,18 @@ int main()
         // "init_pos_31_140387022915328.csv"
     };
 
-    for(auto fil : filz) {
-        auto dupe_cnt = csv_cmp(base_path + "32/" + fil, lhs);
-    }
-    std::cout << "lhs " << lhs.size() << std::endl;
+    // for(auto fil : filz) {
+    //     auto dupe_cnt = csv_cmp(base_path + "32/" + fil, lhs);
+    // }
+    // std::cout << "lhs " << lhs.size() << std::endl;
 
-    DiskHashTable dummy("/mnt/d/tmp/aa", "base_pos", 32, sizeof(PositionPacked), sizeof(PositionRec));
+    // DiskHashTable dummy("/mnt/d/tmp/aa", "base_pos", 32, sizeof(PositionPacked), sizeof(PositionRec));
 
-    // write_results(lhs, 31, base_path, "init-pos-combined");
-    for(auto r : lhs)
-    {
-        dummy.append((const unsigned char *)&r.first);
-    }
+    // // write_results(lhs, 31, base_path, "init-pos-combined");
+    // for(auto r : lhs)
+    // {
+    //     dummy.append((const unsigned char *)&r.first);
+    // }
 
     Position p;
     PositionPacked pp;
@@ -55,6 +55,7 @@ int main()
     pp.hi   = 0xdb9abdeeeeeeee4c;
     pp.lo   = 0x4666666665c31235;
     p.unpack(pp);
+    p.zobrist_hash();
     std::cout << p.fen_string() << std::endl;
 
     return 0;
