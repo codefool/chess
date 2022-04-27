@@ -111,15 +111,17 @@ std::shared_ptr<unsigned char> BucketFile::get_file_buff()
 //////////////////////////////////////////////////////////////////////////////
 // DiskHashTable
 //
+// Default hasher
 DiskHashTable::DiskHashTable()
 {}
 
 bool DiskHashTable::open(
-    const std::string path_name,
-    const std::string base_name,
-    int               level,
-    size_t            key_len,
-    size_t            val_len
+    const std::string  path_name,
+    const std::string  base_name,
+    int                level,
+    size_t             key_len,
+    size_t             val_len,
+    dht_bucket_id_func bucket_func
 )
 {
     name   = base_name;
@@ -127,6 +129,10 @@ bool DiskHashTable::open(
     vallen = val_len;
     reclen = key_len;
     reccnt = 0;
+    buckfunc = (bucket_func == nullptr)
+             ? DiskHashTable::default_hasher
+             : bucket_func;
+
     std::stringstream ss;
     ss << path_name << level << '/' << name << '/';
     path = ss.str();
@@ -139,10 +145,7 @@ DiskHashTable::~DiskHashTable()
 
 std::string DiskHashTable::calc_bucket_id(ucharptr_c key)
 {
-    MD5 md5;
-    md5.update(key, keylen);
-    md5.finalize();
-    return md5.hexdigest().substr(0,2);
+    return buckfunc(key, keylen);
 }
 
 bool DiskHashTable::search(ucharptr_c key, ucharptr val)
@@ -208,5 +211,13 @@ std::string DiskHashTable::get_bucket_fspec(const std::string path, const std::s
     std::stringstream ss;
     ss << path << '/' << base << '_' << bucket;
     return ss.str();
+}
+
+std::string DiskHashTable::default_hasher(ucharptr_c key, size_t keylen)
+{
+    MD5 md5;
+    md5.update(key, keylen);
+    md5.finalize();
+    return md5.hexdigest().substr(0,2);
 }
 
