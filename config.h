@@ -20,9 +20,6 @@
 // uncomment to cache n-1 positions rather than shunt to files
 //#define CACHE_N_1_POSITIONS
 
-// uncomment to enable ref management in PosInfo
-//#define POSINFO_HAS_REFS
-
 // uncomment to segregate pawn moves
 // #define SEGREGATE_PAWN_MOVES
 

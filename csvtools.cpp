@@ -68,15 +68,6 @@ void tokenize(std::string& tp, PositionPacked& pos, PosInfo& info)
     info.distance  = get_uint16(line);
     info.fifty_cnt = get_uint16(line);
     info.egr       = static_cast<EndGameReason>(get_int(line));
-#ifdef POSINFO_HAS_REFS
-    refcnt         = get_int(line);
-    while(refcnt--)
-    {
-        ref.move.i = get_uint16(line);
-        ref.trg    = get_uint64(line);
-        info.add_ref(Move::unpack(ref.move), ref.trg);
-    }
-#endif
 }
 
 int load_csv(std::string filename, PosMap& map)
@@ -125,9 +116,6 @@ uint64_t csv_cmp(std::string filename, PosMap& lhs)
         auto itr = lhs.find(pos);
         if (itr != lhs.end()) {
             dupe_cnt++;
-#ifdef POSINFO_HAS_REFS
-            itr->second.add_ref(Move::unpack(info.move), info.src);
-#endif
         } else {
             lhs.insert({pos,info});
         }
