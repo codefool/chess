@@ -23,7 +23,7 @@
 typedef unsigned char * ucharptr;
 typedef const ucharptr  ucharptr_c;
 
-typedef std::string (*dht_hash_func)(ucharptr_c, size_t);
+typedef std::string (*dht_bucket_id_func)(ucharptr_c, size_t);
 
 struct BucketFile
 {
@@ -56,7 +56,7 @@ private:
     std::string                        path;
     std::string                        name;
     size_t                             reccnt;
-    dht_hash_func                      hashfunc;
+    dht_bucket_id_func                 buckfunc;
 
 public:
     DiskHashTable();
@@ -64,12 +64,12 @@ public:
     virtual ~DiskHashTable();
 
     bool open(
-        const std::string path_name,
-        const std::string base_name,
-        int               level,
-        size_t            key_len,
-        size_t            val_len = 0,
-        dht_hash_func     hash_func = nullptr);
+        const std::string  path_name,
+        const std::string  base_name,
+        int                level,
+        size_t             key_len,
+        size_t             val_len = 0,
+        dht_bucket_id_func bucket_func = nullptr);
 
     size_t size() const {return reccnt;}
     bool search(ucharptr_c key, ucharptr val = nullptr);

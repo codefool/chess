@@ -116,12 +116,12 @@ DiskHashTable::DiskHashTable()
 {}
 
 bool DiskHashTable::open(
-    const std::string path_name,
-    const std::string base_name,
-    int               level,
-    size_t            key_len,
-    size_t            val_len,
-    dht_hash_func     hash_func
+    const std::string  path_name,
+    const std::string  base_name,
+    int                level,
+    size_t             key_len,
+    size_t             val_len,
+    dht_bucket_id_func bucket_func
 )
 {
     name   = base_name;
@@ -129,7 +129,9 @@ bool DiskHashTable::open(
     vallen = val_len;
     reclen = key_len;
     reccnt = 0;
-    hashfunc = (hash_func == nullptr) ? DiskHashTable::default_hasher : hash_func;
+    buckfunc = (bucket_func == nullptr)
+             ? DiskHashTable::default_hasher
+             : bucket_func;
 
     std::stringstream ss;
     ss << path_name << level << '/' << name << '/';
@@ -143,7 +145,7 @@ DiskHashTable::~DiskHashTable()
 
 std::string DiskHashTable::calc_bucket_id(ucharptr_c key)
 {
-    return hashfunc(key, keylen);
+    return buckfunc(key, keylen);
 }
 
 bool DiskHashTable::search(ucharptr_c key, ucharptr val)
