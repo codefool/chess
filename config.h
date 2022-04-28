@@ -6,7 +6,7 @@
 
 // [8A3] castling permanently illegal if the king moves, or the castling
 // rook has moved.
-//#define ENFORCE_8A3_CASTLING
+#define ENFORCE_8A3_CASTLING
 
 // 50-move rule
 //#define ENFORCE_14F_50_MOVE_RULE

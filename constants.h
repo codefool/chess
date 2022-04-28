@@ -391,7 +391,16 @@ public:
 	Side getOnMove() const { return on_move; }
 	void setOnMove(Side m) { on_move = m; }
 	void toggleOnMove() { on_move = (on_move == SIDE_WHITE) ? SIDE_BLACK : SIDE_WHITE; }
-#ifdef ENFORCE_CASTELING_8A3
+#ifdef ENFORCE_8A3_CASTLING
+    uint8_t getCastleRights()
+    {
+        uint8_t bm(0);
+        if (isWksCastleEnabled()) bm |= 0x01;
+        if (isWqsCastleEnabled()) bm |= 0x02;
+        if (isBksCastleEnabled()) bm |= 0x04;
+        if (isBqsCastleEnabled()) bm |= 0x08;
+        return bm;
+    }
 	bool anyCastlePossible() const
 	{
 		return isWksCastleEnabled() || isWqsCastleEnabled() || isBksCastleEnabled() || isBqsCastleEnabled();
@@ -405,6 +414,7 @@ public:
 	bool isBqsCastleEnabled() const { return bqs_castle_enabled; }
 	void setBqsCastleEnabled(bool s) { bqs_castle_enabled = s;}
 #else
+    uint8_t getCastleRights() { return 0; }
 	bool anyCastlePossible()  const { return true; }
 	bool isWksCastleEnabled() const { return true; }
 	void setWksCastleEnabled(bool s) { wks_castle_enabled = true;}
