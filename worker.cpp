@@ -67,17 +67,37 @@ void save_stats_file(std::string fspec)
     print_stats();
 }
 
+
 std::mutex unresolved_mtx;
 
 DiskHashTable dht_resolved;
 DiskHashTable dht_resolved_ref;
 DiskHashTable dht_pawn_n1;
 DiskHashTable dht_pawn_n1_ref;
+DiskHashTable dht_zobrist_coll;
 
 DiskQueue dq_unr0(WORK_FILE_PATH, "unresolved0", sizeof( PositionRec ));
 DiskQueue dq_unr1(WORK_FILE_PATH, "unresolved1", sizeof( PositionRec ));
 DiskQueue *dq_get = &dq_unr0;
 DiskQueue *dq_put = &dq_unr1;
+
+struct ZobristCollision
+{
+    PositionRec l;
+    PositionRec r;
+};
+
+
+// return true if the two positions really are equal
+void validateCollision(const PositionRec& lhs, const PositionRec& rhs)
+{
+    // Position lpos(lhs.pp);
+    // Position rpos(rhs.pp);
+    // PositionHash lhash = lpos.zobrist_hash();
+    // PositionHash rhash = rpos.zobrist_hash();
+    ZobristCollision zc{lhs,rhs};
+    dht_zobrist_coll.append((ucharptr_c)&lhs.pi.id, (ucharptr_c)&zc);
+}
 
 bool stop = false;    // global halt flag
 
@@ -109,6 +129,7 @@ bool open_tables(int level)
     dht_resolved_ref.open(WORK_FILE_PATH, "resolved_ref", level, sizeof(PosRefRec));
     dht_pawn_n1     .open(WORK_FILE_PATH, "pawn_init", level - 1 , sizeof(PositionHash), sizeof(PositionRec));
     dht_pawn_n1_ref .open(WORK_FILE_PATH, "pawn_init_ref", level - 1, sizeof(PosRefRec));
+    dht_zobrist_coll.open(WORK_FILE_PATH, "zobrist_coll", level, sizeof(PositionHash), sizeof(ZobristCollision));
 
     if (dq_get->size() == 0 && dq_put->size() == 0)
     {
@@ -166,14 +187,6 @@ bool get_unresolved(PositionRec& pr)
             retried = true;
         EndDummyScope
     }
-}
-
-void validateEquality(const PositionRec& lhs, const PositionRec& rhs)
-{
-    Position lpos(lhs.pp);
-    Position rpos(rhs.pp);
-    PositionHash lhash = lpos.zobrist_hash();
-    PositionHash rhash = rpos.zobrist_hash();
 }
 
 void worker(int level)
@@ -246,10 +259,7 @@ void worker(int level)
                     {
                         if ( prFound.pp != prPrime.pp )
                         {
-                            validateEquality(prPrime, prFound);
-                            ss.str(std::string());
-                            ss << "\tERROR! Zorbist hash collission" << std::endl;
-                            std::cout << ss.str();
+                            validateCollision(prPrime, prFound);
                             stats.zorb_coll_cnt++;
                         }
                         PosRefRec prr( prBase.pi.id, mv, prFound.pi.id );
@@ -267,10 +277,7 @@ void worker(int level)
                     {
                         if ( prFound.pp != prPrime.pp )
                         {
-                            validateEquality(prPrime, prFound);
-                            ss.str(std::string());
-                            ss << "\tERROR! Zorbist hash collission" << std::endl;
-                            std::cout << ss.str();
+                            validateCollision(prPrime, prFound);
                             stats.zorb_coll_cnt++;
                         }
                         PosRefRec prr(prBase.pi.id, mv, prFound.pi.id);
@@ -311,9 +318,11 @@ void worker(int level)
             << ',' << prBase.pi.distance
             << ',' << stats.unr_n1_cnt
             << ',' << dht_resolved.size()
-            << ',' << stats.zorb_coll_cnt;
-        ss.width(2);
-        ss  << ',' << moves.size()
+            << ',' << stats.zorb_coll_cnt
+            << ',' << dht_zobrist_coll.size()
+            // << std::flush;
+        // ss.width(2);
+            << ',' << std::setw(2) << moves.size()
             << '/' << coll_cnt
             << '/' << nsub1_cnt
             << ',' << sub_board.getPosition().fen_string(prBase.pi.distance)

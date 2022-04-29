@@ -555,8 +555,11 @@ const uint64_t zob_en_passant[8] =
 PositionHash Position::zobrist_hash()
 {
     PositionHash hash = zob_on_move[gi().getOnMove()]
-                      ^ zob_castle_rights[ gi().getCastleRights() ]
-                      ^ zob_en_passant[ gi().getEnPassantFile() ];
+                      ^ zob_castle_rights[ gi().getCastleRights() ];
+
+    if ( gi().hasEnPassant())
+        hash ^= zob_en_passant[ gi().getEnPassantFile() ];
+
     for (int square(0); square < 64; square++)
     {
         PiecePtr pp = _b[square];
