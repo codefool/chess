@@ -18,6 +18,7 @@ struct Stats
     uint64_t          col_cnt;
     uint64_t          initpos_cnt;
     uint64_t          unr_n1_cnt;
+    uint64_t          zorb_coll_cnt;
     int               cm_cnt;
     int               sm_cnt;
 };
@@ -73,24 +74,6 @@ DiskHashTable dht_resolved_ref;
 DiskHashTable dht_pawn_n1;
 DiskHashTable dht_pawn_n1_ref;
 
-// We process unresolved positions by distance. Since a position of
-// distance n can only generate a position of distance n+1, we only
-// have to keep two queues. When the queue at distance n depletes,
-// we switch to the n+1 queue which becomes the new n, and the
-// old queue becomes the n+1 queue.
-#pragma pack(1)
-struct PositionRec
-{
-    PositionPacked  pp;
-    PosInfo         pi;
-
-    PositionRec() {}
-    PositionRec(PositionPacked p, PosInfo i)
-    : pp(p), pi(i)
-    {}
-};
-#pragma pack()
-
 DiskQueue dq_unr0(WORK_FILE_PATH, "unresolved0", sizeof( PositionRec ));
 DiskQueue dq_unr1(WORK_FILE_PATH, "unresolved1", sizeof( PositionRec ));
 DiskQueue *dq_get = &dq_unr0;
@@ -122,9 +105,9 @@ void insert_unresolved(PositionPacked& pp, PosInfo& pi)
 
 bool open_tables(int level)
 {
-    dht_resolved    .open(WORK_FILE_PATH, "resolved", level, sizeof(PositionPacked), sizeof(PosInfo));
+    dht_resolved    .open(WORK_FILE_PATH, "resolved", level, sizeof(PositionHash), sizeof(PositionRec));
     dht_resolved_ref.open(WORK_FILE_PATH, "resolved_ref", level, sizeof(PosRefRec));
-    dht_pawn_n1     .open(WORK_FILE_PATH, "pawn_init", level - 1 , sizeof(PositionPacked), sizeof(PosInfo));
+    dht_pawn_n1     .open(WORK_FILE_PATH, "pawn_init", level - 1 , sizeof(PositionHash), sizeof(PositionRec));
     dht_pawn_n1_ref .open(WORK_FILE_PATH, "pawn_init_ref", level - 1, sizeof(PosRefRec));
 
     if (dq_get->size() == 0 && dq_put->size() == 0)
@@ -138,7 +121,7 @@ bool open_tables(int level)
     return true;
 }
 
-bool get_unresolved(PositionPacked& pos, PosInfo& pi, int level, std::string& base_path)
+bool get_unresolved(PositionRec& pr)
 {
     bool retried = false;
     while (true)
@@ -146,21 +129,19 @@ bool get_unresolved(PositionPacked& pos, PosInfo& pi, int level, std::string& ba
         for (int retry(0); retry < 3; ++retry)
         {
             std::unique_lock<std::mutex> lock(unresolved_mtx);
-            PositionRec pr;
             if ( dq_get->pop( (dq_data_t)&pr ))
             {
-                pos = pr.pp;
-                pi  = pr.pi;
-                PosInfo pii;
-                if (dht_resolved.search((ucharptr_c)&pos, (ucharptr_c)&pii))
+                PositionRec ppr;
+                if (dht_resolved.search((ucharptr_c)&pr.pi.id, (ucharptr_c)&ppr))
                 {
-                    PosRefRec prr(pi.src, pi.move, pii.id);
+                    // we need to verify that the record is - in fact- identical
+                    PosRefRec prr(pr.pi.parent, pr.pi.move, ppr.pi.id);
                     dht_resolved_ref.append((ucharptr_c)&prr);
                     stats.col_cnt++;
                     retry--;
                     continue;
                 }
-                dht_resolved.insert((ucharptr_c)&pos, (ucharptr_c)&pi);
+                dht_resolved.insert((ucharptr_c)&pr.pi.id, (ucharptr_c)&pr);
                 return true;
             }
             else
@@ -187,7 +168,15 @@ bool get_unresolved(PositionPacked& pos, PosInfo& pi, int level, std::string& ba
     }
 }
 
-void worker(int level, std::string base_path)
+void validateEquality(const PositionRec& lhs, const PositionRec& rhs)
+{
+    Position lpos(lhs.pp);
+    Position rpos(rhs.pp);
+    PositionHash lhash = lpos.zobrist_hash();
+    PositionHash rhash = rpos.zobrist_hash();
+}
+
+void worker(int level)
 {
     std::cout << std::this_thread::get_id() << " starting level " << level << std::endl;
     std::stringstream ss;
@@ -199,82 +188,92 @@ void worker(int level, std::string base_path)
     int retry_cnt{0};
     while (!stop)
     {
-        PositionPacked base_pos;
-        PosInfo        base_info;
-        if ( !get_unresolved(base_pos, base_info, level, base_path) )
+        PositionRec prBase;
+        if ( !get_unresolved(prBase) )
             break;
 
         retry_cnt = 0;
 
-        Board sub_board(base_pos);
+        Board sub_board(prBase);
         Side  s = sub_board.gi().getOnMove();
 
         moves.clear();
         sub_board.get_all_moves(s, moves);
-        int pawn_moves{0};
         int coll_cnt{0};
-        int fifty_cnt{0};
         int nsub1_cnt{0};
 
+        prBase.pi.move_cnt = moves.size();
         if (moves.size() == 0)
         {
             // no moves - so either checkmate or stalemate
             bool onside_in_check = sub_board.test_for_attack(sub_board.getPosition().get_king_pos(s), s);
             if (onside_in_check)
             {
-                base_info.egr = EGR_CHECKMATE;
+                prBase.pi.egr = EGR_CHECKMATE;
                 stats.cm_cnt++;
             }
             else
             {
-                base_info.egr = EGR_14A_STALEMATE;
+                prBase.pi.egr = EGR_14A_STALEMATE;
                 stats.sm_cnt++;
             }
             std::cout << std::this_thread::get_id() << " checkmate/stalemate:" << sub_board.getPosition().fen_string() << std::endl;
         }
         else
         {
-            base_info.move_cnt = moves.size();
-
             for (Move mv : moves)
             {
-                Board bprime(base_pos);
-                bool isPawnMove = bprime.process_move(mv, bprime.gi().getOnMove());
+                Board brdPrime(prBase);
+                bool isPawnMove = brdPrime.process_move(mv, brdPrime.getPosition().gi().getOnMove());
                 // we need to flip the on-move
-                Position pprime = bprime.getPosition();
-                pprime.gi().toggleOnMove();
-                // std::cout << std::this_thread::get_id() << ' ' << pprime.fen_string() << std::endl;
-                PositionPacked posprime = pprime.pack();
-                PosInfo posinfo(0, base_info, mv.pack());
+                brdPrime.getPosition().gi().toggleOnMove();
+                PositionRec prPrime{
+                    brdPrime.getPosition(),
+                    PosInfo(brdPrime.getPosition().zobrist_hash(), prBase.pi, mv.pack())
+                };
+                PositionRec prFound;
 
                 // 50-move rule: drawn game if no pawn move or capture in the last 50 moves.
                 // hence, if this is a pawn move or a capture, reset the counter.
-                if (isPawnMove || mv.getAction() == MV_CAPTURE)
-                {
-                    posinfo.fifty_cnt = 0;  // pawn move - reset 50-move counter
-                }
-                if (bprime.gi().getPieceCnt() == level-1)
+                // if (isPawnMove || mv.getAction() == MV_CAPTURE)
+                // {
+                //     posinfo.fifty_cnt = 0;  // pawn move - reset 50-move counter
+                // }
+                if (brdPrime.gi().getPieceCnt() == level-1)
                 {
                     stats.unr_n1_cnt++;
-                    posinfo.id = pprime.zobrist_hash();
-                    PosInfo pi;
-                    if (dht_pawn_n1.search((ucharptr_c)&pprime, (ucharptr)&pi))
+                    if (dht_pawn_n1.search((ucharptr_c)&prPrime.pi.id, (ucharptr)&prFound))
                     {
-                        PosRefRec prr(base_info.id, mv, pi.id);
+                        if ( prFound.pp != prPrime.pp )
+                        {
+                            validateEquality(prPrime, prFound);
+                            ss.str(std::string());
+                            ss << "\tERROR! Zorbist hash collission" << std::endl;
+                            std::cout << ss.str();
+                            stats.zorb_coll_cnt++;
+                        }
+                        PosRefRec prr( prBase.pi.id, mv, prFound.pi.id );
                         dht_pawn_n1_ref.append((ucharptr_c)&prr);
                     }
                     else
                     {
-                        dht_pawn_n1.append((ucharptr_c)&posprime, (ucharptr_c)&posinfo);
+                        dht_pawn_n1.append((ucharptr_c)&prPrime.pi.id, (ucharptr_c)&prPrime);
                     }
                     nsub1_cnt++;
                 }
-                else if(bprime.gi().getPieceCnt() == level)
+                else if(brdPrime.gi().getPieceCnt() == level)
                 {
-                    PosInfo pi;
-                    if (dht_resolved.search((ucharptr_c)&pprime, (ucharptr_c)&pi))
+                    if (dht_resolved.search((ucharptr_c)&prPrime.pi.id, (ucharptr_c)&prFound))
                     {
-                        PosRefRec prr(base_info.id, mv, pi.id);
+                        if ( prFound.pp != prPrime.pp )
+                        {
+                            validateEquality(prPrime, prFound);
+                            ss.str(std::string());
+                            ss << "\tERROR! Zorbist hash collission" << std::endl;
+                            std::cout << ss.str();
+                            stats.zorb_coll_cnt++;
+                        }
+                        PosRefRec prr(prBase.pi.id, mv, prFound.pi.id);
                         dht_resolved_ref.append((ucharptr_c)&prr);
                         stats.col_cnt++;
                         coll_cnt++;
@@ -282,46 +281,44 @@ void worker(int level, std::string base_path)
                     else
                     {
                         std::lock_guard<std::mutex> lock(unresolved_mtx);
-                        posinfo.id = pprime.zobrist_hash();
-                        PositionRec pr(posprime, posinfo);
-                        dq_put->push((const dq_data_t)&pr);
+                        dq_put->push((const dq_data_t)&prPrime);
                     }
                 }
                 else
                 {
                     std::cout << "ERROR! too many captures "
-                              << bprime.gi().getPieceCnt()
-                              << ' ' << bprime.getPosition().fen_string()
+                              << brdPrime.gi().getPieceCnt()
+                              << ' ' << brdPrime.getPosition().fen_string()
                               << std::endl;
                     // stop = true;
                 }
             }   // end for()
         }
 
-        dht_resolved.update((ucharptr_c)&base_pos, (ucharptr)&base_info);
+        dht_resolved.update((ucharptr_c)&prBase.pi.id, (ucharptr)&prBase);
         // std::cout << "base,parent,mov/p/c/5/1,move,dist,dis50,coll_cnt,init_cnt,res_cnt,get,put,unr1,fifty,FEN\n";
         ss.str(std::string());
         ss.flags(std::ios::hex);
         ss.fill('0');
         auto ow = ss.width(16);
-        ss  << base_info.id
-            << ',' << base_info.src;
+        ss  << prBase.pi.id
+            << ',' << prBase.pi.parent;
         ss.width(ow);
         ss  << ',' << dq_get->size()
             << ',' << dq_put->size()
             << ',' << stats.col_cnt
-            << ',' << Move::unpack(base_info.move)
-            << ',' << base_info.distance
+            << ',' << Move::unpack(prBase.pi.move)
+            << ',' << prBase.pi.distance
             << ',' << stats.unr_n1_cnt
-            << ',' << dht_resolved.size();
+            << ',' << dht_resolved.size()
+            << ',' << stats.zorb_coll_cnt;
         ss.width(2);
         ss  << ',' << moves.size()
-            << '/' << pawn_moves
             << '/' << coll_cnt
-            << '/' << fifty_cnt
             << '/' << nsub1_cnt
-            << ',' << sub_board.getPosition().fen_string(base_info.distance)
+            << ',' << sub_board.getPosition().fen_string(prBase.pi.distance)
             << '\n';
+        ss.width(ow);
         std::cout << ss.str();
     }
 

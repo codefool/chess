@@ -38,7 +38,8 @@ Offset kn_offs[] = {
 
 Board::Board(bool init)
 {
-    if (init) {
+    if (init)
+    {
         _p.init();
     }
 }
@@ -48,9 +49,22 @@ Board::Board(const Board& o)
 {
 }
 
-Board::Board(const PositionPacked& p)
-: _p(p)
-{}
+Board::Board(const PositionRec& p)
+: _pr(p)
+{
+    _p.unpack(p.pp);
+}
+
+GameInfo& Board::gi()
+{
+    return _p.gi();
+}
+
+PositionRec& Board::pr()
+{
+    _pr.pp = _p.pack();
+    return _pr;
+}
 
 // collect all moves for the existing pieces for side onmove
 //
@@ -392,7 +406,8 @@ bool Board::validate_move(Move mov, Side side) {
     return in_check;
 }
 
-void Board::move_piece(PiecePtr ptr, Pos dst) {
+void Board::move_piece(PiecePtr ptr, Pos dst)
+{
     // first, see if we're capturing a piece. We know this if
     // destination is not empty.
     if ( !_p.is_square_empty(dst) ) {
@@ -507,4 +522,15 @@ bool Board::process_move(Move mov, Side side) {
         break;
     }
     return isPawnMove;
+}
+
+PositionPacked Board::get_packed()
+{
+    _pr.pp = _p.pack();
+    return _pr.pp;
+}
+
+Position& Board::getPosition()
+{
+    return _p;
 }

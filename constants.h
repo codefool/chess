@@ -278,22 +278,11 @@ union GameInfoPacked {
 	} f;
 
 	GameInfoPacked();
-
-	GameInfoPacked(uint32_t v)
-	: i{v}
-	{}
-
-	GameInfoPacked(const GameInfoPacked& o)
-	: i{o.i}
-	{}
-
-	bool operator==(const GameInfoPacked& o) const {
-		return i == o.i;
-	}
-
-	bool operator<(const GameInfoPacked& o) const {
-		return i < o.i;
-	}
+	GameInfoPacked(uint32_t v);
+	GameInfoPacked(const GameInfoPacked& o);
+	bool operator==(const GameInfoPacked& o) const;
+	bool operator!=(const GameInfoPacked& o) const;
+	bool operator<(const GameInfoPacked& o) const;
 };
 
 struct PositionPacked {
@@ -302,38 +291,12 @@ struct PositionPacked {
     uint64_t       lo;    // lo 64-bits population info
     uint64_t       hi;    // hi 64-bits population info
 
-    PositionPacked()
-    : gi{0}, pop(0), lo(0), hi(0)
-    {}
-
-	PositionPacked(const PositionPacked& o)
-	: gi{o.gi}, pop(o.pop), lo(o.lo), hi(o.hi)
-	{}
-
-    PositionPacked(uint32_t g, uint64_t p, uint64_t h, uint64_t l)
-    : gi{g}, pop(p), lo(l), hi(h)
-    {}
-
-    bool operator==(const PositionPacked& o) const {
-        return pop == o.pop && gi == o.gi && hi == o.hi && lo == o.lo;
-    }
-
-    bool operator<(const PositionPacked& o) const {
-		if ( pop == o.pop )
-		{
-			if ( gi.i == o.gi.i )
-			{
-				if ( hi == o.hi )
-				{
-					return lo < o.lo;
-				}
-				return hi < o.hi;
-			}
-			return gi.i < o.gi.i;
-		}
-		return pop < o.pop;
-    }
-
+    PositionPacked();
+	PositionPacked(const PositionPacked& o);
+    PositionPacked(uint32_t g, uint64_t p, uint64_t h, uint64_t l);
+    bool operator==(const PositionPacked& o) const;
+    bool operator!=(const PositionPacked& o) const;
+    bool operator<(const PositionPacked& o) const;
 	friend std::ostream& operator<<(std::ostream& os, const PositionPacked& pp);
 };
 
@@ -407,11 +370,10 @@ public:
 
 struct PosInfo {
   PositionHash   id;        // unique id for this position
-  PositionHash   src;       // the parent of this position
+  PositionHash   parent;    // the parent of this position
   MovePacked     move;      // the Move that created in this position
   short          move_cnt;  // number of valid moves for this position
   short          distance;  // number of moves from the initial position
-  short          fifty_cnt; // number of moves since last capture or pawn move (50-move rule [14F])
   EndGameReason  egr;       // end game reason
 
   PosInfo();
@@ -461,17 +423,40 @@ private:
 	void unpack_array(uint8_t* in, uint8_t* out, size_t s);
 };
 
+// We process unresolved positions by distance. Since a position of
+// distance n can only generate a position of distance n+1, we only
+// have to keep two queues. When the queue at distance n depletes,
+// we switch to the n+1 queue which becomes the new n, and the
+// old queue becomes the n+1 queue.
+struct PositionRec
+{
+    PositionPacked  pp;
+    PosInfo         pi;
+
+    PositionRec() {}
+    PositionRec(PositionPacked p, PosInfo i)
+    : pp(p), pi(i)
+    {}
+
+    PositionRec(Position p, PosInfo i)
+    : pp(p.pack()), pi(i)
+    {}
+};
+
 class Board {
 private:
 	// we always need to know where the kings are
-	Position	_p;
+	PositionRec	_pr;
+    Position    _p;
 
 public:
 	Board(bool init=true);
 	Board(const Board& other);
-	Board(const PositionPacked& p);
+	Board(const PositionRec& p);
 
-	GameInfo& gi() { return _p.gi(); }
+	GameInfo& gi();
+    PositionRec& pr();
+    Position& pos() { return _p; }
 
 	PiecePtr place_piece(PieceType t, Side s, Rank r, File f);
 
@@ -489,8 +474,8 @@ public:
 	bool validate_move(Move mov, Side side);
 	bool process_move(Move mov, Side side);
 	void move_piece(PiecePtr ptr, Pos pos);
-	PositionPacked get_packed() { return _p.pack(); }
-	Position& getPosition() { return _p; }
+	PositionPacked get_packed();
+	Position& getPosition();
 
 	void dump();
 	friend std::ostream& operator<<(std::ostream& os, const Board& b);
@@ -507,6 +492,7 @@ struct PosRef
     : move{m.pack()}, trg{t}
     {}
 };
+
 struct PosRefRec
 {
     PositionHash src;
@@ -521,7 +507,8 @@ struct PosRefRec
     : src(from), move{m}, trg(to)
     {}
 };
-#pragma pack()
 
 typedef std::vector<PosRef> PosRefMap;
 typedef PosRefMap *PosRefMapPtr;
+
+#pragma pack()

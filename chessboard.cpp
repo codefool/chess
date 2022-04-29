@@ -134,7 +134,7 @@ int main() {
 
     time_t tstart = time(0);
     std::stringstream ss;
-    ss << "base,parent,get,put,coll,mov/p/c/5/1,move,unres";
+    ss << "base,parent,get,put,coll,mov/c/n1,move,unres,zcol";
 #ifdef ENFORCE_14F_50_MOVE_RULE
     ss << ",dis50,draw50";
 #endif
@@ -143,7 +143,7 @@ int main() {
     std::cout << ss.str();
 
     for (int i = 0; i < THREAD_COUNT; i++) {
-        threads.push_back(std::thread(worker, CLEVEL, workfilepath));
+        threads.push_back(std::thread(worker, CLEVEL));
     }
 
   // also use this main thread
