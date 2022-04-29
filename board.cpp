@@ -38,7 +38,8 @@ Offset kn_offs[] = {
 
 Board::Board(bool init)
 {
-    if (init) {
+    if (init)
+    {
         _p.init();
     }
 }
@@ -48,9 +49,22 @@ Board::Board(const Board& o)
 {
 }
 
-Board::Board(const PositionPacked& p)
-: _p(p)
-{}
+Board::Board(const PositionRec& p)
+: _pr(p)
+{
+    _p.unpack(p.pp);
+}
+
+GameInfo& Board::gi()
+{
+    return _p.gi();
+}
+
+PositionRec& Board::pr()
+{
+    _pr.pp = _p.pack();
+    return _pr;
+}
 
 // collect all moves for the existing pieces for side onmove
 //
@@ -132,7 +146,7 @@ void Board::get_moves(PiecePtr ptr, MoveList& moves) {
         // AND the pawn has not moved off its own rank (is not of type PT_PAWN_OFF)
         // AND pawn is on its fifth rank.
         // AND if target pawn is adjacent to this pawn
-        if ( pt == PT_PAWN && _p.gi().enPassantExists() ) {
+        if ( pt == PT_PAWN && _p.gi().hasEnPassant() ) {
             // an en passant candidate exists
             Rank r_pawn = (isBlack) ? R4 : R5;      // where the pawns are
             Rank r_move = (isBlack) ? R3 : R6;      // the space where our pawn moves
@@ -161,16 +175,16 @@ void Board::get_moves(PiecePtr ptr, MoveList& moves) {
             // nor the matching rook, the king must not be in check, the
             // spaces between must be vacant AND cannot be under attack.
             if (isBlack) {
-                if(_p.gi().isBksCastleEnabled())
+                if(_p.gi().hasCastleRight(CR_WHITE_KING_SIDE))
                     check_castle(side, MV_CASTLE_KINGSIDE, moves);
 
-                if(_p.gi().isBqsCastleEnabled())
+                if(_p.gi().hasCastleRight(CR_WHITE_QUEEN_SIDE))
                     check_castle(side, MV_CASTLE_QUEENSIDE, moves);
             } else {
-                if(_p.gi().isWksCastleEnabled())
+                if(_p.gi().hasCastleRight(CR_BLACK_KING_SIDE))
                     check_castle(side, MV_CASTLE_KINGSIDE, moves);
 
-                if(_p.gi().isWqsCastleEnabled())
+                if(_p.gi().hasCastleRight(CR_BLACK_QUEEN_SIDE))
                     check_castle(side, MV_CASTLE_QUEENSIDE, moves);
             }
         }
@@ -392,7 +406,8 @@ bool Board::validate_move(Move mov, Side side) {
     return in_check;
 }
 
-void Board::move_piece(PiecePtr ptr, Pos dst) {
+void Board::move_piece(PiecePtr ptr, Pos dst)
+{
     // first, see if we're capturing a piece. We know this if
     // destination is not empty.
     if ( !_p.is_square_empty(dst) ) {
@@ -411,24 +426,24 @@ void Board::move_piece(PiecePtr ptr, Pos dst) {
     case PT_KING:
         // king moved - casteling is no longer possible
         if (ptr->getSide() == SIDE_WHITE) {
-            _p.gi().setWksCastleEnabled(false);
-            _p.gi().setWqsCastleEnabled(false);
+            _p.gi().setCastleRight(CR_WHITE_KING_SIDE ,false);
+            _p.gi().setCastleRight(CR_WHITE_QUEEN_SIDE, false);
         } else {
-            _p.gi().setBksCastleEnabled(false);
-            _p.gi().setBqsCastleEnabled(false);
+            _p.gi().setCastleRight(CR_BLACK_KING_SIDE, false);
+            _p.gi().setCastleRight(CR_BLACK_QUEEN_SIDE, false);
         }
         break;
     case PT_ROOK:
         // rook moved - casteling to that side is no longer possible
         if (ptr->getSide() == SIDE_WHITE) {
             if( org == POS_WQR )
-                _p.gi().setWqsCastleEnabled(false);
+                _p.gi().setCastleRight(CR_WHITE_QUEEN_SIDE, false);
             else if( org == POS_WKR)
-                _p.gi().setWksCastleEnabled(false);
+                _p.gi().setCastleRight(CR_WHITE_KING_SIDE, false);
         } else if( org == POS_BQR)
-            _p.gi().setBqsCastleEnabled(false);
+            _p.gi().setCastleRight(CR_BLACK_QUEEN_SIDE, false);
         else if( org == POS_BKR)
-            _p.gi().setBksCastleEnabled(false);
+            _p.gi().setCastleRight(CR_BLACK_KING_SIDE, false);
         break;
     case PT_PAWN: {
         // in this case, if the source file and target file differ,
@@ -507,4 +522,15 @@ bool Board::process_move(Move mov, Side side) {
         break;
     }
     return isPawnMove;
+}
+
+PositionPacked Board::get_packed()
+{
+    _pr.pp = _p.pack();
+    return _pr.pp;
+}
+
+Position& Board::getPosition()
+{
+    return _p;
 }

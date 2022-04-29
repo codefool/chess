@@ -4,26 +4,30 @@
 
 
 PosInfo::PosInfo()
-: id{0}, src{0}, move(Move().pack()),
-  move_cnt{0}, distance{0},
-  fifty_cnt{0}, egr{EGR_NONE}
+: id(0),
+  parent(0),
+  move(Move().pack()),
+  move_cnt(0),
+  distance(0),
+  egr(EGR_NONE)
 {}
 
 PosInfo::PosInfo(PositionHash i, PosInfo s, MovePacked m)
-: id{i}, src{s.id}, move(m), move_cnt{0},
-  distance{s.distance + 1},
-  fifty_cnt{s.fifty_cnt + 1},
-  egr{EGR_NONE}
+: id(i),
+  parent(s.id),
+  move(m),
+  move_cnt(0),
+  distance(s.distance + 1),
+  egr(EGR_NONE)
 {}
 
 bool PosInfo::operator==(const PosInfo& other)
 {
     if (id       != other.id
-    || src       != other.src
+    || parent    != other.parent
     || move.i    != other.move.i
     || move_cnt  != other.move_cnt
     || distance  != other.distance
-    || fifty_cnt != other.fifty_cnt
     || egr       != other.egr
     )
         return false;
@@ -38,7 +42,7 @@ Position::Position(const PositionPacked& p)
 }
 
 Position::Position(const Position& o)
-:_g{o._g}, _i{o._i}
+:_g(o._g), _i(o._i)
 {
     // deep copy the board buffer so that smart pointers
     // are copied.
@@ -48,7 +52,7 @@ Position::Position(const Position& o)
 }
 
 Position::Position(const PositionPacked& p, const PosInfo& i)
-: _i{i}
+: _i(i)
 {
     unpack(p);
 }
@@ -316,22 +320,22 @@ std::string Position::fen_string(int move_no) const
     ss << ' ' << ((gi.getOnMove() == SIDE_BLACK) ? 'b' : 'w') << ' ';
 
     // field 3 - castleing
-    if (!gi.anyCastlePossible())
+    if (!gi.hasCastleRights())
         ss << '-';
     else
     {
-        if(gi.isWksCastleEnabled())
+        if(gi.hasCastleRight(CR_WHITE_KING_SIDE))
             ss << 'K';
-        if(gi.isWqsCastleEnabled())
+        if(gi.hasCastleRight(CR_WHITE_QUEEN_SIDE))
             ss << 'Q';
-        if(gi.isBksCastleEnabled())
+        if(gi.hasCastleRight(CR_BLACK_KING_SIDE))
             ss << 'k';
-        if(gi.isBqsCastleEnabled())
+        if(gi.hasCastleRight(CR_BLACK_QUEEN_SIDE))
             ss << 'q';
     }
     ss << ' ';
     // field 4 - en passant
-    if( !gi.enPassantExists())
+    if( !gi.hasEnPassant())
         ss << '-';
     else {
         ss << gi.getEnPassantFile();
@@ -539,26 +543,23 @@ const uint64_t zob_on_move[2] = { 0x9a7b4c6c05e721e5, 0x25aa84c007a5c43f, };
 
 const uint64_t zob_castle_rights[16] =
 {
-    0x61ba65ed4548472d, 0xc08204caa6ae8765, 0x35bed27bb77282a0, 0x68ce1586a3b71d87,
-    0xbd7cde6879e1b7a5, 0x8a575f1ed033d7a7, 0x054aea91d5026eea, 0x05a5e486ad1a2e5f,
-    0x569762d9a1d649ab, 0x34d72dc0aa9e0680, 0xda868509e1439471, 0xaf9b08136c58c550,
-    0xd89b1a405f7758f6, 0xb91ffd40a2fd7794, 0xd0a453d758a24c81, 0xd5ad14b2326f4635,
+    0x61ba65ed4548472d, 0xc08204caa6ae8765, 0x35bed27bb77282a0, 0x68ce1586a3b71d87, 0xbd7cde6879e1b7a5, 0x8a575f1ed033d7a7, 0x054aea91d5026eea, 0x05a5e486ad1a2e5f,
+    0x569762d9a1d649ab, 0x34d72dc0aa9e0680, 0xda868509e1439471, 0xaf9b08136c58c550, 0xd89b1a405f7758f6, 0xb91ffd40a2fd7794, 0xd0a453d758a24c81, 0xd5ad14b2326f4635,
 };
 
 const uint64_t zob_en_passant[8] =
 {
-    0x090b15eb7eee60fd, 0xf6818e5a552e24ef, 0x179e2a7aa74c54db, 0x9dcd74a7b84ddaa6,
-    0x0d8cc5f337cc25db, 0x42a499ebb1ac7550, 0x729ca37bada0062e, 0x814159a4349e082f,
+    0x090b15eb7eee60fd, 0xf6818e5a552e24ef, 0x179e2a7aa74c54db, 0x9dcd74a7b84ddaa6, 0x0d8cc5f337cc25db, 0x42a499ebb1ac7550, 0x729ca37bada0062e, 0x814159a4349e082f,
 };
 
 PositionHash Position::zobrist_hash()
 {
-    PositionHash hash(0);
-    // This is how the hash should be initialized, but we have to
-    // get PosInfo into Position first.
-    // PositionHash hash = sob_on_move[ pi.on_move() ]
-    //                   ^ zob_castle_rights[ pi.castle_rights() ]
-    //                   ^ zob_en_passant[ pi.en_passant_file() ];
+    PositionHash hash = zob_on_move[gi().getOnMove()]
+                      ^ zob_castle_rights[ gi().getCastleRights() ];
+
+    if ( gi().hasEnPassant())
+        hash ^= zob_en_passant[ gi().getEnPassantFile() ];
+
     for (int square(0); square < 64; square++)
     {
         PiecePtr pp = _b[square];

@@ -58,7 +58,7 @@ void tokenize(std::string& tp, PositionPacked& pos, PosInfo& info)
     int fieldcnt(0);
     int refcnt(0);
     info.id        = get_uint64(line);
-    info.src       = get_uint64(line);
+    info.parent    = get_uint64(line);
     pos.gi.i       = get_uint32(line);
     pos.pop        = get_uint64(line);
     pos.hi         = get_uint64(line);
@@ -66,7 +66,6 @@ void tokenize(std::string& tp, PositionPacked& pos, PosInfo& info)
     info.move_cnt  = get_int(line);
     info.move.i    = get_uint16(line);
     info.distance  = get_uint16(line);
-    info.fifty_cnt = get_uint16(line);
     info.egr       = static_cast<EndGameReason>(get_int(line));
 }
 

@@ -9,6 +9,33 @@
 
 #include "constants.h"
 
+GameInfoPacked::GameInfoPacked(uint32_t v)
+: i{v}
+{}
+
+GameInfoPacked::GameInfoPacked(const GameInfoPacked& o)
+: i{o.i}
+{}
+
+bool GameInfoPacked::operator==(const GameInfoPacked& o) const {
+    bool ret = (i == o.i);
+    return ret;
+}
+
+bool GameInfoPacked::operator!=(const GameInfoPacked& o) const {
+    bool ret = (i != o.i);
+    return ret;
+}
+
+bool GameInfoPacked::operator<(const GameInfoPacked& o) const {
+    bool ret = (i < o.i);
+    return ret;
+}
+
+
+
+
+
 const Pos POS_WQR(R1,Fa);
 const Pos POS_WKR(R1,Fh);
 const Pos POS_BQR(R8,Fa);
@@ -188,6 +215,52 @@ std::ostream& operator<<(std::ostream& os, const Move& m) {
 	return os;
 }
 
+PositionPacked::PositionPacked()
+: gi{0}, pop(0), lo(0), hi(0)
+{}
+
+PositionPacked::PositionPacked(const PositionPacked& o)
+: gi{o.gi}, pop(o.pop), lo(o.lo), hi(o.hi)
+{}
+
+PositionPacked::PositionPacked(uint32_t g, uint64_t p, uint64_t h, uint64_t l)
+: gi{g}, pop(p), lo(l), hi(h)
+{}
+
+bool PositionPacked::operator==(const PositionPacked& o) const {
+    bool ret = pop == o.pop;
+    ret = ret && gi == o.gi;
+    ret = ret && hi == o.hi;
+    ret = ret && lo == o.lo;
+    return ret;
+    // return pop == o.pop && gi == o.gi && hi == o.hi && lo == o.lo;
+}
+
+bool PositionPacked::operator!=(const PositionPacked& o) const {
+    bool ret = pop != o.pop;
+    ret = ret || gi != o.gi;
+    ret = ret || hi != o.hi;
+    ret = ret || lo != o.lo;
+    return ret;
+    // return pop != o.pop || gi != o.gi || hi != o.hi || lo != o.lo;
+}
+
+bool PositionPacked::operator<(const PositionPacked& o) const {
+    if ( pop == o.pop )
+    {
+        if ( gi.i == o.gi.i )
+        {
+            if ( hi == o.hi )
+            {
+                return lo < o.lo;
+            }
+            return hi < o.hi;
+        }
+        return gi.i < o.gi.i;
+    }
+    return pop < o.pop;
+}
+
 std::ostream& operator<<(std::ostream& os, const PositionPacked& pp)
 {
 	auto oflags = os.flags(std::ios::hex);
@@ -204,66 +277,4 @@ std::ostream& operator<<(std::ostream& os, const PositionPacked& pp)
 	os.fill(ofill);
 	os.width(owid);
 	return os;
-}
-
-PositionFile::PositionFile(std::string base_path, std::string base_name, int level, bool use_thread_id, bool write_header)
-: line_cnt{0}
-{
-    std::stringstream ss;
-    ss << base_path << level << '/';
-    std::filesystem::create_directories(ss.str());
-    ss << base_name << '_' << level;
-    if ( use_thread_id )
-        ss << '_' << std::this_thread::get_id();
-    ss << ".csv";
-    fspec = ss.str();
-    ofs.open(fspec, std::ios_base::app);
-    ofs.flags(std::ios::hex);
-    ofs.fill('0');
-    if ( write_header )
-    {
-        ofs << "\"id\","
-            << "\"parent\","
-            << "\"gameinfo\","
-            << "\"population\","
-            << "\"hi\","
-            << "\"lo\","
-            << "\"move_cnt\","
-            << "\"move_packed\","
-            << "\"distance\","
-            << "\"50_cnt\","
-            << "\"end_game\","
-            << "\"ref_cnt\","
-            << "\"move/parent...\""
-            << '\n';
-    }
-}
-
-PositionFile::~PositionFile()
-{
-    ofs << std::flush;
-    ofs.close();
-}
-
-void PositionFile::write(const PositionPacked& pos, const PosInfo& info)
-{
-    //id    gi   pop    hi     lo     src    mv   dist 50m
-    auto ow = ofs.width(16);
-    ofs << info.id << ','
-        << info.src << ',';
-    ofs.width(8);
-    ofs << pos.gi.i << ',';
-    ofs.width(16);
-    ofs << pos.pop << ','
-        << pos.hi << ','
-        << pos.lo << ',';
-    ofs.width(ow);
-    ofs << info.move_cnt << ','
-        << info.move.i << ','
-        << info.distance << ','
-        << info.fifty_cnt << ','
-        << static_cast<int>(info.egr) << ',';
-    ofs << '\n';
-    if ((++line_cnt % 100) == 0)
-      ofs << std::flush;
 }

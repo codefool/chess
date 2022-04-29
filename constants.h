@@ -64,20 +64,20 @@ enum File {
 	Fh = 0x07
 };
 
-enum EnPassantFile {
-	EP_NONE = 0x00,
-	EP_FA   = 0x08,
-	EP_FB   = 0x09,
-	EP_FC   = 0x0A,
-	EP_FD   = 0x0B,
-	EP_FE   = 0x0C,
-	EP_FF   = 0x0D,
-	EP_FG   = 0x0E,
-	EP_FH   = 0x0F
-};
-
 #define EP_HERE_MASK 0x08
 #define EP_FILE_MASK 0x07
+
+enum EnPassantFile {
+	EP_NONE = 0x00,
+	EP_FA   = Fa | EP_HERE_MASK,
+	EP_FB   = Fb | EP_HERE_MASK,
+	EP_FC   = Fc | EP_HERE_MASK,
+	EP_FD   = Fd | EP_HERE_MASK,
+	EP_FE   = Fe | EP_HERE_MASK,
+	EP_FF   = Ff | EP_HERE_MASK,
+	EP_FG   = Fg | EP_HERE_MASK,
+	EP_FH   = Fh | EP_HERE_MASK
+};
 
 enum PieceType {
 	PT_EMPTY     = 0x00,
@@ -123,6 +123,14 @@ enum MoveAction {
 	// UNUSED = 13
 	// UNUSED = 14
 	// UNUSED = 15
+};
+
+enum CastleRight
+{
+    CR_WHITE_KING_SIDE  = 0x01,
+    CR_WHITE_QUEEN_SIDE = 0x02,
+    CR_BLACK_KING_SIDE  = 0x04,
+    CR_BLACK_QUEEN_SIDE = 0x08,
 };
 
 struct Offset {
@@ -262,10 +270,7 @@ union GameInfoPacked {
 		uint32_t en_passant_file   :  4; // file number where pawn rests
 		// Castling is possible only if the participating pieces have not
 		// moved (among other rules, but have nothing to do with prior movement.)
-		uint32_t wks_castle_enabled:  1; // neither WK or WKR has moved
-		uint32_t wqs_castle_enabled:  1; // neither WK or WQR has moved
-		uint32_t bks_castle_enabled:  1; // neither BK or BKR has moved
-		uint32_t bqs_castle_enabled:  1; // neither BK or BQR has moved
+        uint32_t castle_rights     :  4;
 		//
 		// number of active pieces on the board (2..32)
 		uint32_t on_move           :  1; // 0=white on move, 1=black
@@ -273,22 +278,11 @@ union GameInfoPacked {
 	} f;
 
 	GameInfoPacked();
-
-	GameInfoPacked(uint32_t v)
-	: i{v}
-	{}
-
-	GameInfoPacked(const GameInfoPacked& o)
-	: i{o.i}
-	{}
-
-	bool operator==(const GameInfoPacked& o) const {
-		return i == o.i;
-	}
-
-	bool operator<(const GameInfoPacked& o) const {
-		return i < o.i;
-	}
+	GameInfoPacked(uint32_t v);
+	GameInfoPacked(const GameInfoPacked& o);
+	bool operator==(const GameInfoPacked& o) const;
+	bool operator!=(const GameInfoPacked& o) const;
+	bool operator<(const GameInfoPacked& o) const;
 };
 
 struct PositionPacked {
@@ -297,38 +291,12 @@ struct PositionPacked {
     uint64_t       lo;    // lo 64-bits population info
     uint64_t       hi;    // hi 64-bits population info
 
-    PositionPacked()
-    : gi{0}, pop(0), lo(0), hi(0)
-    {}
-
-	PositionPacked(const PositionPacked& o)
-	: gi{o.gi}, pop(o.pop), lo(o.lo), hi(o.hi)
-	{}
-
-    PositionPacked(uint32_t g, uint64_t p, uint64_t h, uint64_t l)
-    : gi{g}, pop(p), lo(l), hi(h)
-    {}
-
-    bool operator==(const PositionPacked& o) const {
-        return pop == o.pop && gi == o.gi && hi == o.hi && lo == o.lo;
-    }
-
-    bool operator<(const PositionPacked& o) const {
-		if ( pop == o.pop )
-		{
-			if ( gi.i == o.gi.i )
-			{
-				if ( hi == o.hi )
-				{
-					return lo < o.lo;
-				}
-				return hi < o.hi;
-			}
-			return gi.i < o.gi.i;
-		}
-		return pop < o.pop;
-    }
-
+    PositionPacked();
+	PositionPacked(const PositionPacked& o);
+    PositionPacked(uint32_t g, uint64_t p, uint64_t h, uint64_t l);
+    bool operator==(const PositionPacked& o) const;
+    bool operator!=(const PositionPacked& o) const;
+    bool operator<(const PositionPacked& o) const;
 	friend std::ostream& operator<<(std::ostream& os, const PositionPacked& pp);
 };
 
@@ -359,6 +327,7 @@ typedef std::vector<Move>   MoveList;
 typedef MoveList::iterator  MoveListItr;
 
 class GameInfo {
+public:
 private:
 	// number of active pieces on the board (1..31)
 	short           piece_cnt;
@@ -371,74 +340,40 @@ private:
 	EnPassantFile en_passant_file;
 	// Castling is possible only if the participating pieces have not
 	// moved (among other rules, but have nothing to do with prior movement.)
-	bool          wks_castle_enabled;
-	bool          wqs_castle_enabled;
-	bool          bks_castle_enabled;
-	bool          bqs_castle_enabled;
+    uint8_t       castle_rights;
 public:
 	GameInfo();
-
-	GameInfo(const GameInfo& o)
-	{
-		unpack(o.pack());
-	}
-
+	GameInfo(const GameInfo& o);
 	void init();
-
-	short getPieceCnt() const { return piece_cnt; }
-	void setPieceCnt(short cnt) { piece_cnt = cnt; }
-	void decPieceCnt() { piece_cnt--; }
-	Side getOnMove() const { return on_move; }
-	void setOnMove(Side m) { on_move = m; }
-	void toggleOnMove() { on_move = (on_move == SIDE_WHITE) ? SIDE_BLACK : SIDE_WHITE; }
-#ifdef ENFORCE_CASTELING_8A3
-	bool anyCastlePossible() const
-	{
-		return isWksCastleEnabled() || isWqsCastleEnabled() || isBksCastleEnabled() || isBqsCastleEnabled();
-	}
-	bool isWksCastleEnabled() const { return wks_castle_enabled; }
-	void setWksCastleEnabled(bool s) { wks_castle_enabled = s;}
-	bool isWqsCastleEnabled() const { return wqs_castle_enabled; }
-	void setWqsCastleEnabled(bool s) { wqs_castle_enabled = s;}
-	bool isBksCastleEnabled() const { return bks_castle_enabled; }
-	void setBksCastleEnabled(bool s) { bks_castle_enabled = s;}
-	bool isBqsCastleEnabled() const { return bqs_castle_enabled; }
-	void setBqsCastleEnabled(bool s) { bqs_castle_enabled = s;}
-#else
-	bool anyCastlePossible()  const { return true; }
-	bool isWksCastleEnabled() const { return true; }
-	void setWksCastleEnabled(bool s) { wks_castle_enabled = true;}
-	bool isWqsCastleEnabled() const { return true; }
-	void setWqsCastleEnabled(bool s) { wqs_castle_enabled = true;}
-	bool isBksCastleEnabled() const { return true; }
-	void setBksCastleEnabled(bool s) { bks_castle_enabled = true;}
-	bool isBqsCastleEnabled() const { return true; }
-	void setBqsCastleEnabled(bool s) { bqs_castle_enabled = true;}
-#endif
-	bool enPassantExists() const { return (en_passant_file & EP_HERE_MASK) != 0;}
-	File getEnPassantFile() const { return static_cast<File>(en_passant_file & EP_FILE_MASK); }
-	void setEnPassantFile(EnPassantFile ep) { en_passant_file = ep; }
-	void setEnPassantFile(File f) {
-		setEnPassantFile(static_cast<EnPassantFile>(EP_HERE_MASK | f));
-	}
+	short getPieceCnt() const;
+	void setPieceCnt(short cnt);
+	void decPieceCnt();
+	Side getOnMove() const;
+	void setOnMove(Side m);
+	void toggleOnMove();
+    uint8_t getCastleRights() const;
+	bool hasCastleRights() const;
+    bool hasCastleRight(CastleRight which) const;
+    void setCastleRight(CastleRight which, bool state);
+	bool hasEnPassant() const;
+	File getEnPassantFile() const;
+	void setEnPassantFile(EnPassantFile ep);
+	void setEnPassantFile(File f);
 
 	GameInfo& unpack(const GameInfoPacked& p);
 	const GameInfoPacked pack() const;
 
-	bool operator==(const GameInfo& o) const {
-		return pack() == o.pack();
-	}
+	bool operator==(const GameInfo& o) const;
 
 	friend std::ostream& operator<<(std::ostream& os, const GameInfo& o);
 };
 
 struct PosInfo {
   PositionHash   id;        // unique id for this position
-  PositionHash   src;       // the parent of this position
+  PositionHash   parent;    // the parent of this position
   MovePacked     move;      // the Move that created in this position
   short          move_cnt;  // number of valid moves for this position
   short          distance;  // number of moves from the initial position
-  short          fifty_cnt; // number of moves since last capture or pawn move (50-move rule [14F])
   EndGameReason  egr;       // end game reason
 
   PosInfo();
@@ -488,17 +423,40 @@ private:
 	void unpack_array(uint8_t* in, uint8_t* out, size_t s);
 };
 
+// We process unresolved positions by distance. Since a position of
+// distance n can only generate a position of distance n+1, we only
+// have to keep two queues. When the queue at distance n depletes,
+// we switch to the n+1 queue which becomes the new n, and the
+// old queue becomes the n+1 queue.
+struct PositionRec
+{
+    PositionPacked  pp;
+    PosInfo         pi;
+
+    PositionRec() {}
+    PositionRec(PositionPacked p, PosInfo i)
+    : pp(p), pi(i)
+    {}
+
+    PositionRec(Position p, PosInfo i)
+    : pp(p.pack()), pi(i)
+    {}
+};
+
 class Board {
 private:
 	// we always need to know where the kings are
-	Position	_p;
+	PositionRec	_pr;
+    Position    _p;
 
 public:
 	Board(bool init=true);
 	Board(const Board& other);
-	Board(const PositionPacked& p);
+	Board(const PositionRec& p);
 
-	GameInfo& gi() { return _p.gi(); }
+	GameInfo& gi();
+    PositionRec& pr();
+    Position& pos() { return _p; }
 
 	PiecePtr place_piece(PieceType t, Side s, Rank r, File f);
 
@@ -516,8 +474,8 @@ public:
 	bool validate_move(Move mov, Side side);
 	bool process_move(Move mov, Side side);
 	void move_piece(PiecePtr ptr, Pos pos);
-	PositionPacked get_packed() { return _p.pack(); }
-	Position& getPosition() { return _p; }
+	PositionPacked get_packed();
+	Position& getPosition();
 
 	void dump();
 	friend std::ostream& operator<<(std::ostream& os, const Board& b);
@@ -534,6 +492,7 @@ struct PosRef
     : move{m.pack()}, trg{t}
     {}
 };
+
 struct PosRefRec
 {
     PositionHash src;
@@ -548,18 +507,8 @@ struct PosRefRec
     : src(from), move{m}, trg(to)
     {}
 };
-#pragma pack()
 
 typedef std::vector<PosRef> PosRefMap;
 typedef PosRefMap *PosRefMapPtr;
 
-class PositionFile {
-private:
-  std::string   fspec;
-  std::ofstream ofs;
-  int           line_cnt;
-public:
-  PositionFile(std::string base_path, std::string base_name, int level, bool use_thread_id = true, bool write_header = true);
-  ~PositionFile();
-  void write(const PositionPacked& pos, const PosInfo& info);
-};
+#pragma pack()

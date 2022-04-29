@@ -25,6 +25,9 @@ dht : dht_util.o dht.o md5.o util.o $(HEADERS)
 dq : dq_util.o dq.o $(HEADERS) clean_dq
 	$(CC) $(CFLAGS) dq_util.o dq.o $(LIBS) -o dq
 
+clean:
+	rm *.o
+
 clean-dq :
 	rm -rf ~/tmp/testqueue
 

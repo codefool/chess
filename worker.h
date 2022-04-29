@@ -12,6 +12,6 @@ void save_stats_file(std::string fspec);
 void insert_unresolved(PositionPacked& pp, PosInfo& pi);
 void set_stop_handler();
 bool open_tables(int level);
-void worker(int level, std::string base_path);
+void worker(int level);
 
 
