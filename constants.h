@@ -125,6 +125,14 @@ enum MoveAction {
 	// UNUSED = 15
 };
 
+enum CastleRight
+{
+    CR_WHITE_KING_SIDE  = 0x01,
+    CR_WHITE_QUEEN_SIDE = 0x02,
+    CR_BLACK_KING_SIDE  = 0x04,
+    CR_BLACK_QUEEN_SIDE = 0x08,
+};
+
 struct Offset {
 private:
 	short _dr;
@@ -262,10 +270,7 @@ union GameInfoPacked {
 		uint32_t en_passant_file   :  4; // file number where pawn rests
 		// Castling is possible only if the participating pieces have not
 		// moved (among other rules, but have nothing to do with prior movement.)
-		uint32_t wks_castle_enabled:  1; // neither WK or WKR has moved
-		uint32_t wqs_castle_enabled:  1; // neither WK or WQR has moved
-		uint32_t bks_castle_enabled:  1; // neither BK or BKR has moved
-		uint32_t bqs_castle_enabled:  1; // neither BK or BQR has moved
+        uint32_t castle_rights     :  4;
 		//
 		// number of active pieces on the board (2..32)
 		uint32_t on_move           :  1; // 0=white on move, 1=black
@@ -359,6 +364,7 @@ typedef std::vector<Move>   MoveList;
 typedef MoveList::iterator  MoveListItr;
 
 class GameInfo {
+public:
 private:
 	// number of active pieces on the board (1..31)
 	short           piece_cnt;
@@ -371,73 +377,30 @@ private:
 	EnPassantFile en_passant_file;
 	// Castling is possible only if the participating pieces have not
 	// moved (among other rules, but have nothing to do with prior movement.)
-	bool          wks_castle_enabled;
-	bool          wqs_castle_enabled;
-	bool          bks_castle_enabled;
-	bool          bqs_castle_enabled;
+    uint8_t       castle_rights;
 public:
 	GameInfo();
-
-	GameInfo(const GameInfo& o)
-	{
-		unpack(o.pack());
-	}
-
+	GameInfo(const GameInfo& o);
 	void init();
-
-	short getPieceCnt() const { return piece_cnt; }
-	void setPieceCnt(short cnt) { piece_cnt = cnt; }
-	void decPieceCnt() { piece_cnt--; }
-	Side getOnMove() const { return on_move; }
-	void setOnMove(Side m) { on_move = m; }
-	void toggleOnMove() { on_move = (on_move == SIDE_WHITE) ? SIDE_BLACK : SIDE_WHITE; }
-#ifdef ENFORCE_8A3_CASTLING
-    uint8_t getCastleRights()
-    {
-        uint8_t bm(0);
-        if (isWksCastleEnabled()) bm |= 0x01;
-        if (isWqsCastleEnabled()) bm |= 0x02;
-        if (isBksCastleEnabled()) bm |= 0x04;
-        if (isBqsCastleEnabled()) bm |= 0x08;
-        return bm;
-    }
-	bool anyCastlePossible() const
-	{
-		return isWksCastleEnabled() || isWqsCastleEnabled() || isBksCastleEnabled() || isBqsCastleEnabled();
-	}
-	bool isWksCastleEnabled() const { return wks_castle_enabled; }
-	void setWksCastleEnabled(bool s) { wks_castle_enabled = s;}
-	bool isWqsCastleEnabled() const { return wqs_castle_enabled; }
-	void setWqsCastleEnabled(bool s) { wqs_castle_enabled = s;}
-	bool isBksCastleEnabled() const { return bks_castle_enabled; }
-	void setBksCastleEnabled(bool s) { bks_castle_enabled = s;}
-	bool isBqsCastleEnabled() const { return bqs_castle_enabled; }
-	void setBqsCastleEnabled(bool s) { bqs_castle_enabled = s;}
-#else
-    uint8_t getCastleRights() { return 0; }
-	bool anyCastlePossible()  const { return true; }
-	bool isWksCastleEnabled() const { return true; }
-	void setWksCastleEnabled(bool s) { wks_castle_enabled = true;}
-	bool isWqsCastleEnabled() const { return true; }
-	void setWqsCastleEnabled(bool s) { wqs_castle_enabled = true;}
-	bool isBksCastleEnabled() const { return true; }
-	void setBksCastleEnabled(bool s) { bks_castle_enabled = true;}
-	bool isBqsCastleEnabled() const { return true; }
-	void setBqsCastleEnabled(bool s) { bqs_castle_enabled = true;}
-#endif
-	bool enPassantExists() const { return (en_passant_file & EP_HERE_MASK) != 0;}
-	File getEnPassantFile() const { return static_cast<File>(en_passant_file & EP_FILE_MASK); }
-	void setEnPassantFile(EnPassantFile ep) { en_passant_file = ep; }
-	void setEnPassantFile(File f) {
-		setEnPassantFile(static_cast<EnPassantFile>(EP_HERE_MASK | f));
-	}
+	short getPieceCnt() const;
+	void setPieceCnt(short cnt);
+	void decPieceCnt();
+	Side getOnMove() const;
+	void setOnMove(Side m);
+	void toggleOnMove();
+    uint8_t getCastleRights() const;
+	bool hasCastleRights() const;
+    bool hasCastleRight(CastleRight which) const;
+    void setCastleRight(CastleRight which, bool state);
+	bool hasEnPassant() const;
+	File getEnPassantFile() const;
+	void setEnPassantFile(EnPassantFile ep);
+	void setEnPassantFile(File f);
 
 	GameInfo& unpack(const GameInfoPacked& p);
 	const GameInfoPacked pack() const;
 
-	bool operator==(const GameInfo& o) const {
-		return pack() == o.pack();
-	}
+	bool operator==(const GameInfo& o) const;
 
 	friend std::ostream& operator<<(std::ostream& os, const GameInfo& o);
 };
@@ -562,14 +525,3 @@ struct PosRefRec
 
 typedef std::vector<PosRef> PosRefMap;
 typedef PosRefMap *PosRefMapPtr;
-
-class PositionFile {
-private:
-  std::string   fspec;
-  std::ofstream ofs;
-  int           line_cnt;
-public:
-  PositionFile(std::string base_path, std::string base_name, int level, bool use_thread_id = true, bool write_header = true);
-  ~PositionFile();
-  void write(const PositionPacked& pos, const PosInfo& info);
-};

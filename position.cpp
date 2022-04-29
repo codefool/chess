@@ -316,22 +316,22 @@ std::string Position::fen_string(int move_no) const
     ss << ' ' << ((gi.getOnMove() == SIDE_BLACK) ? 'b' : 'w') << ' ';
 
     // field 3 - castleing
-    if (!gi.anyCastlePossible())
+    if (!gi.hasCastleRights())
         ss << '-';
     else
     {
-        if(gi.isWksCastleEnabled())
+        if(gi.hasCastleRight(CR_WHITE_KING_SIDE))
             ss << 'K';
-        if(gi.isWqsCastleEnabled())
+        if(gi.hasCastleRight(CR_WHITE_QUEEN_SIDE))
             ss << 'Q';
-        if(gi.isBksCastleEnabled())
+        if(gi.hasCastleRight(CR_BLACK_KING_SIDE))
             ss << 'k';
-        if(gi.isBqsCastleEnabled())
+        if(gi.hasCastleRight(CR_BLACK_QUEEN_SIDE))
             ss << 'q';
     }
     ss << ' ';
     // field 4 - en passant
-    if( !gi.enPassantExists())
+    if( !gi.hasEnPassant())
         ss << '-';
     else {
         ss << gi.getEnPassantFile();
