@@ -12,15 +12,26 @@
 #include "worker.h"
 
 #pragma pack(1)
+
+struct TierStats
+{
+    short    distance; // the tier level
+    uint64_t move_cnt; // number of legal moves
+    uint64_t coll_cnt; // number of position collisions
+    uint64_t zobr_cnt; // number of zobrist collisions
+    uint64_t capt_cnt; // number of capture positions
+};
+
 struct Stats
 {
     int               level;
     uint64_t          col_cnt;
     uint64_t          initpos_cnt;
-    uint64_t          unr_n1_cnt;
+    uint64_t          capt_cnt;
     uint64_t          zob_coll_cnt;
     int               cm_cnt;
     int               sm_cnt;
+    short             tier_cnt;
 };
 #pragma pack()
 
@@ -237,6 +248,7 @@ void worker(int level)
         }
         else
         {
+            short distance = prBase.pi.distance + 1;
             for (Move mv : moves)
             {
                 Board brdPrime(prBase);
@@ -247,6 +259,7 @@ void worker(int level)
                     brdPrime.getPosition(),
                     PosInfo(brdPrime.getPosition().zobrist_hash(), prBase.pi, mv.pack())
                 };
+                prPrime.pi.distance = distance;
                 PositionRec prFound;
 
                 // 50-move rule: drawn game if no pawn move or capture in the last 50 moves.
@@ -257,7 +270,7 @@ void worker(int level)
                 // }
                 if (brdPrime.gi().getPieceCnt() == level-1)
                 {
-                    stats.unr_n1_cnt++;
+                    stats.capt_cnt++;
                     if ( dht_pawn_n1.search( (ucharptr_c)&prPrime.pi.id, (ucharptr)&prFound ) )
                     {
                         checkZobristCollision(prPrime, prFound);
@@ -298,7 +311,7 @@ void worker(int level)
         }
 
         dht_resolved.update((ucharptr_c)&prBase.pi.id, (ucharptr)&prBase);
-        // std::cout << "base,parent,mov/p/c/5/1,move,dist,dis50,coll_cnt,init_cnt,res_cnt,get,put,unr1,fifty,FEN\n";
+        // std::cout << "base,parent,mov/p/c/5/1,move,dist,coll_cnt,init_cnt,res_cnt,get,put,unr1,fifty,FEN\n";
         ss.str(std::string());
         ss.flags(std::ios::hex);
         ss.fill('0');
@@ -311,9 +324,8 @@ void worker(int level)
             << ',' << stats.col_cnt
             << ',' << Move::unpack(prBase.pi.move)
             << ',' << prBase.pi.distance
-            << ',' << stats.unr_n1_cnt
+            << ',' << stats.capt_cnt
             << ',' << dht_resolved.size()
-            << ',' << stats.zob_coll_cnt
             << ',' << dq_zobrist_coll.size()
             // << std::flush;
         // ss.width(2);
