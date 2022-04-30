@@ -50,20 +50,23 @@ int main()
     //     dummy.append((const unsigned char *)&r.first);
     // }
 
-    Position p;
-    PositionPacked pp;
-    pp.gi.i = 0x20000000;
-    pp.pop  = 0x7dff00000007fffd;
-    pp.hi   = 0xdb9abdeeeeeeee4c;
-    pp.lo   = 0x4666666665c31235;
-    p.unpack(pp);
-    p.zobrist_hash();
-    std::cout << p.fen_string() << std::endl;
+    // Position p;
+    // PositionPacked pp;
+    // pp.gi.i = 0x20000000;
+    // pp.pop  = 0x7dff00000007fffd;
+    // pp.hi   = 0xdb9abdeeeeeeee4c;
+    // pp.lo   = 0x4666666665c31235;
+    // p.unpack(pp);
+    // p.zobrist_hash();
+    // std::cout << p.fen_string() << std::endl;
 
     std::mt19937_64 gen(0xc0def001c0def001ULL);
     std::uniform_int_distribution<uint64_t> dis;
-    for(int i = 0; i < 30; i++)
-        std::cout << std::hex << dis(gen) << std::endl;
-
+    for(int i = 1; i <= 64*34; i++)
+    {
+        printf("0x%016lx, ", dis(gen));
+        if ((i%8) == 0)
+            printf("\n");
+    }
     return 0;
 }
