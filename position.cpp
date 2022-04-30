@@ -1,6 +1,6 @@
 #include <cctype>
 #include <sstream>
-#include "constants.h"
+#include "dreid.h"
 #include "zobrist.h"
 
 PosInfo::PosInfo()

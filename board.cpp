@@ -10,7 +10,7 @@
 #include <cstring>
 #include <memory>
 
-#include "constants.h"
+#include "dreid.h"
 
 // these must be specified in the same order as
 // enum Dir

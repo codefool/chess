@@ -8,7 +8,7 @@
 #include <set>
 #include <sstream>
 
-#include "constants.h"
+#include "dreid.h"
 
 void usage(std::string prog)
 {

@@ -7,7 +7,7 @@
 //
 #include <cstring>
 
-#include "constants.h"
+#include "dreid.h"
 
 GameInfoPacked::GameInfoPacked(uint32_t v)
 : i{v}

@@ -6,7 +6,7 @@
 // Released under the GNU General Public Licence Version 3, 29 June 2007
 //
 #pragma once
-#include "constants.h"
+#include "dreid.h"
 /*
 xxxx x... .... .... .... .... .... .... = number of active pieces on the board (0..31)
 .... .x.. .... .... .... .... .... .... = side on move: 0-white, 1-black
