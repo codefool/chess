@@ -12,15 +12,26 @@
 #include "worker.h"
 
 #pragma pack(1)
+
+struct TierStats
+{
+    short    distance; // the tier level
+    uint64_t move_cnt; // number of legal moves
+    uint64_t coll_cnt; // number of position collisions
+    uint64_t zobr_cnt; // number of zobrist collisions
+    uint64_t capt_cnt; // number of capture positions
+};
+
 struct Stats
 {
     int               level;
     uint64_t          col_cnt;
     uint64_t          initpos_cnt;
-    uint64_t          unr_n1_cnt;
-    uint64_t          zorb_coll_cnt;
+    uint64_t          capt_cnt;
+    uint64_t          zob_coll_cnt;
     int               cm_cnt;
     int               sm_cnt;
+    short             tier_cnt;
 };
 #pragma pack()
 
@@ -74,7 +85,6 @@ DiskHashTable dht_resolved;
 DiskHashTable dht_resolved_ref;
 DiskHashTable dht_pawn_n1;
 DiskHashTable dht_pawn_n1_ref;
-DiskHashTable dht_zobrist_coll;
 
 DiskQueue dq_unr0(WORK_FILE_PATH, "unresolved0", sizeof( PositionRec ));
 DiskQueue dq_unr1(WORK_FILE_PATH, "unresolved1", sizeof( PositionRec ));
@@ -87,16 +97,21 @@ struct ZobristCollision
     PositionRec r;
 };
 
+DiskQueue dq_zobrist_coll(WORK_FILE_PATH, "zobrist_coll", sizeof(ZobristCollision));
 
 // return true if the two positions really are equal
-void validateCollision(const PositionRec& lhs, const PositionRec& rhs)
+void checkZobristCollision(const PositionRec& lhs, const PositionRec& rhs)
 {
-    // Position lpos(lhs.pp);
-    // Position rpos(rhs.pp);
-    // PositionHash lhash = lpos.zobrist_hash();
-    // PositionHash rhash = rpos.zobrist_hash();
-    ZobristCollision zc{lhs,rhs};
-    dht_zobrist_coll.append((ucharptr_c)&lhs.pi.id, (ucharptr_c)&zc);
+    if ( lhs.pp != rhs.pp )
+    {
+        // Position lpos(lhs.pp);
+        // Position rpos(rhs.pp);
+        // PositionHash lhash = lpos.zobrist_hash();
+        // PositionHash rhash = rpos.zobrist_hash();
+        ZobristCollision zc{lhs,rhs};
+        dq_zobrist_coll.push((ucharptr_c)&zc);
+        stats.zob_coll_cnt++;
+    }
 }
 
 bool stop = false;    // global halt flag
@@ -129,7 +144,6 @@ bool open_tables(int level)
     dht_resolved_ref.open(WORK_FILE_PATH, "resolved_ref", level, sizeof(PosRefRec));
     dht_pawn_n1     .open(WORK_FILE_PATH, "pawn_init", level - 1 , sizeof(PositionHash), sizeof(PositionRec));
     dht_pawn_n1_ref .open(WORK_FILE_PATH, "pawn_init_ref", level - 1, sizeof(PosRefRec));
-    dht_zobrist_coll.open(WORK_FILE_PATH, "zobrist_coll", level, sizeof(PositionHash), sizeof(ZobristCollision));
 
     if (dq_get->size() == 0 && dq_put->size() == 0)
     {
@@ -234,6 +248,7 @@ void worker(int level)
         }
         else
         {
+            short distance = prBase.pi.distance + 1;
             for (Move mv : moves)
             {
                 Board brdPrime(prBase);
@@ -244,6 +259,7 @@ void worker(int level)
                     brdPrime.getPosition(),
                     PosInfo(brdPrime.getPosition().zobrist_hash(), prBase.pi, mv.pack())
                 };
+                prPrime.pi.distance = distance;
                 PositionRec prFound;
 
                 // 50-move rule: drawn game if no pawn move or capture in the last 50 moves.
@@ -254,32 +270,24 @@ void worker(int level)
                 // }
                 if (brdPrime.gi().getPieceCnt() == level-1)
                 {
-                    stats.unr_n1_cnt++;
-                    if (dht_pawn_n1.search((ucharptr_c)&prPrime.pi.id, (ucharptr)&prFound))
+                    stats.capt_cnt++;
+                    if ( dht_pawn_n1.search( (ucharptr_c)&prPrime.pi.id, (ucharptr)&prFound ) )
                     {
-                        if ( prFound.pp != prPrime.pp )
-                        {
-                            validateCollision(prPrime, prFound);
-                            stats.zorb_coll_cnt++;
-                        }
+                        checkZobristCollision(prPrime, prFound);
                         PosRefRec prr( prBase.pi.id, mv, prFound.pi.id );
                         dht_pawn_n1_ref.append((ucharptr_c)&prr);
                     }
                     else
                     {
-                        dht_pawn_n1.append((ucharptr_c)&prPrime.pi.id, (ucharptr_c)&prPrime);
+                        dht_pawn_n1.append( (ucharptr_c)&prPrime.pi.id, (ucharptr_c)&prPrime );
                     }
                     nsub1_cnt++;
                 }
                 else if(brdPrime.gi().getPieceCnt() == level)
                 {
-                    if (dht_resolved.search((ucharptr_c)&prPrime.pi.id, (ucharptr_c)&prFound))
+                    if ( dht_resolved.search( (ucharptr_c)&prPrime.pi.id, (ucharptr_c)&prFound ) )
                     {
-                        if ( prFound.pp != prPrime.pp )
-                        {
-                            validateCollision(prPrime, prFound);
-                            stats.zorb_coll_cnt++;
-                        }
+                        checkZobristCollision(prPrime, prFound);
                         PosRefRec prr(prBase.pi.id, mv, prFound.pi.id);
                         dht_resolved_ref.append((ucharptr_c)&prr);
                         stats.col_cnt++;
@@ -303,7 +311,7 @@ void worker(int level)
         }
 
         dht_resolved.update((ucharptr_c)&prBase.pi.id, (ucharptr)&prBase);
-        // std::cout << "base,parent,mov/p/c/5/1,move,dist,dis50,coll_cnt,init_cnt,res_cnt,get,put,unr1,fifty,FEN\n";
+        // std::cout << "base,parent,mov/p/c/5/1,move,dist,coll_cnt,init_cnt,res_cnt,get,put,unr1,fifty,FEN\n";
         ss.str(std::string());
         ss.flags(std::ios::hex);
         ss.fill('0');
@@ -316,10 +324,9 @@ void worker(int level)
             << ',' << stats.col_cnt
             << ',' << Move::unpack(prBase.pi.move)
             << ',' << prBase.pi.distance
-            << ',' << stats.unr_n1_cnt
+            << ',' << stats.capt_cnt
             << ',' << dht_resolved.size()
-            << ',' << stats.zorb_coll_cnt
-            << ',' << dht_zobrist_coll.size()
+            << ',' << dq_zobrist_coll.size()
             // << std::flush;
         // ss.width(2);
             << ',' << std::setw(2) << moves.size()
