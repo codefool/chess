@@ -11,7 +11,7 @@
 #include <map>
 #include <memory>
 
-#include "constants.h"
+#include "dreid.h"
 #include "position.h"
 #include "gameinfo.h"
 

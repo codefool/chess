@@ -5,7 +5,7 @@
 //
 // Released under the GNU General Public Licence Version 3, 29 June 2007
 //
-#include "constants.h"
+#include "dreid.h"
 
 std::map<PieceType, const char *> Piece::s_n = {
 	{ PT_EMPTY,    ".." },

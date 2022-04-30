@@ -17,7 +17,7 @@
 #include <string>
 #include <sstream>
 
-#include "constants.h"
+#include "dreid.h"
 #include "md5.h"
 
 typedef unsigned char * ucharptr;

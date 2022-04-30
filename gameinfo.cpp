@@ -1,4 +1,4 @@
-#include "constants.h"
+#include "dreid.h"
 
 GameInfoPacked::GameInfoPacked()
 : i{0}

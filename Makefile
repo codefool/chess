@@ -2,7 +2,7 @@ CC = g++
 CFLAGS = -g -std=c++20
 INCLUDES=#-I /usr/local/BerkeleyDB.18.1/include # -I /usr/include/mysql-cppconn-8
 LIBS=-L/usr/lib/x86_64-linux-gnu -lpthread # -lmysqlcppconn8 -lmysqlcppconn
-HEADERS = config.h constants.h csvtools.h dht.h dq.h
+HEADERS = config.h dreid.h csvtools.h dht.h dq.h
 OBJECTS = board.o util.o gameinfo.o piece.o position.o worker.o csvtools.o md5.o dht.o dq.o
 
 .cpp.o:
