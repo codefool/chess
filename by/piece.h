@@ -11,7 +11,7 @@
 #include <memory>
 #include <vector>
 
-#include "constants.h"
+#include "dreid.h"
 
 // base class of all pieces
 

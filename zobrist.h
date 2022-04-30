@@ -35,7 +35,7 @@
 //
 #pragma once
 
-#include "constants.h"
+#include "dreid.h"
 
 const uint64_t zob_pos_table[13][64] =
 {   // Fa               Fb                  Fc                  Fd                  Fe                  Ff                  Fg                  Fh
