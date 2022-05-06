@@ -5,7 +5,8 @@
 
 const char *BucketFile::p_naught = "\0";
 
-std::map<size_t, std::shared_ptr<unsigned char>> BucketFile::buff_map;
+std::map<size_t, BuffPtr> BucketFile::buff_map;
+
 // fopen is failing with errno 24 (too many files) on unlimited ulimit,
 // so postulating that I'm opening file too fast.
 std::mutex fopen_mtx;
@@ -40,7 +41,7 @@ off_t BucketFile::search(ucharptr_c key, ucharptr val)
 {
     std::lock_guard<std::mutex> lock(_mtx);
     int max_item_cnt = TABLE_BUFF_SIZE / _reclen;
-    std::shared_ptr<unsigned char> buff = get_file_buff();
+    BuffPtr buff = get_file_buff();
     std::fseek(_fp, 0, SEEK_SET);
     fpos_t pos;  // file position at start of block
     std::fgetpos(_fp, &pos);
@@ -96,14 +97,16 @@ bool BucketFile::update(ucharptr_c key, ucharptr_c val)
 }
 
 // maintain a map of file buffers - one for each thread
-std::shared_ptr<unsigned char> BucketFile::get_file_buff()
+BuffPtr BucketFile::get_file_buff()
 {
     std::hash<std::thread::id> hasher;
-    size_t id_hash = hasher(std::this_thread::get_id());
-    auto itr = buff_map.find(id_hash);
-    if (itr == buff_map.end())
+    size_t id_hash = hasher( std::this_thread::get_id() );
+    if ( buff_map.find(id_hash) == buff_map.end() )
     {
-        buff_map[id_hash] = std::shared_ptr<unsigned char>(new unsigned char[TABLE_BUFF_SIZE]);
+        buff_map[id_hash] = std::shared_ptr<unsigned char[]>(
+            new unsigned char[TABLE_BUFF_SIZE],
+            std::default_delete<unsigned char[]>()
+        );
     }
     return buff_map[id_hash];
 }
@@ -124,14 +127,12 @@ bool DiskHashTable::open(
     dht_bucket_id_func bucket_func
 )
 {
-    name   = base_name;
-    keylen = key_len;
-    vallen = val_len;
-    reclen = key_len;
-    reccnt = 0;
-    buckfunc = (bucket_func == nullptr)
-             ? DiskHashTable::default_hasher
-             : bucket_func;
+    name     = base_name;
+    keylen   = key_len;
+    vallen   = val_len;
+    reclen   = key_len;
+    reccnt   = 0;
+    buckfunc = bucket_func;
 
     std::stringstream ss;
     ss << path_name << level << '/' << name << '/';
@@ -151,14 +152,14 @@ std::string DiskHashTable::calc_bucket_id(ucharptr_c key)
 bool DiskHashTable::search(ucharptr_c key, ucharptr val)
 {
     std::string bucket = calc_bucket_id(key);
-    BucketFile *bp = get_bucket(bucket);
+    BucketFilePtr bp = get_bucket(bucket);
     return bp->search(key, val) != -1;
 }
 
 bool DiskHashTable::insert(ucharptr_c key, ucharptr_c val)
 {
     std::string bucket = calc_bucket_id(key);
-    BucketFile *bp = get_bucket(bucket);
+    BucketFilePtr bp = get_bucket(bucket);
     int pos = bp->search(key, val);
     if ( pos == -1 )
     {
@@ -173,7 +174,7 @@ bool DiskHashTable::insert(ucharptr_c key, ucharptr_c val)
 bool DiskHashTable::append(ucharptr_c key, ucharptr_c val)
 {
     std::string bucket = calc_bucket_id(key);
-    BucketFile *bp = get_bucket(bucket);
+    BucketFilePtr bp = get_bucket(bucket);
     bool ok = bp->append(key, val);
     if (ok)
         reccnt++;
@@ -183,20 +184,20 @@ bool DiskHashTable::append(ucharptr_c key, ucharptr_c val)
 bool DiskHashTable::update(ucharptr_c key, ucharptr_c val)
 {
     std::string bucket = calc_bucket_id(key);
-    BucketFile *bp = get_bucket(bucket);
+    BucketFilePtr bp = get_bucket(bucket);
     return bp->update(key, val);
 }
 
 // return the file pointer for the given bucket
 // Open the file pointer if it's not already
-BucketFile* DiskHashTable::get_bucket(const std::string& bucket)
+BucketFilePtr DiskHashTable::get_bucket(const std::string& bucket)
 {
     auto itr = fp_map.find(bucket);
     if (itr != fp_map.end())
         return itr->second;
 
     std::string fspec = get_bucket_fspec(bucket);
-    BucketFile* bf = new BucketFile(fspec, keylen, vallen);
+    BucketFilePtr bf = std::make_shared<BucketFile>(fspec, keylen, vallen);
     fp_map.insert({bucket, bf});
     return bf;
 }
@@ -220,4 +221,3 @@ std::string DiskHashTable::default_hasher(ucharptr_c key, size_t keylen)
     md5.finalize();
     return md5.hexdigest().substr(0,2);
 }
-

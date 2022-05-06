@@ -21,7 +21,10 @@
 #define BeginDummyScope {
 #define EndDummyScope }
 
-typedef uint64_t PositionHash;
+#include "uintwide_t.h"
+using uint128_t = math::wide_integer::uint128_t;
+typedef uint128_t PositionHash;
+// typedef uint64_t PositionHash;
 
 enum Side {
 	SIDE_WHITE = 0,
@@ -300,8 +303,12 @@ struct PositionPacked {
 	friend std::ostream& operator<<(std::ostream& os, const PositionPacked& pp);
 };
 
-#pragma pack()
+class Move;
+typedef std::shared_ptr<Move>   MovePtr;
+typedef std::vector<MovePtr>    MoveList;
+typedef MoveList::iterator      MoveListItr;
 
+#pragma pack()
 class Move {
 private:
 	MoveAction  _a;
@@ -313,6 +320,7 @@ public:
 	Move(MoveAction a, Pos from, Pos to);
 	void setAction(MoveAction a);
 	MoveAction getAction();
+    static MovePtr create(MoveAction a, Pos from, Pos to);
 
 	Pos getSource();
 	Pos getTarget();
@@ -323,8 +331,6 @@ public:
 	friend std::ostream& operator<<(std::ostream& os, const Move& p);
 };
 
-typedef std::vector<Move>   MoveList;
-typedef MoveList::iterator  MoveListItr;
 
 class GameInfo {
 public:
@@ -463,16 +469,16 @@ public:
 	void get_all_moves(Side onmove, MoveList& moves);
 	void get_moves(PiecePtr p, MoveList& moves);
 	void check_castle(Side side, MoveAction ma, MoveList& moves);
-	void gather_moves(PiecePtr p, std::vector<Dir> dirs, int range, std::vector<Move>& moves, bool occupied = false);
-	Move* check_square(PiecePtr p, Pos pos, bool occupied = false);
+	void gather_moves(PiecePtr p, std::vector<Dir> dirs, int range, MoveList& moves, bool occupied = false);
+	MovePtr check_square(PiecePtr p, Pos pos, bool occupied = false);
 
 	bool test_for_attack(Pos src, Side side);
 	bool check_ranges(Pos& src, std::vector<Dir>& dirs, int range, std::vector<PieceType>& pts, Side side);
 	bool check_piece(PiecePtr ptr, std::vector<PieceType>& trg, Side side);
 	PiecePtr search_not_empty(Pos& start, Dir dir, int range);
 
-	bool validate_move(Move mov, Side side);
-	bool process_move(Move mov, Side side);
+	bool validate_move(MovePtr mov, Side side);
+	bool process_move(MovePtr mov, Side side);
 	void move_piece(PiecePtr ptr, Pos pos);
 	PositionPacked get_packed();
 	Position& getPosition();
@@ -500,8 +506,8 @@ struct PosRefRec
     MovePacked move;
 
     PosRefRec() {}
-    PosRefRec(PositionHash from, Move m, PositionHash to)
-    : src(from), move{m.pack()}, trg(to)
+    PosRefRec(PositionHash from, MovePtr m, PositionHash to)
+    : src(from), move{m->pack()}, trg(to)
     {}
     PosRefRec(PositionHash from, MovePacked m, PositionHash to)
     : src(from), move{m}, trg(to)

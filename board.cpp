@@ -75,9 +75,10 @@ void Board::get_all_moves(Side side, MoveList& moves) {
         get_moves(p, moves);
 
     // remove any moves that put the king in check
-    for ( auto itr = moves.begin(); itr != moves.end();) {
+    for ( auto itr = moves.begin(); itr != moves.end();)
+    {
         if( !validate_move(*itr, side) )
-            moves.erase(itr);
+            itr = moves.erase(itr);
         else
             ++itr;
     }
@@ -94,9 +95,9 @@ void Board::get_moves(PiecePtr ptr, MoveList& moves) {
             Pos pos = ptr->getPos() + o;
             if( !pos.in_bounds() )
                 continue;
-            Move *mov = check_square(ptr, pos);
+            MovePtr mov = check_square(ptr, pos);
             if(mov != nullptr)
-                moves.push_back(*mov);
+                moves.push_back(mov);
         }
     } else if (pt == PT_PAWN || pt == PT_PAWN_OFF) {
         // pawns are filthy animals ...
@@ -124,15 +125,15 @@ void Board::get_moves(PiecePtr ptr, MoveList& moves) {
                 // As we're collecting all possible moves, record four
                 // promotions.
                 for( auto action : {MV_PROMOTION_QUEEN, MV_PROMOTION_BISHOP, MV_PROMOTION_KNIGHT, MV_PROMOTION_ROOK})
-                    moves.push_back(Move(action,  ppos, pos));
+                    moves.push_back(Move::create(action,  ppos, pos));
             } else {
-                moves.push_back(Move(MV_MOVE, ptr->getPos(), pos));
+                moves.push_back(Move::create(MV_MOVE, ptr->getPos(), pos));
             }
             // Case 2: Pawns on their home square may move two spaces.
             if ( (isBlack && ppos.rank() == R7) || ppos.rank() == R2) {
                 pos += offs[updn];
                 if( pos.in_bounds() && _p.is_square_empty(pos) )
-                    moves.push_back(Move(MV_MOVE, ppos, pos));
+                    moves.push_back(Move::create(MV_MOVE, ppos, pos));
             }
         }
         // Case 3: Pawns may capture directly to the UPL or UPR.
@@ -155,7 +156,7 @@ void Board::get_moves(PiecePtr ptr, MoveList& moves) {
                 // If so, then en passant is possible.
                 Pos epos(r_move, _p.gi().getEnPassantFile()); // pos of target square
                 if ( _p.is_square_empty(epos) )
-                    moves.push_back(Move(MV_EN_PASSANT, ppos, epos));
+                    moves.push_back(Move::create(MV_EN_PASSANT, ppos, epos));
             }
         }
     } else {
@@ -231,7 +232,7 @@ void Board::check_castle(Side side, MoveAction ma, MoveList& moves) {
         return;
 
     // get here if no reason found not to castle.
-    moves.push_back(Move(ma, Pos(rank,Fe), Pos(rank,(isQueenSide)?Fa:Fh)));
+    moves.push_back(Move::create(ma, Pos(rank,Fe), Pos(rank,(isQueenSide)?Fa:Fh)));
 }
 
 // Collect all valid moves for the given piece for the directions provided, but no more than
@@ -254,13 +255,13 @@ void Board::gather_moves(PiecePtr p, std::vector<Dir> dirs, int range, MoveList&
                 // walked off the edge of the board.
                 break;
             }
-            Move* mov = check_square(p, pos, occupied);
+            MovePtr mov = check_square(p, pos, occupied);
             if (mov == nullptr)
             {
                 // encountered a friendly piece
                 break;
             }
-            moves.push_back(*mov);
+            moves.push_back(mov);
             if (mov->getAction() == MV_CAPTURE)
             {
                 // captured an enemy piece - walk is over.
@@ -270,13 +271,15 @@ void Board::gather_moves(PiecePtr p, std::vector<Dir> dirs, int range, MoveList&
     }
 }
 
-Move* Board::check_square(PiecePtr p, Pos pos, bool occupied) {
+MovePtr Board::check_square(PiecePtr p, Pos pos, bool occupied) {
     PiecePtr other = _p.get(pos);
 
     if ( other->isEmpty() )
     {
         // empty square so record move and continue
-        return (occupied) ? nullptr : new Move(MV_MOVE, p->getPos(), pos);
+        if (occupied)
+            return nullptr;
+        return Move::create(MV_MOVE, p->getPos(), pos);
     }
 
     if( other->getSide() == p->getSide())
@@ -285,7 +288,7 @@ Move* Board::check_square(PiecePtr p, Pos pos, bool occupied) {
         return nullptr;
     }
 
-    return new Move(MV_CAPTURE, p->getPos(), pos);
+    return Move::create(MV_CAPTURE, p->getPos(), pos);
 }
 
 // to test for check, we have to travel all rays and knights moves
@@ -381,13 +384,13 @@ void Board::dump() {
 //
 // Return true if the move is valid, false otherwise.
 //
-bool Board::validate_move(Move mov, Side side) {
+bool Board::validate_move(MovePtr mov, Side side) {
 
     // by this time we've already validated that the move is technically
     // possible. The only question is whether making the move exposes the
     // king, which can only be done if the board is actually adjusted.
-    Pos      src   = mov.getSource();
-    Pos      trg   = mov.getTarget();
+    Pos      src   = mov->getSource();
+    Pos      trg   = mov->getTarget();
     PiecePtr piece = _p.get(src);
     PiecePtr other = _p.get(trg);
 
@@ -464,20 +467,20 @@ void Board::move_piece(PiecePtr ptr, Pos dst)
 
 // process the given move on the board.
 // return true if this is a pawn move
-bool Board::process_move(Move mov, Side side) {
+bool Board::process_move(MovePtr mov, Side side) {
     // Board *ret = new Board(*this);
-    PiecePtr   ptr = _p.get( mov.getSource() );
-    MoveAction ma  = mov.getAction();
+    PiecePtr   ptr  = _p.get( mov->getSource() );
+    MoveAction ma   = mov->getAction();
     bool isPawnMove = ptr->getType() == PT_PAWN || ptr->getType() == PT_PAWN_OFF;
 
-    switch(mov.getAction())
+    switch(ma)
     {
     case MV_CASTLE_KINGSIDE: {
         // mov.getSource() is the location of the king,
         // mov.getTarget() is the location of the rook
         // Move king to file g, rook to file f
         move_piece( ptr, ptr->getPos().withFile(Fg));
-        PiecePtr rook = _p.get( mov.getTarget() );
+        PiecePtr rook = _p.get( mov->getTarget() );
         move_piece( rook, rook->getPos().withFile(Ff));
         }
         break;
@@ -486,7 +489,7 @@ bool Board::process_move(Move mov, Side side) {
         // mov.getTarget() is the location of the rook
         // Move king to file c, rook to file d
         move_piece( ptr, ptr->getPos().withFile(Fc));
-        PiecePtr rook = _p.get( mov.getTarget().toByte() );
+        PiecePtr rook = _p.get( mov->getTarget().toByte() );
         move_piece( rook, rook->getPos().withFile(Fd));
         }
         break;
@@ -500,9 +503,9 @@ bool Board::process_move(Move mov, Side side) {
         [[fallthrough]];
     case MV_MOVE:
     case MV_CAPTURE:
-        move_piece( ptr, mov.getTarget());
+        move_piece( ptr, mov->getTarget());
         break;
-    case MV_EN_PASSANT: {
+    case MV_EN_PASSANT:
         // move the piece, but remove the pawn "passed by"
         //    a  b  c         a  b  c
         //   +--+--+--+      +--+--+--+
@@ -511,14 +514,13 @@ bool Board::process_move(Move mov, Side side) {
         // 4 | P|xp|  |    3 |  | p|  |
         //   +--+--+--+      +--+--+--+
         //
-        move_piece( ptr, mov.getTarget() );
+        move_piece( ptr, mov->getTarget() );
         // the pawn 'passed by' will be one square toward on side
         Dir d = (side == SIDE_BLACK) ? UP : DN;
-        Pos p = mov.getTarget() + offs[d];
+        Pos p = mov->getTarget() + offs[d];
         // remove the piece from the board, but prob. need to record this somewhere.
         _p.set( p, Piece::EMPTY );
         _p.gi().decPieceCnt();
-        }
         break;
     }
     return isPawnMove;

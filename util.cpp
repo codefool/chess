@@ -167,6 +167,11 @@ std::ostream& operator<<(std::ostream& os, const Pos& p) {
 	return os;
 }
 
+MovePtr Move::create(MoveAction a, Pos from, Pos to)
+{
+    return std::make_shared<Move>(a, from, to);
+}
+
 // the idea will be to display the move in alebraic notation [38]
 std::ostream& operator<<(std::ostream& os, const Move& m) {
 	os << static_cast<int>(m._a) << ':';

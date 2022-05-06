@@ -62,10 +62,11 @@ int main()
 
     std::mt19937_64 gen(0xc0def001c0def001ULL);
     std::uniform_int_distribution<uint64_t> dis;
+    std::stringstream ss;
     for(int i = 1; i <= 64*34; i++)
     {
-        printf("0x%016lx, ", dis(gen));
-        if ((i%8) == 0)
+        printf("\"0x%016lx%016lx\", ", dis(gen), dis(gen));
+        if ((i%4) == 0)
             printf("\n");
     }
     return 0;

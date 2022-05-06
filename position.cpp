@@ -1,7 +1,7 @@
 #include <cctype>
 #include <sstream>
 #include "dreid.h"
-#include "zobrist.h"
+#include "zobrist_128.h"
 
 PosInfo::PosInfo()
 : id(0),
