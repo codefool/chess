@@ -3,6 +3,8 @@
 #include "dreid.h"
 #include "zobrist.h"
 
+namespace dreid {
+
 PosInfo::PosInfo()
 : id(0),
   parent(0),
@@ -371,3 +373,5 @@ Position Position::parse_fen_string(std::string fen)
 
     return pos;
 }
+
+} // namespace dreid

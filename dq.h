@@ -27,6 +27,8 @@
 #include <list>
 #include <mutex>
 
+namespace dreid {
+
 typedef uint32_t        dq_block_id_t;
 typedef uint32_t        dq_rec_no_t;
 typedef unsigned char * dq_data_t;
@@ -114,3 +116,4 @@ private:
     void read_index();
 };
 
+} // namespace dreid

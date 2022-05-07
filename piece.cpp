@@ -7,6 +7,8 @@
 //
 #include "dreid.h"
 
+namespace dreid {
+
 std::map<PieceType, const char *> Piece::s_n = {
 	{ PT_EMPTY,    ".." },
 	{ PT_KING,     "Kk" },
@@ -106,3 +108,5 @@ PiecePtr Piece::create(PieceType pt, Side s)
 }
 
 PiecePtr Piece::EMPTY = Piece::create(PT_EMPTY, SIDE_WHITE);
+
+} // namespace dreid

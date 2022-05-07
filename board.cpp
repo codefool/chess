@@ -12,6 +12,8 @@
 
 #include "dreid.h"
 
+namespace dreid {
+
 // these must be specified in the same order as
 // enum Dir
 Offset offs[] = {
@@ -536,3 +538,5 @@ Position& Board::getPosition()
 {
     return _p;
 }
+
+} // namespace dreid

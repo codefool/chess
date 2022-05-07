@@ -11,6 +11,8 @@
 
 #include "worker.h"
 
+namespace dreid {
+
 #pragma pack(1)
 
 struct TierStats
@@ -342,3 +344,5 @@ void worker(int level)
     ss << std::this_thread::get_id() << " stopping\n";
     std::cout << ss.str();
 }
+
+} // namespace dreid

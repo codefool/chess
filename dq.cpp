@@ -1,5 +1,7 @@
 #include "dq.h"
 
+namespace dreid {
+
 const dq_rec_no_t MAX_BLOCK_SIZE = 1024*1024*256;   // 256 MiB
 const char * dq_naught = "\0";
 
@@ -202,3 +204,5 @@ void DiskQueue::read_index()
     }
     _idx.close();
 }
+
+} // namespace dreid

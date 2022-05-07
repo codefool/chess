@@ -37,6 +37,8 @@
 
 #include "dreid.h"
 
+namespace dreid {
+
 const uint64_t zob_pos_table[13][64] =
 {   // Fa               Fb                  Fc                  Fd                  Fe                  Ff                  Fg                  Fh
     // White King
@@ -222,3 +224,5 @@ PositionHash Position::zobrist_hash()
     }
     return hash;
 }
+
+} // namespace dreid
