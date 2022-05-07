@@ -117,18 +117,18 @@ void checkZobristCollision(const PositionRec& lhs, const PositionRec& rhs)
 bool stop = false;    // global halt flag
 
 void ctrl_c_handler(int s) {
-  stop = true;
+    stop = true;
 }
 
 void set_stop_handler()
 {
-  struct sigaction sigIntHandler;
+    struct sigaction sigIntHandler;
 
-  sigIntHandler.sa_handler = ctrl_c_handler;
-  sigemptyset(&sigIntHandler.sa_mask);
-  sigIntHandler.sa_flags = 0;
+    sigIntHandler.sa_handler = ctrl_c_handler;
+    sigemptyset(&sigIntHandler.sa_mask);
+    sigIntHandler.sa_flags = 0;
 
-  sigaction(SIGINT, &sigIntHandler, NULL);
+    sigaction(SIGINT, &sigIntHandler, NULL);
 }
 
 void insert_unresolved(PositionPacked& pp, PosInfo& pi)
@@ -249,7 +249,7 @@ void worker(int level)
         else
         {
             short distance = prBase.pi.distance + 1;
-            for (Move mv : moves)
+            for (MovePtr mv : moves)
             {
                 Board brdPrime(prBase);
                 bool isPawnMove = brdPrime.process_move(mv, brdPrime.getPosition().gi().getOnMove());
@@ -257,7 +257,7 @@ void worker(int level)
                 brdPrime.getPosition().gi().toggleOnMove();
                 PositionRec prPrime{
                     brdPrime.getPosition(),
-                    PosInfo(brdPrime.getPosition().zobrist_hash(), prBase.pi, mv.pack())
+                    PosInfo(brdPrime.getPosition().zobrist_hash(), prBase.pi, mv->pack())
                 };
                 prPrime.pi.distance = distance;
                 PositionRec prFound;

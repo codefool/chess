@@ -20,15 +20,17 @@
 #include "dreid.h"
 #include "md5.h"
 
-typedef unsigned char * ucharptr;
+typedef unsigned char   uchar;
+typedef uchar         * ucharptr;
 typedef const ucharptr  ucharptr_c;
+typedef std::shared_ptr<uchar[]> BuffPtr;
 
 typedef std::string (*dht_bucket_id_func)(ucharptr_c, size_t);
 
 struct BucketFile
 {
     static const char *p_naught;
-    static std::map<size_t, std::shared_ptr<unsigned char>> buff_map;
+    static std::map<size_t, BuffPtr> buff_map;
     std::mutex  _mtx;
     std::FILE*  _fp;
     std::string _fspec;
@@ -43,20 +45,22 @@ struct BucketFile
     bool  update(ucharptr_c key, ucharptr_c val = nullptr);
 
     size_t seek();
-    std::shared_ptr<unsigned char> get_file_buff();
+    BuffPtr get_file_buff();
 };
+
+typedef std::shared_ptr<BucketFile> BucketFilePtr;
 
 class DiskHashTable
 {
 private:
-    std::map<std::string, BucketFile*> fp_map;
-    size_t                             keylen;
-    size_t                             vallen;
-    size_t                             reclen;
-    std::string                        path;
-    std::string                        name;
-    size_t                             reccnt;
-    dht_bucket_id_func                 buckfunc;
+    std::map<std::string, BucketFilePtr> fp_map;
+    size_t             keylen;
+    size_t             vallen;
+    size_t             reclen;
+    std::string        path;
+    std::string        name;
+    size_t             reccnt;
+    dht_bucket_id_func buckfunc;
 
 public:
     DiskHashTable();
@@ -69,7 +73,7 @@ public:
         int                level,
         size_t             key_len,
         size_t             val_len = 0,
-        dht_bucket_id_func bucket_func = nullptr);
+        dht_bucket_id_func bucket_func = default_hasher);
 
     size_t size() const {return reccnt;}
     bool search(ucharptr_c key, ucharptr val = nullptr);
@@ -81,7 +85,7 @@ public:
 
 private:
     std::string calc_bucket_id(ucharptr_c key);
-    BucketFile* get_bucket(const std::string& bucket);
+    BucketFilePtr get_bucket(const std::string& bucket);
     std::string get_bucket_fspec(const std::string& bucket);
 
     static std::string default_hasher(ucharptr_c key, size_t keylen);
