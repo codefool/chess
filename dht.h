@@ -20,6 +20,8 @@
 #include "dreid.h"
 #include "md5.h"
 
+namespace dreid {
+
 typedef unsigned char   uchar;
 typedef uchar         * ucharptr;
 typedef const ucharptr  ucharptr_c;
@@ -91,5 +93,4 @@ private:
     static std::string default_hasher(ucharptr_c key, size_t keylen);
 };
 
-
-
+} // namespace dreid

@@ -8,6 +8,8 @@
 
 #include "dreid.h"
 
+namespace dreid {
+
 void usage()
 {
     std::cerr << "FEN utility\n"
@@ -76,3 +78,5 @@ int main(int argc, char **argv)
     }
     return 0;
 }
+
+} // namespace dreid

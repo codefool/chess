@@ -1,6 +1,8 @@
 #include "dht.h"
 #include "md5.h"
 
+namespace dreid {
+
 #define TABLE_BUFF_SIZE 1024*1024
 
 const char *BucketFile::p_naught = "\0";
@@ -221,3 +223,4 @@ std::string DiskHashTable::default_hasher(ucharptr_c key, size_t keylen)
     return md5.hexdigest().substr(0,2);
 }
 
+} // namespace dreid

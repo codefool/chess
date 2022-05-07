@@ -9,6 +9,8 @@
 
 #include "dreid.h"
 
+namespace dreid {
+
 GameInfoPacked::GameInfoPacked(uint32_t v)
 : i{v}
 {}
@@ -283,3 +285,5 @@ std::ostream& operator<<(std::ostream& os, const PositionPacked& pp)
 	os.width(owid);
 	return os;
 }
+
+} // namespace dreid

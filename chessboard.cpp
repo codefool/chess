@@ -125,10 +125,10 @@ unsigned long long collisions = 0ULL;
 int main() {
     std::string workfilepath(WORK_FILE_PATH);
     std::string fspec = workfilepath + "/run_specs.dat";
-    load_stats_file(CLEVEL, fspec);
-    open_tables(CLEVEL);
+    dreid::load_stats_file(CLEVEL, fspec);
+    dreid::open_tables(CLEVEL);
 
-    set_stop_handler();
+    dreid::set_stop_handler();
 
     std::vector<std::thread> threads;
 
@@ -143,7 +143,7 @@ int main() {
     std::cout << ss.str();
 
     for (int i = 0; i < THREAD_COUNT; i++) {
-        threads.push_back(std::thread(worker, CLEVEL));
+        threads.push_back(std::thread(dreid::worker, CLEVEL));
     }
 
   // also use this main thread
@@ -153,7 +153,7 @@ int main() {
         threads[i].join();
     }
 
-    save_stats_file(fspec);
+    dreid::save_stats_file(fspec);
 
     time_t tend = time(0);
     double hang = std::difftime(tend, tstart);

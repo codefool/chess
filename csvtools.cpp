@@ -1,5 +1,7 @@
 #include "csvtools.h"
 
+namespace dreid {
+
 bool get_token(std::istringstream& line, std::string& tok)
 {
     if (std::getline(line, tok, ','))
@@ -124,3 +126,5 @@ uint64_t csv_cmp(std::string filename, PosMap& lhs)
    }
    return dupe_cnt;
 }
+
+} // namespace dreid

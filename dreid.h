@@ -18,6 +18,8 @@
 #include "config.h"
 #include "dht.h"
 
+namespace dreid {
+
 #define BeginDummyScope {
 #define EndDummyScope }
 
@@ -514,3 +516,5 @@ typedef std::vector<PosRef> PosRefMap;
 typedef PosRefMap *PosRefMapPtr;
 
 #pragma pack()
+
+} // namespace dreid

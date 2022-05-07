@@ -1,5 +1,7 @@
 #include "dreid.h"
 
+namespace dreid {
+
 GameInfoPacked::GameInfoPacked()
 : i{0}
 {
@@ -145,3 +147,5 @@ std::ostream& operator<<(std::ostream& os, const GameInfo& o) {
 
     return os;
 }
+
+} // namespace dreid

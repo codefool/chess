@@ -9,5 +9,9 @@
 
 #include "dreid.h"
 
+namespace dreid {
+
 int load_csv(std::string filename, PosMap& map);
 uint64_t csv_cmp(std::string filename, PosMap& lhs);
+
+} // namespace dreid
