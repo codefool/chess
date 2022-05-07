@@ -161,6 +161,11 @@ MovePacked Move::pack() {
 	return p;
 }
 
+MovePtr Move::create(MoveAction a, Pos from, Pos to)
+{
+    return std::make_shared<Move>(a, from, to);
+}
+
 std::ostream& operator<<(std::ostream& os, const Pos& p) {
 	os << g_file(p.f()) << g_rank(p.r());
 
