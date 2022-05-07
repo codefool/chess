@@ -64,16 +64,21 @@ bool GameInfo::hasCastleRight(CastleRight which) const
     return (castle_rights & which) != 0;
 }
 
-void GameInfo::setCastleRight(CastleRight which, bool state)
+void GameInfo::enableCastleRight(CastleRight which)
 {
-    if ( state )
-    {
-        castle_rights |= which;
-    }
-    else
-    {
-        castle_rights &= ~which;
-    }
+    castle_rights |= which;
+}
+
+void GameInfo::revokeCastleRight(CastleRight which)
+{
+    castle_rights &= ~which;
+}
+
+void GameInfo::revokeCastleRights(Side s, int which)
+{
+    if (s == SIDE_BLACK)
+        which <<= 2;
+    castle_rights &= ~which;
 }
 
 bool GameInfo::hasEnPassant() const

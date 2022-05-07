@@ -238,11 +238,11 @@ void Board::check_castle(Side side, MoveAction ma, MoveList& moves) {
 }
 
 // Collect all valid moves for the given piece for the directions provided, but no more than
-// range moves. If occupied is true, then the move is only valid iif the target square is
-// occuppied (this is for pawns. So, while non-pawn pieces can advance in a given direction
-// until/unless another piece is encountered, pawns can only advance in this concext iif the
-// target square is occupied by an opposing piece.)
-void Board::gather_moves(PiecePtr p, std::vector<Dir> dirs, int range, MoveList& moves, bool occupied) {
+// range moves. If isPawnCapture is true, then the move is only valid iif the target square is
+// occupied by an opposing piece. (this is for pawns. So, while non-pawn pieces can advance
+// in a given direction until/unless another piece is encountered, pawns can only advance in
+// this concext iif the target square is occupied by an opposing piece.)
+void Board::gather_moves(PiecePtr p, DirList& dirs, int range, MoveList& moves, bool isPawnCapture) {
     Side on_move = p->getSide();
     for (auto d : dirs)
     {
@@ -253,34 +253,31 @@ void Board::gather_moves(PiecePtr p, std::vector<Dir> dirs, int range, MoveList&
         {
             pos += o;
             if( !pos.in_bounds() )
-            {
-                // walked off the edge of the board.
-                break;
-            }
-            MovePtr mov = check_square(p, pos, occupied);
+                break; // walked off the edge of the board.
+
+            MovePtr mov = check_square(p, pos, isPawnCapture);
             if (mov == nullptr)
-            {
-                // encountered a friendly piece - walk is over
-                break;
-            }
+                break; // encountered a friendly piece - walk is over
+
             moves.push_back(mov);
             if (mov->getAction() == MV_CAPTURE)
-            {
-                // captured an enemy piece - walk is over.
-                break;
-            }
+                break; // captured an enemy piece - walk is over.
         }
     }
 }
 
-MovePtr Board::check_square(PiecePtr p, Pos pos, bool occupied) {
+MovePtr Board::check_square(PiecePtr p, Pos pos, bool isPawnCapture)
+{
     PiecePtr other = _p.get(pos);
 
     if ( other->isEmpty() )
     {
         // empty square so record move and continue
-        return (occupied) ? nullptr
-                          : Move::create(MV_MOVE, p->getPos(), pos);
+        // for isPawnCapture, the move is only valid if the space
+        // is occupied by an opposing piece. So, if it's empty
+        // return nullptr. Otherwise return the move.
+        return (isPawnCapture) ? nullptr
+                               : Move::create(MV_MOVE, p->getPos(), pos);
     }
 
     if( other->getSide() == p->getSide())
@@ -301,36 +298,40 @@ MovePtr Board::check_square(PiecePtr p, Pos pos, bool occupied) {
 // For knight can only be a knight.
 bool Board::test_for_attack(Pos src, Side side) {
     // Step 1. Check axes for rooks or queens.
-    std::vector<Dir> dirs = {UP,  DN,LFT,RGT};
-    std::vector<PieceType> pts = {PT_ROOK,  PT_QUEEN};
-    bool ret = check_ranges( src, dirs, 7, pts, side);
-    if (!ret) {
+    DirList       dirs = { UP, DN,LFT,RGT };
+    PieceTypeList pts  = { PT_ROOK, PT_QUEEN };
+    bool ret = check_ranges( src, dirs, 7, pts, side );
+    if ( !ret )
+    {
         // Step 2. Check diags for bishops or queens.
         dirs.assign({UPL,UPR,DNL,DNR});
         pts .assign({PT_BISHOP, PT_QUEEN});
         ret = check_ranges(src, dirs, 7, pts, side);
     }
-    if (!ret) {
+    if ( !ret )
+    {
         // Step 3. Check for attacking knights
-        pts.assign({PT_KNIGHT});
-        for(Offset o : kn_offs) {
+        pts.assign( {PT_KNIGHT} );
+        for(Offset o : kn_offs)
+        {
             Pos pos = src + o;
-            if( !pos.in_bounds())
+            if( !pos.in_bounds() )
                 continue;
             if ( check_piece(_p.get(pos), pts, side) )
                 return true;
         }
     }
-    if (!ret) {
+    if ( !ret )
+    {
         // Step 4. Check for pawn attacks.
         // if we're white, then pawns can be UPL and UPR
         // if we're black, then pawns can be DNL and DNR
-        pts.assign({PT_PAWN});
-        if(side == SIDE_WHITE)
-            dirs.assign({UPL,UPR});
+        pts.assign( {PT_PAWN} );
+        if( side == SIDE_WHITE )
+            dirs.assign( {UPL, UPR} );
         else
-            dirs.assign({DNL,DNR});
-        ret = check_ranges(src, dirs, 1, pts, side);
+            dirs.assign( {DNL, DNR} );
+        ret = check_ranges( src, dirs, 1, pts, side );
     }
 
     return ret;
@@ -338,8 +339,9 @@ bool Board::test_for_attack(Pos src, Side side) {
 
 // for each direection provided, walk in that direction until a target is encountered, or
 // the walker goes out of bounds
-bool Board::check_ranges(Pos& src, std::vector<Dir>& dirs, int range, std::vector<PieceType>& pts, Side side) {
-    for(Dir d : dirs) {
+bool Board::check_ranges(Pos& src, DirList& dirs, int range, PieceTypeList& pts, Side side) {
+    for(Dir d : dirs)
+    {
         PiecePtr pi = search_not_empty(src, d, range);
         if ( pi->isEmpty() )
             continue;
@@ -349,31 +351,37 @@ bool Board::check_ranges(Pos& src, std::vector<Dir>& dirs, int range, std::vecto
     return false;
 }
 
-bool Board::check_piece(PiecePtr ptr, std::vector<PieceType>& trg, Side side) {
+bool Board::check_piece(PiecePtr ptr, PieceTypeList& trg, Side side)
+{
     // 1. it's not a friendly piece, and
     // 2. it exists in the trg vector.
-    if (ptr->getSide() != side && std::find(trg.begin(), trg.end(), ptr->getType()) != trg.end())
+    if ( ptr->getSide() != side && std::find(trg.begin(), trg.end(), ptr->getType()) != trg.end() )
         return true;
     return false;
 }
 
-PiecePtr Board::search_not_empty(Pos& start, Dir dir, int range) {
-    Offset o = offs[dir];
-    Pos pos(start);
-    while( range-- ) {
+PiecePtr Board::search_not_empty( Pos& start, Dir dir, int range )
+{
+    Offset o = offs[ dir ];
+    Pos    pos( start );
+    while( range-- )
+    {
         pos += o;
         if ( !pos.in_bounds() )
             break;
-        if ( !_p.is_square_empty(pos) )
-            return _p.get(pos);
+        if ( !_p.is_square_empty( pos ) )
+            return _p.get( pos );
     }
     return Piece::EMPTY;
 }
 
-void Board::dump() {
-    for(int r = R8; r >= R1; r--) {
+void Board::dump()
+{
+    for( int r = R8; r >= R1; r-- )
+    {
         uint8_t rank = r << 3;
-        for(int f = Fa; f <= Fh; f++) {
+        for( int f = Fa; f <= Fh; f++ )
+        {
             std::cout << ' ' << _p.get(rank|f)->getPieceGlyph();
         }
         std::cout << std::endl;
@@ -385,19 +393,19 @@ void Board::dump() {
 //
 // Return true if the move is valid, false otherwise.
 //
-bool Board::validate_move(MovePtr mov, Side side) {
-
+bool Board::validate_move(MovePtr mov, Side side)
+{
     // by this time we've already validated that the move is technically
     // possible. The only question is whether making the move exposes the
     // king, which can only be done if the board is actually adjusted.
     Pos      src   = mov->getSource();
     Pos      trg   = mov->getTarget();
-    PiecePtr piece = _p.get(src);
-    PiecePtr other = _p.get(trg);
+    PiecePtr piece = _p.get( src );
+    PiecePtr other = _p.get( trg );
 
     // if the actual piece that is moving is the king, then use the
     // new position to test for check. Otherwise, use the saved position.
-    Pos king_pos = piece->isType( PT_KING ) ? trg : _p.get_king_pos(side);
+    Pos king_pos = piece->isType( PT_KING ) ? trg : _p.get_king_pos( side );
 
     _p.set( trg, piece );         // copy the source piece to the target square
     _p.set( src, Piece::EMPTY );  // vacate the source square
@@ -414,49 +422,38 @@ void Board::move_piece(PiecePtr ptr, Pos dst)
 {
     // first, see if we're capturing a piece. We know this if
     // destination is not empty.
-    if ( !_p.is_square_empty(dst) ) {
+    if ( !_p.is_square_empty( dst ) ) {
         _p.set( dst, Piece::EMPTY );    // remove piece from game
         _p.gi().decPieceCnt();          // update the piece count
     }
 
     // next, move the piece to the new square and vacate the old one
     Pos org = ptr->getPos();
-    _p.set(org, Piece::EMPTY);
-    _p.set(dst, ptr);
+    _p.set( org, Piece::EMPTY );
+    _p.set( dst, ptr );
 
     // finally, check for key piece moves and update state
     switch(ptr->getType())
     {
     case PT_KING:
-        // king moved - casteling is no longer possible
-        if (ptr->getSide() == SIDE_WHITE) {
-            _p.gi().setCastleRight(CR_WHITE_KING_SIDE ,false);
-            _p.gi().setCastleRight(CR_WHITE_QUEEN_SIDE, false);
-        } else {
-            _p.gi().setCastleRight(CR_BLACK_KING_SIDE, false);
-            _p.gi().setCastleRight(CR_BLACK_QUEEN_SIDE, false);
-        }
+        // king moved - castling is no longer possible for that side
+        _p.gi().revokeCastleRights( ptr->getSide(), CR_KING_SIDE | CR_QUEEN_SIDE );
         break;
     case PT_ROOK:
-        // rook moved - casteling to that side is no longer possible
-        if (ptr->getSide() == SIDE_WHITE) {
-            if( org == POS_WQR )
-                _p.gi().setCastleRight(CR_WHITE_QUEEN_SIDE, false);
-            else if( org == POS_WKR)
-                _p.gi().setCastleRight(CR_WHITE_KING_SIDE, false);
-        } else if( org == POS_BQR)
-            _p.gi().setCastleRight(CR_BLACK_QUEEN_SIDE, false);
-        else if( org == POS_BKR)
-            _p.gi().setCastleRight(CR_BLACK_KING_SIDE, false);
+        // rook moved - castling to that side is no longer possible
+        if ( mapRookMoves.contains( org.toByte() ) )
+            _p.gi().revokeCastleRight( mapRookMoves[ org.toByte() ] );
         break;
-    case PT_PAWN: {
+    case PT_PAWN:
+    {
         // in this case, if the source file and target file differ,
         // then the pawn moved off it's home file. Change it's
         // piece type to reflect this
-        if (org.file() != dst.file()) {
-            ptr->setType(PT_PAWN_OFF);
-        } else if ( org.rank() == ((ptr->getSide())?R7:R2) &&
-                    dst.rank() == ((ptr->getSide())?R5:R4)
+        if (org.file() != dst.file())
+        {
+            ptr->setType( PT_PAWN_OFF );
+        } else if ( org.rank() == ( ( ptr->getSide() ) ? R7 : R2 ) &&
+                    dst.rank() == ( ( ptr->getSide() ) ? R5 : R4 )
         )
             // pawn moved from it's home rank forward two spaces
             // this make it subject to en passant
@@ -469,7 +466,6 @@ void Board::move_piece(PiecePtr ptr, Pos dst)
 // process the given move on the board.
 // return true if this is a pawn move
 bool Board::process_move(MovePtr mov, Side side) {
-    // Board *ret = new Board(*this);
     PiecePtr   ptr = _p.get( mov->getSource() );
     MoveAction ma  = mov->getAction();
     bool isPawnMove = ptr->getType() == PT_PAWN || ptr->getType() == PT_PAWN_OFF;

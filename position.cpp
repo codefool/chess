@@ -193,9 +193,9 @@ Pos Position::get_king_pos(Side side) {
     return _k[side];
 }
 
-std::vector<PiecePtr> Position::get_pieces(Side side)
+PiecePtrList Position::get_pieces(Side side)
 {
-    std::vector<PiecePtr> ret;
+    PiecePtrList ret;
     for( int i(0); i < 64; i++)
     {
         auto p = _b[i];

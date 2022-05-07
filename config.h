@@ -1,6 +1,6 @@
 #pragma once
 
-#define THREAD_COUNT 12
+#define THREAD_COUNT 1
 
 #define WORK_FILE_PATH "/home/codefool/work/data/"
 

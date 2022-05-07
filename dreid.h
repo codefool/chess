@@ -92,6 +92,8 @@ enum PieceType {
 	PT_PAWN_OFF  = 0x07   // off its own file
 };
 
+typedef std::vector<PieceType> PieceTypeList;
+
 #define	SIDE_MASK  0x08
 #define	BLACK_MASK 0x08
 #define	PIECE_MASK 0x07
@@ -129,6 +131,9 @@ enum MoveAction {
 
 enum CastleRight
 {
+    CR_KING_SIDE        = 0x01,
+    CR_QUEEN_SIDE       = 0x02,
+    //
     CR_WHITE_KING_SIDE  = 0x01,
     CR_WHITE_QUEEN_SIDE = 0x02,
     CR_BLACK_KING_SIDE  = 0x04,
@@ -177,16 +182,21 @@ public:
 	friend std::ostream& operator<<(std::ostream& os, const Pos& p);
 };
 
+typedef std::vector<Dir> DirList;
+
 extern const Pos POS_WQR;
 extern const Pos POS_WKR;
 extern const Pos POS_BQR;
 extern const Pos POS_BKR;
+
+extern std::map<char, CastleRight> mapRookMoves;
 
 #define g_rank(r) static_cast<char>('1' + r)
 #define g_file(f) static_cast<char>('a' + f)
 
 class Piece;
 typedef std::shared_ptr<Piece> PiecePtr;
+typedef std::vector<PiecePtr>  PiecePtrList;
 
 class Piece
 {
@@ -358,7 +368,9 @@ public:
     uint8_t getCastleRights() const;
 	bool hasCastleRights() const;
     bool hasCastleRight(CastleRight which) const;
-    void setCastleRight(CastleRight which, bool state);
+    void enableCastleRight(CastleRight which);
+    void revokeCastleRight(CastleRight which);
+    void revokeCastleRights(Side s, int which);
 	bool hasEnPassant() const;
 	File getEnPassantFile() const;
 	void setEnPassantFile(EnPassantFile ep);
@@ -413,7 +425,7 @@ public:
     PiecePtr get(Pos pos) const;
 
     Pos get_king_pos(Side side);
-    std::vector<PiecePtr> get_pieces(Side side);
+    PiecePtrList get_pieces(Side side);
 
     const bool is_square_empty(Pos pos) const;
 
@@ -467,12 +479,12 @@ public:
 	void get_all_moves(Side onmove, MoveList& moves);
 	void get_moves(PiecePtr p, MoveList& moves);
 	void check_castle(Side side, MoveAction ma, MoveList& moves);
-	void gather_moves(PiecePtr p, std::vector<Dir> dirs, int range, MoveList& moves, bool occupied = false);
-	MovePtr check_square(PiecePtr p, Pos pos, bool occupied = false);
+	void gather_moves(PiecePtr p, DirList& dirs, int range, MoveList& moves, bool isPawnCapture = false);
+	MovePtr check_square(PiecePtr p, Pos pos, bool isPawnCapture = false);
 
 	bool test_for_attack(Pos src, Side side);
-	bool check_ranges(Pos& src, std::vector<Dir>& dirs, int range, std::vector<PieceType>& pts, Side side);
-	bool check_piece(PiecePtr ptr, std::vector<PieceType>& trg, Side side);
+	bool check_ranges(Pos& src, DirList& dirs, int range, PieceTypeList& pts, Side side);
+	bool check_piece(PiecePtr ptr, PieceTypeList& trg, Side side);
 	PiecePtr search_not_empty(Pos& start, Dir dir, int range);
 
 	bool validate_move(MovePtr mov, Side side);
@@ -512,8 +524,8 @@ struct PosRefRec
     {}
 };
 
-typedef std::vector<PosRef> PosRefMap;
-typedef PosRefMap *PosRefMapPtr;
+typedef std::vector<PosRef>    PosRefMap;
+typedef PosRefMap             *PosRefMapPtr;
 
 #pragma pack()
 

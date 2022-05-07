@@ -43,6 +43,14 @@ const Pos POS_WKR(R1,Fh);
 const Pos POS_BQR(R8,Fa);
 const Pos POS_BKR(R8,Fh);
 
+std::map<char, CastleRight> mapRookMoves = {
+    {POS_WQR.toByte(), CR_WHITE_QUEEN_SIDE },
+    {POS_WKR.toByte(), CR_WHITE_KING_SIDE  },
+    {POS_BQR.toByte(), CR_BLACK_QUEEN_SIDE },
+    {POS_BKR.toByte(), CR_BLACK_KING_SIDE  },
+};
+
+
 Pos::Pos() {}
 
 Pos::Pos(short p)

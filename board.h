@@ -33,12 +33,12 @@ public:
 	void get_all_moves(Side onmove, MoveList& moves);
 	void get_moves(PiecePtr p, MoveList& moves);
 	void check_castle(Side side, MoveAction ma, MoveList& moves);
-	void gather_moves(PiecePtr p, std::vector<Dir> dirs, int range, std::vector<Move>& moves, bool occupied = false);
+	void gather_moves(PiecePtr p, DirList& dirs, int range, MoveList& moves, bool occupied = false);
 	Move* check_square(PiecePtr p, Pos pos, bool occupied = false);
 
 	bool test_for_attack(Pos src, Side side);
-	bool check_ranges(Pos& src, std::vector<Dir>& dirs, int range, std::vector<PieceType>& pts, Side side);
-	bool check_piece(PiecePtr ptr, std::vector<PieceType>& trg, Side side);
+	bool check_ranges(Pos& src, DirList& dirs, int range, PieceTypeList& pts, Side side);
+	bool check_piece(PiecePtr ptr, PieceTypeList& trg, Side side);
 	PiecePtr search_not_empty(Pos& start, Dir dir, int range);
 
 	bool validate_move(Move mov, Side side);
