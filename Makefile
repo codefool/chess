@@ -50,6 +50,6 @@ fenutil.o : fenutil.cpp $(HEADERS)
 gameinfo.o: gameinfo.cpp $(HEADERS)
 md5.o : md5.cpp md5.h
 piece.o: piece.cpp $(HEADERS)
-position.o : position.cpp $(HEADERS)
+position.o : position.cpp zobrist.h $(HEADERS)
 util.o: util.cpp $(HEADERS)
 worker.o : worker.cpp $(HEADERS)
