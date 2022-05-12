@@ -12,8 +12,8 @@
 #include <memory>
 
 #include "dreid.h"
-#include "position.h"
-#include "gameinfo.h"
+// #include "position.h"
+// #include "gameinfo.h"
 
 class Board {
 private:

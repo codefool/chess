@@ -20,7 +20,6 @@ struct TierStats
     short    distance; // the tier level
     uint64_t move_cnt; // number of legal moves
     uint64_t coll_cnt; // number of position collisions
-    uint64_t zobr_cnt; // number of zobrist collisions
     uint64_t capt_cnt; // number of capture positions
 };
 
@@ -30,7 +29,6 @@ struct Stats
     uint64_t          col_cnt;
     uint64_t          initpos_cnt;
     uint64_t          capt_cnt;
-    uint64_t          zob_coll_cnt;
     int               cm_cnt;
     int               sm_cnt;
     short             tier_cnt;
@@ -80,6 +78,14 @@ void save_stats_file(std::string fspec)
     print_stats();
 }
 
+std::mutex mtx_id;
+PositionId g_id_cnt = 0;
+
+PositionId get_position_id(int level)
+{
+    std::lock_guard<std::mutex> lock(mtx_id);
+    return PositionIdPacked(level, ++g_id_cnt).get();
+}
 
 std::mutex unresolved_mtx;
 
@@ -92,29 +98,6 @@ DiskQueue dq_unr0(WORK_FILE_PATH, "unresolved0", sizeof( PositionRec ));
 DiskQueue dq_unr1(WORK_FILE_PATH, "unresolved1", sizeof( PositionRec ));
 DiskQueue *dq_get = &dq_unr0;
 DiskQueue *dq_put = &dq_unr1;
-
-struct ZobristCollision
-{
-    PositionRec l;
-    PositionRec r;
-};
-
-DiskQueue dq_zobrist_coll(WORK_FILE_PATH, "zobrist_coll", sizeof(ZobristCollision));
-
-// return true if the two positions really are equal
-void checkZobristCollision(const PositionRec& lhs, const PositionRec& rhs)
-{
-    if ( lhs.pp != rhs.pp )
-    {
-        // Position lpos(lhs.pp);
-        // Position rpos(rhs.pp);
-        // PositionHash lhash = lpos.zobrist_hash();
-        // PositionHash rhash = rpos.zobrist_hash();
-        ZobristCollision zc{lhs,rhs};
-        dq_zobrist_coll.push((ucharptr_c)&zc);
-        stats.zob_coll_cnt++;
-    }
-}
 
 bool stop = false;    // global halt flag
 
@@ -142,9 +125,9 @@ void insert_unresolved(PositionPacked& pp, PosInfo& pi)
 
 bool open_tables(int level)
 {
-    dht_resolved    .open(WORK_FILE_PATH, "resolved", level, sizeof(PositionHash), sizeof(PositionRec));
+    dht_resolved    .open(WORK_FILE_PATH, "resolved", level, sizeof(PositionPacked), sizeof(PosInfo));
     dht_resolved_ref.open(WORK_FILE_PATH, "resolved_ref", level, sizeof(PosRefRec));
-    dht_pawn_n1     .open(WORK_FILE_PATH, "pawn_init", level - 1 , sizeof(PositionHash), sizeof(PositionRec));
+    dht_pawn_n1     .open(WORK_FILE_PATH, "pawn_init", level - 1 , sizeof(PositionPacked), sizeof(PosInfo));
     dht_pawn_n1_ref .open(WORK_FILE_PATH, "pawn_init_ref", level - 1, sizeof(PosRefRec));
 
     if (dq_get->size() == 0 && dq_put->size() == 0)
@@ -152,7 +135,7 @@ bool open_tables(int level)
         // start from the beginning
         Position pos;
         pos.init();
-        PositionRec pr{pos.pack(), PosInfo(pos.zobrist_hash(), PosInfo(), Move().pack())};
+        PositionRec pr{pos.pack(), PosInfo(get_position_id(level), PosInfo(), Move().pack())};
         dq_get->push((const dq_data_t)&pr);
     }
     return true;
@@ -168,17 +151,16 @@ bool get_unresolved(PositionRec& pr)
             std::unique_lock<std::mutex> lock(unresolved_mtx);
             if ( dq_get->pop( (dq_data_t)&pr ))
             {
-                PositionRec ppr;
-                if (dht_resolved.search((ucharptr_c)&pr.pi.id, (ucharptr_c)&ppr))
+                PosInfo ppi;
+                if (dht_resolved.search((ucharptr_c)&pr.pp, (ucharptr_c)&ppi))
                 {
-                    // we need to verify that the record is - in fact- identical
-                    PosRefRec prr(pr.pi.parent, pr.pi.move, ppr.pi.id);
+                    PosRefRec prr(pr.pi.parent, pr.pi.move, ppi.id);
                     dht_resolved_ref.append((ucharptr_c)&prr);
                     stats.col_cnt++;
                     retry--;
                     continue;
                 }
-                dht_resolved.insert((ucharptr_c)&pr.pi.id, (ucharptr_c)&pr);
+                dht_resolved.insert((ucharptr_c)&pr.pp, (ucharptr_c)&pr.pi);
                 return true;
             }
             else
@@ -223,7 +205,7 @@ void worker(int level)
 
         retry_cnt = 0;
 
-        Board sub_board(prBase);
+        Board sub_board(prBase.pp);
         Side  s = sub_board.gi().getOnMove();
 
         moves.clear();
@@ -253,16 +235,17 @@ void worker(int level)
             short distance = prBase.pi.distance + 1;
             for (MovePtr mv : moves)
             {
-                Board brdPrime(prBase);
+                Board brdPrime(prBase.pp);
                 bool isPawnMove = brdPrime.process_move(mv, brdPrime.getPosition().gi().getOnMove());
                 // we need to flip the on-move
                 brdPrime.getPosition().gi().toggleOnMove();
-                PositionRec prPrime{
+                PositionRec prPrime
+                {
                     brdPrime.getPosition(),
-                    PosInfo(brdPrime.getPosition().zobrist_hash(), prBase.pi, mv->pack())
+                    PosInfo(get_position_id(level), prBase.pi, mv->pack())
                 };
                 prPrime.pi.distance = distance;
-                PositionRec prFound;
+                PosInfo piFound;
 
                 // 50-move rule: drawn game if no pawn move or capture in the last 50 moves.
                 // hence, if this is a pawn move or a capture, reset the counter.
@@ -273,31 +256,28 @@ void worker(int level)
                 if (brdPrime.gi().getPieceCnt() == level-1)
                 {
                     stats.capt_cnt++;
-                    if ( dht_pawn_n1.search( (ucharptr_c)&prPrime.pi.id, (ucharptr)&prFound ) )
+                    if ( dht_pawn_n1.search( (ucharptr_c)&prPrime.pp, (ucharptr)&piFound ) )
                     {
-                        checkZobristCollision(prPrime, prFound);
-                        PosRefRec prr( prBase.pi.id, mv, prFound.pi.id );
+                        PosRefRec prr( prBase.pi.id, mv, piFound.id );
                         dht_pawn_n1_ref.append((ucharptr_c)&prr);
                     }
                     else
                     {
-                        dht_pawn_n1.append( (ucharptr_c)&prPrime.pi.id, (ucharptr_c)&prPrime );
+                        dht_pawn_n1.append( (ucharptr_c)&prPrime.pp, (ucharptr_c)&prPrime.pi );
                     }
                     nsub1_cnt++;
                 }
                 else if(brdPrime.gi().getPieceCnt() == level)
                 {
-                    if ( dht_resolved.search( (ucharptr_c)&prPrime.pi.id, (ucharptr_c)&prFound ) )
+                    if ( dht_resolved.search( (ucharptr_c)&prPrime.pp, (ucharptr_c)&piFound ) )
                     {
-                        checkZobristCollision(prPrime, prFound);
-                        PosRefRec prr(prBase.pi.id, mv, prFound.pi.id);
+                        PosRefRec prr(prBase.pi.id, mv, piFound.id);
                         dht_resolved_ref.append((ucharptr_c)&prr);
                         stats.col_cnt++;
                         coll_cnt++;
                     }
                     else
                     {
-                        std::lock_guard<std::mutex> lock(unresolved_mtx);
                         dq_put->push((const dq_data_t)&prPrime);
                     }
                 }
@@ -312,7 +292,7 @@ void worker(int level)
             }   // end for()
         }
 
-        dht_resolved.update((ucharptr_c)&prBase.pi.id, (ucharptr)&prBase);
+        dht_resolved.update((ucharptr_c)&prBase.pp, (ucharptr)&prBase.pi);
         // std::cout << "base,parent,mov/p/c/5/1,move,dist,coll_cnt,init_cnt,res_cnt,get,put,unr1,fifty,FEN\n";
         ss.str(std::string());
         ss.flags(std::ios::hex);
@@ -328,7 +308,6 @@ void worker(int level)
             << ',' << prBase.pi.distance
             << ',' << stats.capt_cnt
             << ',' << dht_resolved.size()
-            << ',' << dq_zobrist_coll.size()
             // << std::flush;
         // ss.width(2);
             << ',' << std::setw(2) << moves.size()

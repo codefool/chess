@@ -19,11 +19,14 @@ bang0 : bang0.o $(OBJECTS) $(HEADERS)
 bang1 : bang1.o $(OBJECTS) $(HEADERS)
 	$(CC) $(CFLAGS) bang1.o $(OBJECTS) $(LIBS) -o bang1
 
-dht : dht_util.o dht.o md5.o util.o $(HEADERS)
-	$(CC) $(CFLAGS) dht_util.o dht.o md5.o util.o $(LIBS) -o dht
+dht : dht_util.o $(OBJECTS) $(HEADERS)
+	$(CC) $(CFLAGS) dht_util.o $(OBJECTS) $(LIBS) -o dht
 
 dq : dq_util.o dq.o $(HEADERS) clean_dq
 	$(CC) $(CFLAGS) dq_util.o dq.o $(LIBS) -o dq
+
+trav : util/trav.cpp $(HEADERS) $(OBJECTS)
+	$(CC) $(CFLAGS) util/trav.cpp $(OBJECTS) -o trav
 
 clean:
 	rm *.o

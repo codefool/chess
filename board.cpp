@@ -51,21 +51,18 @@ Board::Board(const Board& o)
 {
 }
 
-Board::Board(const PositionRec& p)
-: _pr(p)
+Board::Board(const Position& p)
+: _p(p)
+{}
+
+Board::Board(const PositionPacked& p)
 {
-    _p.unpack(p.pp);
+    _p.unpack(p);
 }
 
 GameInfo& Board::gi()
 {
     return _p.gi();
-}
-
-PositionRec& Board::pr()
-{
-    _pr.pp = _p.pack();
-    return _pr;
 }
 
 // collect all moves for the existing pieces for side onmove
@@ -109,7 +106,7 @@ void Board::get_moves(PiecePtr ptr, MoveList& moves) {
         // 3. Pawns may capture directly to the UPL or UPR.
         // 4. A pawn on its own fifth rank may capture a neighboring
         //    pawn en passant moving UPL or UPR iif the target pawn
-        //    moved forward two squares on its last on move.
+        //    moved forward two squares on its last on-move.
         // 5. A pawn that reaches the eighth rank is promoted.
         //
         // Directions are, of course, side dependent.
@@ -143,7 +140,7 @@ void Board::get_moves(PiecePtr ptr, MoveList& moves) {
         dirs.assign({updnl,updnr});
         gather_moves(ptr, dirs, 1, moves, true);
         // Case 4. A pawn on its own fifth rank may capture a neighboring pawn en passant moving
-        // UPL or UPR iif the target pawn moved forward two squares on its last on move.
+        // UPL or UPR iif the target pawn moved forward two squares on its last on-move.
 
         // First check if an en passant pawn exists
         // AND the pawn has not moved off its own rank (is not of type PT_PAWN_OFF)
@@ -512,7 +509,7 @@ bool Board::process_move(MovePtr mov, Side side) {
         //   +--+--+--+      +--+--+--+
         //
         move_piece( ptr, mov->getTarget() );
-        // the pawn 'passed by' will be one square toward on side
+        // the pawn 'passed by' will be one square toward on-move
         Dir d = (side == SIDE_BLACK) ? UP : DN;
         Pos p = mov->getTarget() + offs[d];
         // remove the piece from the board, but prob. need to record this somewhere.
@@ -526,8 +523,7 @@ bool Board::process_move(MovePtr mov, Side side) {
 
 PositionPacked Board::get_packed()
 {
-    _pr.pp = _p.pack();
-    return _pr.pp;
+    return _p.pack();
 }
 
 Position& Board::getPosition()

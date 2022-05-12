@@ -3,7 +3,7 @@
 
 namespace dreid {
 
-#define TABLE_BUFF_SIZE 1024*1024
+#define TABLE_BUFF_SIZE 1024*1024*4
 
 const char *BucketFile::p_naught = "\0";
 
@@ -18,7 +18,7 @@ BucketFile::BucketFile(std::string fspec, size_t key_len, size_t val_len)
 {
     std::lock_guard<std::mutex> lock(fopen_mtx);
     opencnt++;
-    std::cout << opencnt << " Opening bucket file " << _fspec << std::endl;
+    // std::cout << opencnt << " Opening bucket file " << _fspec << std::endl;
     const char *mode = (std::filesystem::exists(fspec)) ? "r+" : "w+";
     _fp = std::fopen( _fspec.c_str(), mode );
     if ( _fp == nullptr )
@@ -193,13 +193,13 @@ bool DiskHashTable::update(ucharptr_c key, ucharptr_c val)
 // Open the file pointer if it's not already
 BucketFilePtr DiskHashTable::get_bucket(const std::string& bucket)
 {
-    auto itr = fp_map.find(bucket);
-    if (itr != fp_map.end())
-        return itr->second;
+    // auto itr = fp_map.find(bucket);
+    // if (itr != fp_map.end())
+    //     return itr->second;
 
     std::string fspec = get_bucket_fspec(bucket);
     BucketFilePtr bf = std::make_shared<BucketFile>(fspec, keylen, vallen);
-    fp_map.insert({bucket, bf});
+    // fp_map.insert({bucket, bf});
     return bf;
 }
 

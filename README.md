@@ -55,7 +55,7 @@ more efficient than encoding location data per-piece, and also allows easy
 addition of duplicate piece types through pawn promotion.
 ```
 xxxx x... .... .... .... .... .... .... = number of active pieces on the board (0..31)
-.... .x.. .... .... .... .... .... .... = side on move: 0-white, 1-black
+.... .x.. .... .... .... .... .... .... = side on-move: 0-white, 1-black
 .... ..xx .... .... .... .... .... .... = drawn game reason
 .... .... x... .... .... .... .... .... = white castle kingside disabled  (WK or WKR has moved)
 .... .... .x.. .... .... .... .... .... = white castle queenside disabled (WK or WQR has moved)

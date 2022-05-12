@@ -55,7 +55,7 @@ typedef std::shared_ptr<BucketFile> BucketFilePtr;
 class DiskHashTable
 {
 private:
-    std::map<std::string, BucketFilePtr> fp_map;
+    // std::map<std::string, BucketFilePtr> fp_map;
     size_t             keylen;
     size_t             vallen;
     size_t             reclen;
