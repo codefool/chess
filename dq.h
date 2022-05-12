@@ -29,8 +29,8 @@
 
 namespace dreid {
 
-typedef uint32_t        dq_block_id_t;
-typedef uint32_t        dq_rec_no_t;
+typedef uint64_t        dq_block_id_t;
+typedef uint64_t        dq_rec_no_t;
 typedef unsigned char * dq_data_t;
 
 const dq_block_id_t BLOCK_NIL = -1;

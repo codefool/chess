@@ -3,7 +3,8 @@
 
 namespace dreid {
 
-#define TABLE_BUFF_SIZE 1024*1024*4
+#define TABLE_BUFF_SIZE 1024*1024*4 // 4 MiB
+#define BUCKET_ID_WIDTH 3
 
 const char *BucketFile::p_naught = "\0";
 
@@ -220,7 +221,7 @@ std::string DiskHashTable::default_hasher(ucharptr_c key, size_t keylen)
     MD5 md5;
     md5.update(key, keylen);
     md5.finalize();
-    return md5.hexdigest().substr(0,2);
+    return md5.hexdigest().substr(0,BUCKET_ID_WIDTH);
 }
 
 } // namespace dreid
