@@ -21,6 +21,31 @@ struct TierStats
     uint64_t move_cnt; // number of legal moves
     uint64_t coll_cnt; // number of position collisions
     uint64_t capt_cnt; // number of capture positions
+    uint16_t cm_cnt;   // number of checkmates
+    uint16_t sm_cnt;   // number of stalemates
+
+    TierStats()
+    : distance(0), move_cnt(0), coll_cnt(0), capt_cnt(0), cm_cnt(0), sm_cnt(0)
+    {}
+
+    TierStats(const TierStats& o)
+    : distance(o.distance)
+    , move_cnt(o.move_cnt)
+    , coll_cnt(o.coll_cnt)
+    , capt_cnt(o.capt_cnt)
+    , cm_cnt(o.cm_cnt)
+    , sm_cnt(o.sm_cnt)
+    {}
+
+    TierStats& operator+=(const TierStats& o)
+    {
+        move_cnt += o.move_cnt;
+        coll_cnt += o.coll_cnt;
+        capt_cnt += o.capt_cnt;
+        cm_cnt   += o.cm_cnt;
+        sm_cnt   += o.sm_cnt;
+        return *this;
+    }
 };
 
 struct Stats
@@ -35,6 +60,27 @@ struct Stats
 };
 #pragma pack()
 
+typedef std::shared_ptr<TierStats> TierStatsPtr;
+
+std::mutex mtx_tier;
+std::map<short,TierStatsPtr> tier_stats;
+
+void add_tier_stats(TierStats& add)
+{
+    std::lock_guard<std::mutex> lock(mtx_tier);
+    TierStatsPtr s;
+    if ( tier_stats.contains(add.distance) )
+    {
+        s = tier_stats[add.distance];
+        *s += add;
+    }
+    else
+    {
+        s = std::make_shared<TierStats>(add);
+        tier_stats[add.distance] = s;
+    }
+}
+
 std::mutex mtx_stats;
 Stats stats;
 
@@ -46,6 +92,12 @@ void print_stats()
     auto ow = ss.width(16);
     ss << "Stats " << stats.level
        << std::endl;
+    for( auto t : tier_stats)
+        ss << "Tier " << t.second->distance
+           << ' ' << t.second->move_cnt
+           << ' ' << t.second->capt_cnt
+           << ' ' << t.second->coll_cnt
+           << std::endl;
     std::cout << ss.str();
 }
 
@@ -58,6 +110,12 @@ void load_stats_file(int level, std::string fspec)
     if (exists)
     {
         std::fread(&stats, sizeof(stats), 1, fp);
+        for(short i(0); i < stats.tier_cnt; i++)
+        {
+            TierStats s;
+            std::fread(&s, sizeof(TierStats), 1, fp);
+            tier_stats[s.distance] = std::make_shared<TierStats>(s);
+        }
     }
     else
     {
@@ -73,7 +131,10 @@ void save_stats_file(std::string fspec)
     std::filesystem::path path(fspec);
     bool exists = std::filesystem::exists(path);
     FILE *fp = std::fopen(fspec.c_str(), "w+");
+    stats.tier_cnt = tier_stats.size();
     std::fwrite(&stats, sizeof(stats), 1, fp);
+    for (auto t : tier_stats)
+        fwrite(t.second.get(), sizeof(TierStats), 1, fp);
     std::fclose(fp);
     print_stats();
 }
@@ -210,8 +271,8 @@ void worker(int level)
 
         moves.clear();
         sub_board.get_all_moves(s, moves);
-        int coll_cnt{0};
-        int nsub1_cnt{0};
+        TierStats tstats;
+        tstats.distance = prBase.pi.distance;
 
         prBase.pi.move_cnt = moves.size();
         if (moves.size() == 0)
@@ -222,11 +283,13 @@ void worker(int level)
             {
                 prBase.pi.egr = EGR_CHECKMATE;
                 stats.cm_cnt++;
+                tstats.cm_cnt++;
             }
             else
             {
                 prBase.pi.egr = EGR_14A_STALEMATE;
                 stats.sm_cnt++;
+                tstats.sm_cnt++;
             }
             std::cout << std::this_thread::get_id() << " checkmate/stalemate:" << sub_board.getPosition().fen_string() << std::endl;
         }
@@ -256,6 +319,7 @@ void worker(int level)
                 if (brdPrime.gi().getPieceCnt() == level-1)
                 {
                     stats.capt_cnt++;
+                    tstats.capt_cnt++;
                     if ( dht_pawn_n1.search( (ucharptr_c)&prPrime.pp, (ucharptr)&piFound ) )
                     {
                         PosRefRec prr( prBase.pi.id, mv, piFound.id );
@@ -265,7 +329,6 @@ void worker(int level)
                     {
                         dht_pawn_n1.append( (ucharptr_c)&prPrime.pp, (ucharptr_c)&prPrime.pi );
                     }
-                    nsub1_cnt++;
                 }
                 else if(brdPrime.gi().getPieceCnt() == level)
                 {
@@ -274,11 +337,12 @@ void worker(int level)
                         PosRefRec prr(prBase.pi.id, mv, piFound.id);
                         dht_resolved_ref.append((ucharptr_c)&prr);
                         stats.col_cnt++;
-                        coll_cnt++;
+                        tstats.coll_cnt++;
                     }
                     else
                     {
                         dq_put->push((const dq_data_t)&prPrime);
+                        tstats.move_cnt++;
                     }
                 }
                 else
@@ -293,6 +357,7 @@ void worker(int level)
         }
 
         dht_resolved.update((ucharptr_c)&prBase.pp, (ucharptr)&prBase.pi);
+        add_tier_stats(tstats);
         // std::cout << "base,parent,mov/p/c/5/1,move,dist,coll_cnt,init_cnt,res_cnt,get,put,unr1,fifty,FEN\n";
         ss.str(std::string());
         ss.flags(std::ios::hex);
@@ -310,9 +375,9 @@ void worker(int level)
             << ',' << dht_resolved.size()
             // << std::flush;
         // ss.width(2);
-            << ',' << std::setw(2) << moves.size()
-            << '/' << coll_cnt
-            << '/' << nsub1_cnt
+            << ',' << std::setw(2) << tstats.move_cnt
+            << '/' << tstats.coll_cnt
+            << '/' << tstats.capt_cnt
             << ',' << sub_board.getPosition().fen_string(prBase.pi.distance)
             << '\n';
         ss.width(ow);

@@ -41,10 +41,11 @@ void command_verify(int argc, char **argv)
     std::string max_buck;
     int frec_min(999999999);
     int frec_max(-1);
-    for (int i = 0; i < 256; i++)
+    int buckets = 1 << (4 * BUCKET_ID_WIDTH );
+    for (int i = 0; i < buckets; i++)
     {
-        char bucket[3];
-        std::sprintf(bucket, "%02x", i);
+        char bucket[BUCKET_ID_WIDTH + 1];
+        std::sprintf(bucket, "%0*x", BUCKET_ID_WIDTH, i);
 
         std::string fspec = dreid::DiskHashTable::get_bucket_fspec(path, base, bucket);
         if (!std::filesystem::exists(fspec))

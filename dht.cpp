@@ -4,7 +4,6 @@
 namespace dreid {
 
 #define TABLE_BUFF_SIZE 1024*1024*4 // 4 MiB
-#define BUCKET_ID_WIDTH 3
 
 const char *BucketFile::p_naught = "\0";
 

@@ -22,6 +22,8 @@
 
 namespace dreid {
 
+#define BUCKET_ID_WIDTH 3
+
 typedef unsigned char   uchar;
 typedef uchar         * ucharptr;
 typedef const ucharptr  ucharptr_c;
