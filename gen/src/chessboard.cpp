@@ -21,9 +21,9 @@
 
 // #include <mysqlx/xdevapi.h>
 
-#include "dreid.h"
-#include "dht.h"
-#include "worker.h"
+#include <dreid.h>
+#include <dht.h>
+#include <worker.h>
 
 /*
 Maximum possible moves for any given position
@@ -153,10 +153,11 @@ int main() {
         threads[i].join();
     }
 
-    dreid::save_stats_file(fspec);
 
     time_t tend = time(0);
     double hang = std::difftime(tend, tstart);
+
+    dreid::save_stats_file(fspec, (time_t)hang);
 
     std::cout << std::asctime(std::localtime(&tstart))
               << std::asctime(std::localtime(&tend))

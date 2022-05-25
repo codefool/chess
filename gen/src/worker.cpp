@@ -57,6 +57,8 @@ struct Stats
     int               cm_cnt;
     int               sm_cnt;
     short             tier_cnt;
+    time_t            tcpt;
+    bool              alt_queue;
 };
 #pragma pack()
 
@@ -81,6 +83,18 @@ void add_tier_stats(TierStats& add)
     }
 }
 
+std::mutex unresolved_mtx;
+
+DiskHashTable dht_resolved;
+DiskHashTable dht_resolved_ref;
+DiskHashTable dht_pawn_n1;
+DiskHashTable dht_pawn_n1_ref;
+
+DiskQueue dq_unr0(WORK_FILE_PATH, "unresolved0", sizeof( PositionRec ));
+DiskQueue dq_unr1(WORK_FILE_PATH, "unresolved1", sizeof( PositionRec ));
+DiskQueue *dq_get = &dq_unr0;
+DiskQueue *dq_put = &dq_unr1;
+
 std::mutex mtx_stats;
 Stats stats;
 
@@ -98,6 +112,7 @@ void print_stats()
            << ' ' << t.second->capt_cnt
            << ' ' << t.second->coll_cnt
            << std::endl;
+    ss << "Total cumulative processing time:" << stats.tcpt << std::endl;
     std::cout << ss.str();
 }
 
@@ -122,12 +137,20 @@ void load_stats_file(int level, std::string fspec)
         std::memset(&stats, 0x00, sizeof(stats));
         stats.level = level;
     }
+
+    if ( stats.alt_queue )
+    {
+        dq_get = &dq_unr1;
+        dq_put = &dq_unr0;
+    }
+
     std::fclose(fp);
     print_stats();
 }
 
-void save_stats_file(std::string fspec)
+void save_stats_file(std::string fspec, time_t tcpt)
 {
+    stats.tcpt += tcpt;
     std::filesystem::path path(fspec);
     bool exists = std::filesystem::exists(path);
     FILE *fp = std::fopen(fspec.c_str(), "w+");
@@ -148,17 +171,6 @@ PositionId get_position_id(int level)
     return PositionIdPacked(level, ++g_id_cnt).get();
 }
 
-std::mutex unresolved_mtx;
-
-DiskHashTable dht_resolved;
-DiskHashTable dht_resolved_ref;
-DiskHashTable dht_pawn_n1;
-DiskHashTable dht_pawn_n1_ref;
-
-DiskQueue dq_unr0(WORK_FILE_PATH, "unresolved0", sizeof( PositionRec ));
-DiskQueue dq_unr1(WORK_FILE_PATH, "unresolved1", sizeof( PositionRec ));
-DiskQueue *dq_get = &dq_unr0;
-DiskQueue *dq_put = &dq_unr1;
 
 bool stop = false;    // global halt flag
 
@@ -243,6 +255,7 @@ bool get_unresolved(PositionRec& pr)
         BeginDummyScope
             std::unique_lock<std::mutex> lock(unresolved_mtx);
             std::swap(dq_get, dq_put);
+            stats.alt_queue = dq_get == &dq_unr1;
             retried = true;
         EndDummyScope
     }
