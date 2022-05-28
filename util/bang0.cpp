@@ -36,7 +36,7 @@ B - 13 * 2 = 26
 P -  1 * 8 =  8
             142
 
-<position><possible moves up to 141 for side on move>
+<position><possible moves up to 141 for side on-move>
 Packed in a byte. Hi nibble is piece id 0-31, and lo nibble is target square.
 If target square is occupied capture is inferred.
 xxxx .... .... .... - action
@@ -78,7 +78,7 @@ more efficient than encoding location data per-piece, and also allows (easily) t
 addition of duplicate piece types through pawn promotion.
 
 xxxx x... .... .... .... .... .... .... = number of active pieces on the board (0..31)
-.... .x.. .... .... .... .... .... .... = side on move: 0-white, 1-black
+.... .x.. .... .... .... .... .... .... = side on-move: 0-white, 1-black
 .... ..xx .... .... .... .... .... .... = drawn game reason
 .... .... x... .... .... .... .... .... = white castle kingside disabled  (WK or WKR has moved)
 .... .... .x.. .... .... .... .... .... = white castle queenside disabled (WK or WQR has moved)

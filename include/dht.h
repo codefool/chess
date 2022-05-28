@@ -22,6 +22,8 @@
 
 namespace dreid {
 
+#define BUCKET_ID_WIDTH 3
+
 typedef unsigned char   uchar;
 typedef uchar         * ucharptr;
 typedef const ucharptr  ucharptr_c;
@@ -55,7 +57,7 @@ typedef std::shared_ptr<BucketFile> BucketFilePtr;
 class DiskHashTable
 {
 private:
-    std::map<std::string, BucketFilePtr> fp_map;
+    // std::map<std::string, BucketFilePtr> fp_map;
     size_t             keylen;
     size_t             vallen;
     size_t             reclen;

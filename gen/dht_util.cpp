@@ -26,7 +26,7 @@ void command_verify(int argc, char **argv)
     if (argc < 4)
         usage(argv[0]);
 
-    std::set<PositionPacked> cache;
+    std::set<dreid::PositionPacked> cache;
     int rec_cnt(0);
     int dupe_cnt(0);
 
@@ -41,12 +41,13 @@ void command_verify(int argc, char **argv)
     std::string max_buck;
     int frec_min(999999999);
     int frec_max(-1);
-    for (int i = 0; i < 256; i++)
+    int buckets = 1 << (4 * BUCKET_ID_WIDTH );
+    for (int i = 0; i < buckets; i++)
     {
-        char bucket[3];
-        std::sprintf(bucket, "%02x", i);
+        char bucket[BUCKET_ID_WIDTH + 1];
+        std::sprintf(bucket, "%0*x", BUCKET_ID_WIDTH, i);
 
-        std::string fspec = DiskHashTable::get_bucket_fspec(path, base, bucket);
+        std::string fspec = dreid::DiskHashTable::get_bucket_fspec(path, base, bucket);
         if (!std::filesystem::exists(fspec))
         {
             std::cerr << fspec << " does not exist" << std::endl;
@@ -58,12 +59,12 @@ void command_verify(int argc, char **argv)
             std::cerr << "Error opening bucket file " << fspec << ' ' << errno << " - terminating" << std::endl;
             exit(errno);
         }
-        PositionPacked pp;
-        PosInfo pi;
+        dreid::PositionPacked pp;
+        dreid::PosInfo pi;
         int frec_cnt(0);
-        while (std::fread(&pp, sizeof(PositionPacked), 1, fp) == 1)
+        while (std::fread(&pp, sizeof(dreid::PositionPacked), 1, fp) == 1)
         {
-            std::fread(&pi, sizeof(PosInfo), 1, fp);
+            std::fread(&pi, sizeof(dreid::PosInfo), 1, fp);
             frec_cnt++;
             if (cache.contains(pp))
                 dupe_cnt++;
@@ -101,22 +102,23 @@ void command_test(int argc, char **argv)
     // update all even-numbered keys
     // verify the changes
     // close and delete the dht
-    PositionPacked i_pp, o_pp;
-    PosInfo i_pi, o_pi;
-    DiskHashTable dht("/home/codefool/tmp/", "temp", 888, sizeof(PositionPacked), sizeof(PosInfo));
-    std::memset(&i_pp, 0x00, sizeof(PositionPacked));
-    std::memset(&i_pi, 0x00, sizeof(PosInfo));
+    dreid::PositionPacked i_pp, o_pp;
+    dreid::PosInfo i_pi, o_pi;
+    dreid::DiskHashTable dht;
+    std::memset(&i_pp, 0x00, sizeof(dreid::PositionPacked));
+    std::memset(&i_pi, 0x00, sizeof(dreid::PosInfo));
+    dht.open("/home/codefool/tmp/", "temp", 888, sizeof(dreid::PositionPacked), sizeof(dreid::PosInfo));
     for (int i = 0; i < 10000; ++i)
     {
         i_pp.lo = i_pi.id = i;
-        dht.append((ucharptr_c)&i_pp, (ucharptr_c)&i_pi);
-        bool found = dht.search((ucharptr_c)&i_pp, (ucharptr)&o_pi);
+        dht.append((dreid::ucharptr_c)&i_pp, (dreid::ucharptr_c)&i_pi);
+        bool found = dht.search((dreid::ucharptr_c)&i_pp, (dreid::ucharptr)&o_pi);
         assert(found == true);
         assert(o_pi == i_pi);
         // update
         i_pi.distance = 2 * i;
-        dht.update((ucharptr_c)&i_pp, (ucharptr_c)&i_pi);
-        found = dht.search((ucharptr_c)&i_pp, (ucharptr)&o_pi);
+        dht.update((dreid::ucharptr_c)&i_pp, (dreid::ucharptr_c)&i_pi);
+        found = dht.search((dreid::ucharptr_c)&i_pp, (dreid::ucharptr)&o_pi);
         assert(found == true);
         assert(o_pi == i_pi);
     }

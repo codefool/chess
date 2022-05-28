@@ -21,9 +21,9 @@
 
 // #include <mysqlx/xdevapi.h>
 
-#include "dreid.h"
-#include "dht.h"
-#include "worker.h"
+#include <dreid.h>
+#include <dht.h>
+#include <worker.h>
 
 /*
 Maximum possible moves for any given position
@@ -35,7 +35,7 @@ B - 13 * 2 = 26
 P -  1 * 8 =  8
             142
 
-<position><possible moves up to 141 for side on move>
+<position><possible moves up to 141 for side on-move>
 Packed in a byte. Hi nibble is piece id 0-31, and lo nibble is target square.
 If target square is occupied capture is inferred.
 xxxx .... .... .... - action
@@ -77,7 +77,7 @@ more efficient than encoding location data per-piece, and also allows (easily) t
 addition of duplicate piece types through pawn promotion.
 
 xxxx x... .... .... .... .... .... .... = number of active pieces on the board (0..31)
-.... .x.. .... .... .... .... .... .... = side on move: 0-white, 1-black
+.... .x.. .... .... .... .... .... .... = side on-move: 0-white, 1-black
 .... ..xx .... .... .... .... .... .... = drawn game reason
 .... .... x... .... .... .... .... .... = white castle kingside disabled  (WK or WKR has moved)
 .... .... .x.. .... .... .... .... .... = white castle queenside disabled (WK or WQR has moved)
@@ -153,10 +153,11 @@ int main() {
         threads[i].join();
     }
 
-    dreid::save_stats_file(fspec);
 
     time_t tend = time(0);
     double hang = std::difftime(tend, tstart);
+
+    dreid::save_stats_file(fspec, (time_t)hang);
 
     std::cout << std::asctime(std::localtime(&tstart))
               << std::asctime(std::localtime(&tend))

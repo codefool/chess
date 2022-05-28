@@ -23,7 +23,7 @@ namespace dreid {
 #define BeginDummyScope {
 #define EndDummyScope }
 
-typedef uint64_t PositionHash;
+typedef uint64_t PositionId;
 
 enum Side {
 	SIDE_WHITE = 0,
@@ -212,38 +212,45 @@ private:
 
 public:
 	Piece(PieceType t, Side s);
-
 	bool is_on_move(Side m) const;
-
 	PieceType getType() const;
-
 	void setType(PieceType t);
-
 	const char getPieceGlyph() const;
-
 	Pos getPos() const;
-
 	void setPos(Rank r, File f);
-
 	void setPos(Pos p);
-
 	bool isType(PieceType pt) const;
-
 	bool isEmpty() const;
-
 	const Side getSide() const;
-
 	// pack piece type and side into 4-bit value
 	uint8_t toByte() const;
-
     short get_zob_idx();
-
 	static PiecePtr create(PieceType pt, Side s);
 	static PiecePtr EMPTY;
 };
 
 
 #pragma pack(1)
+
+union PositionIdPacked {
+    PositionId uul;
+    struct
+    {
+        PositionId m:58;
+        PositionId l:6;
+    } f;
+
+    PositionIdPacked(int level, PositionId cnt)
+    {
+        f.m = cnt;
+        f.l = level;
+    }
+
+    PositionId get()
+    {
+        return uul;
+    }
+};
 union MovePacked {
 	uint16_t i;
 	struct {
@@ -258,7 +265,7 @@ union MovePacked {
 
 /*
 xxxx x... .... .... .... .... .... .... = number of active pieces on the board (0..31)
-.... .x.. .... .... .... .... .... .... = side on move: 0-white, 1-black
+.... .x.. .... .... .... .... .... .... = side on-move: 0-white, 1-black
 .... .... ..x. .... .... .... .... .... = en passant latch
 .... .... ...x xx.. .... .... .... .... = pawn on file xxx is subject to en passant
 .... .... .... ..x. .... .... .... .... = white castle kingside enabled  (WK or WKR has not moved)
@@ -285,7 +292,7 @@ union GameInfoPacked {
         uint32_t castle_rights     :  4;
 		//
 		// number of active pieces on the board (2..32)
-		uint32_t on_move           :  1; // 0=white on move, 1=black
+		uint32_t on_move           :  1; // 0=white on-move, 1=black
 		uint32_t piece_cnt         :  8;
 	} f;
 
@@ -297,7 +304,8 @@ union GameInfoPacked {
 	bool operator<(const GameInfoPacked& o) const;
 };
 
-struct PositionPacked {
+struct PositionPacked
+{
     GameInfoPacked gi;
     uint64_t       pop;   // population bitmap
     uint64_t       lo;    // lo 64-bits population info
@@ -318,7 +326,8 @@ typedef std::vector<MovePtr>  MoveList;
 typedef MoveList::iterator    MoveListItr;
 
 #pragma pack()
-class Move {
+class Move
+{
 private:
 	MoveAction  _a;
 	Pos         _s;
@@ -340,12 +349,12 @@ public:
 	friend std::ostream& operator<<(std::ostream& os, const Move& p);
 };
 
-class GameInfo {
-public:
+class GameInfo
+{
 private:
 	// number of active pieces on the board (1..31)
 	short           piece_cnt;
-	Side            on_move; // 0=white on move, 1=black
+	Side            on_move; // 0=white on-move, 1=black
 	// en passant
 	// If set, the pawn that rests on file en_passant_file moved two
 	// positions. This signals that a pawn subject to en passant capture
@@ -384,16 +393,17 @@ public:
 	friend std::ostream& operator<<(std::ostream& os, const GameInfo& o);
 };
 
-struct PosInfo {
-  PositionHash   id;        // unique id for this position
-  PositionHash   parent;    // the parent of this position
+struct PosInfo
+{
+  PositionId     id;        // unique id for this position
+  PositionId     parent;    // the parent of this position
   MovePacked     move;      // the Move that created in this position
   short          move_cnt;  // number of valid moves for this position
   short          distance;  // number of moves from the initial position
   EndGameReason  egr;       // end game reason
 
   PosInfo();
-  PosInfo(PositionHash i, PosInfo s, MovePacked m);
+  PosInfo(PositionId i, PosInfo s, MovePacked m);
   bool operator==(const PosInfo& other);
 };
 
@@ -401,7 +411,8 @@ typedef std::map<PositionPacked,PosInfo> PosMap;
 typedef std::set<PositionPacked>		 PosSet;
 typedef PosMap *PosMapPtr;
 
-class Position {
+class Position
+{
 private:
     GameInfo _g;
     PiecePtr _b[64];
@@ -432,8 +443,6 @@ public:
 	std::string fen_string(int move_no = 0) const;
 	static Position parse_fen_string(std::string fen);
 
-    PositionHash zobrist_hash();
-
 private:
 	void pack_array(uint8_t *in, uint8_t *out, size_t s);
 	void unpack_array(uint8_t* in, uint8_t* out, size_t s);
@@ -459,20 +468,21 @@ struct PositionRec
     {}
 };
 
-class Board {
+class Board
+{
 private:
 	// we always need to know where the kings are
-	PositionRec	_pr;
     Position    _p;
 
 public:
 	Board(bool init=true);
 	Board(const Board& other);
-	Board(const PositionRec& p);
+    Board(const Position& p);
+    Board(const PositionPacked& pp);
 
 	GameInfo& gi();
-    PositionRec& pr();
     Position& pos() { return _p; }
+    PositionPacked pack() { return _p.pack(); }
 
 	PiecePtr place_piece(PieceType t, Side s, Rank r, File f);
 
@@ -500,26 +510,26 @@ public:
 #pragma pack(1)
 struct PosRef
 {
-    MovePacked   move;
-    PositionHash trg;
+    MovePacked move;
+    PositionId trg;
 
     PosRef() {}
-    PosRef(Move m, PositionHash t)
+    PosRef(Move m, PositionId t)
     : move{m.pack()}, trg{t}
     {}
 };
 
 struct PosRefRec
 {
-    PositionHash src;
-    PositionHash trg;
+    PositionId src;
+    PositionId trg;
     MovePacked move;
 
     PosRefRec() {}
-    PosRefRec(PositionHash from, MovePtr m, PositionHash to)
+    PosRefRec(PositionId from, MovePtr m, PositionId to)
     : src(from), move{m->pack()}, trg(to)
     {}
-    PosRefRec(PositionHash from, MovePacked m, PositionHash to)
+    PosRefRec(PositionId from, MovePacked m, PositionId to)
     : src(from), move{m}, trg(to)
     {}
 };

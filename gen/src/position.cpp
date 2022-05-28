@@ -1,7 +1,6 @@
 #include <cctype>
 #include <sstream>
 #include "dreid.h"
-#include "zobrist.h"
 
 namespace dreid {
 
@@ -14,7 +13,7 @@ PosInfo::PosInfo()
   egr(EGR_NONE)
 {}
 
-PosInfo::PosInfo(PositionHash i, PosInfo s, MovePacked m)
+PosInfo::PosInfo(PositionId i, PosInfo s, MovePacked m)
 : id(i),
   parent(s.id),
   move(m),
