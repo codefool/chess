@@ -1,3 +1,4 @@
+#include <sys/stat.h>
 #include "dht.h"
 #include "md5.h"
 
@@ -5,15 +6,13 @@ namespace dreid {
 
 #define TABLE_BUFF_SIZE 1024*1024*4 // 4 MiB
 
-const char *BucketFile::p_naught = "\0";
-
 std::map<size_t, BuffPtr> BucketFile::buff_map;
 // fopen is failing with errno 24 (too many files) on unlimited ulimit,
 // so postulating that I'm opening file too fast.
 std::mutex fopen_mtx;
 int opencnt(0);
 
-BucketFile::BucketFile(std::string fspec, size_t key_len, size_t val_len)
+BucketFile::BucketFile(std::string fspec, size_t key_len, size_t val_len, bool must_exists)
 : _fspec(fspec), _keylen(key_len), _vallen(val_len), _reclen(key_len + val_len)
 {
     std::lock_guard<std::mutex> lock(fopen_mtx);
@@ -22,20 +21,50 @@ BucketFile::BucketFile(std::string fspec, size_t key_len, size_t val_len)
     const char *mode = (std::filesystem::exists(fspec)) ? "r+" : "w+";
     _fp = std::fopen( _fspec.c_str(), mode );
     if ( _fp == nullptr )
+    // std::cout << opencnt << " Opening bucket file " << _fspec << std::endl;
+    _exists = std::filesystem::exists(fspec);
+    if (_exists || !must_exists)
     {
-        std::cout << "Error opening bucket file " << _fspec << ' ' << errno << " - terminating" << std::endl;
-        exit(1);
+        if ( open() )
+        {
+            struct stat stat_buf;
+            if ( !stat( fspec.c_str(), &stat_buf ) )
+                _reccnt = stat_buf.st_size / _reclen;
+            close();
+        }
     }
 }
 
 BucketFile::~BucketFile()
 {
-    std::lock_guard<std::mutex> lock(_mtx);
+    std::lock_guard<std::mutex> lock( _mtx );
+    close();
+}
+
+bool BucketFile::open()
+{
+    if ( _fp == nullptr )
+    {
+        const char *mode = (_exists) ? "r+" : "w+";
+        _fp = std::fopen( _fspec.c_str(), mode );
+        if ( _fp == nullptr )
+        {
+            std::cout << "Error opening bucket file " << _fspec << ' ' << errno << " - terminating" << std::endl;
+            return false;
+        }
+        _exists = true;
+    }
+    return true;
+}
+
+bool BucketFile::close()
+{
     if ( _fp != nullptr)
     {
         std::fclose(_fp);
         _fp = nullptr;
     }
+    return true;
 }
 
 off_t BucketFile::search(ucharptr_c key, ucharptr val)
@@ -43,6 +72,7 @@ off_t BucketFile::search(ucharptr_c key, ucharptr val)
     std::lock_guard<std::mutex> lock(_mtx);
     int max_item_cnt = TABLE_BUFF_SIZE / _reclen;
     BuffPtr buff = get_file_buff();
+    file_guard fg(*this);
     std::fseek(_fp, 0, SEEK_SET);
     fpos_t pos;  // file position at start of block
     std::fgetpos(_fp, &pos);
@@ -71,6 +101,7 @@ bool BucketFile::append(ucharptr_c key, ucharptr_c val)
 {
     fpos_t pos;
     std::lock_guard<std::mutex> lock(_mtx);
+    file_guard fg(*this);
     std::fseek(_fp, 0, SEEK_END);
     std::fgetpos(_fp, &pos);
     std::fwrite(key, _keylen, 1, _fp);
@@ -78,12 +109,14 @@ bool BucketFile::append(ucharptr_c key, ucharptr_c val)
         std::fwrite(val, _vallen, 1, _fp);
     else if(_vallen != 0)
         std::fwrite(p_naught, 1, _vallen, _fp);
+    _reccnt++;
     return true;
 }
 
 bool BucketFile::update(ucharptr_c key, ucharptr_c val)
 {
-    int pos = search(key);
+    file_guard fg(*this);
+    off_t pos = search(key);
     if( pos != -1 )
     {
         std::fseek(_fp, pos, SEEK_SET);
@@ -95,6 +128,16 @@ bool BucketFile::update(ucharptr_c key, ucharptr_c val)
         return true;
     }
     return false;
+}
+
+// read a specific record from the file. Return true
+// if record was read, or false if EOF.
+bool BucketFile::read(size_t recno, BuffPtr& buff)
+{
+    file_guard fg(*this);
+    off_t pos = recno * _reclen;
+    std::fseek(_fp, pos, SEEK_SET);
+    return std::fread(buff.get(), _reclen, 1, _fp) != EOF;
 }
 
 // maintain a map of file buffers - one for each thread
@@ -222,5 +265,91 @@ std::string DiskHashTable::default_hasher(ucharptr_c key, size_t keylen)
     md5.finalize();
     return md5.hexdigest().substr(0,BUCKET_ID_WIDTH);
 }
+
+// DiskHashTable::iterator DiskHashTable::begin()
+// {
+//     return iterator(*this, pos(BUCKET_LO,0));
+// }
+
+// DiskHashTable::iterator DiskHashTable::end()
+// {
+//     return iterator(*this, pos(BUCKET_END,0));
+// }
+
+// // Iterator
+// DiskHashTable::iterator::iterator(DiskHashTable& t, pos p)
+// : _dht(t), _pos(p)
+// {
+//     _buff = BuffPtr(
+//         new unsigned char[_dht.reclen],
+//         std::default_delete<uchar[]>()
+//     );
+// }
+
+// DiskHashTable::iterator& DiskHashTable::iterator::operator ++()
+// {
+
+//     // get next record
+//     return *this;
+// }
+
+// DiskHashTable::iterator  DiskHashTable::iterator::operator ++(int)
+// {
+//     // get next record, but return prior record
+//     return *this;
+// }
+
+// DiskHashTable::iterator& DiskHashTable::iterator::operator --()
+// {
+//     // get previous record - do we need this?
+//     return *this;
+// }
+
+// DiskHashTable::iterator DiskHashTable::iterator::operator --(int)
+// {
+//     // get previous record, but return current record - do we need this?
+//     return *this;
+// }
+
+// bool DiskHashTable::iterator::operator==(iterator other) const
+// {
+//     return _cur == other._cur;
+// }
+
+// bool DiskHashTable::iterator::operator!=(iterator other) const
+// {
+//     return _cur != other._cur;
+// }
+
+
+// BuffPtr DiskHashTable::iterator::operator *() const
+// {
+//     if ( _pro != _cur )
+//     {
+//         if (_pro._bucket != _cur._bucket)
+//         {
+//             char bucket[BUCKET_ID_WIDTH + 1];
+//             std::sprintf(bucket, "%0*x", BUCKET_ID_WIDTH, _pro._bucket);
+//             std::string fspec = DiskHashTable::get_bucket_fspec(_dht.path, _dht.name, bucket);
+//             if (!std::filesystem::exists(fspec))
+//             {
+//             }
+//             _fp = std::fopen( fspec.c_str(), "r" );
+//             if ( _fp == nullptr )
+//             {
+//                 ; // fail the iterator
+//             }
+//             std::fseek(_fp, _pro._pos, SEEK_SET);
+//             if ( std::fread(_buff.get(), _dht.reclen, 1, _fp) == EOF )
+//             {
+//                 ; // advance to the next bucket
+//             }
+//         }
+//     }
+//     return _buff;
+// }
+
+
+
 
 } // namespace dreid
