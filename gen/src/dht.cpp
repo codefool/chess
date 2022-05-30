@@ -126,7 +126,7 @@ bool DiskHashTable::BucketFile::update(ucharptr_c key, ucharptr_c val)
 
 // read a specific record from the file. Return true
 // if record was read, or false if EOF.
-bool DiskHashTable::BucketFile::read(size_t recno, BuffPtr& buff)
+bool DiskHashTable::BucketFile::read(size_t recno, BuffPtr buff)
 {
     file_guard fg(*this);
     off_t pos = recno * _reclen;
@@ -271,7 +271,7 @@ bool DiskHashTable::get_next(short& bucket, long& recno, ucharptr key, ucharptr 
     {
         std::sprintf( p, "%0*x", BUCKET_ID_WIDTH, bucket );
         std::string bfid( p ) ;
-        bf = get_bucket(bfid, true);
+        bf = get_bucket( bfid, true );
         if ( bf->open() )
             break;
         if ( ++bucket >= BUCKET_HI )
@@ -279,10 +279,10 @@ bool DiskHashTable::get_next(short& bucket, long& recno, ucharptr key, ucharptr 
             return false;
         recno = 0;
     }
-    bf->read(recno, buff);
-    std::memcpy( &key, p, keylen );
+    bf->read( recno, buff );
+    std::memcpy( key, p, keylen );
     if (vallen)
-        std::memcpy( &val, p+keylen, vallen);
+        std::memcpy( val, p+keylen, vallen );
     return true;
 }
 

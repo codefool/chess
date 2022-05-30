@@ -85,7 +85,7 @@ class DiskHashTable
         off_t search(ucharptr_c key, ucharptr   val = P_NAUGHT);
         bool  append(ucharptr_c key, ucharptr_c val = P_NAUGHT);
         bool  update(ucharptr_c key, ucharptr_c val = P_NAUGHT);
-        bool  read(size_t recno, BuffPtr& buff);
+        bool  read(size_t recno, BuffPtr buff);
 
         size_t seek();
         BuffPtr get_file_buff();
@@ -139,10 +139,10 @@ protected:
 
 
 template <class K, class V>
-class dht : DiskHashTable
+class dht : public DiskHashTable
 {
-private:
-    DiskHashTable _dht;
+// private:
+//     DiskHashTable _dht;
 public:
     class dht_pos
     {
@@ -249,17 +249,16 @@ public:
         dht_bucket_id_func bucket_func = default_hasher)
     {
         size_t vsize = (typeid(V) == typeid(NAUGHT_TYPE)) ? 0 : sizeof(V);
-        return _dht.open(path_name, base_name, level, sizeof(K), vsize, bucket_func);
+        return DiskHashTable::open(path_name, base_name, level, sizeof(K), vsize, bucket_func);
     }
 
-    size_t size() const {return _dht.size();}
     bool search(K& key)
     {
         return search(key, NAUGHT);
     }
     bool search(K& key, V& val)
     {
-        return _dht.search((ucharptr_c)&key, (ucharptr_c)&val);
+        return DiskHashTable::search((ucharptr_c)&key, (ucharptr_c)&val);
     }
     bool insert(K& key)
     {
@@ -267,7 +266,7 @@ public:
     }
     bool insert(K& key, V& val)
     {
-        return _dht.insert((ucharptr_c)&key, (ucharptr_c)&val);
+        return DiskHashTable::insert((ucharptr_c)&key, (ucharptr_c)&val);
     }
     bool append(K& key)
     {
@@ -275,7 +274,7 @@ public:
     }
     bool append(K& key, V& val)
     {
-        return _dht.append((ucharptr_c)&key, (ucharptr_c)&val);
+        return DiskHashTable::append((ucharptr_c)&key, (ucharptr_c)&val);
     }
     bool update(K& key)
     {
@@ -283,7 +282,7 @@ public:
     }
     bool update(K& key, V& val)
     {
-        return _dht.update((ucharptr_c)&key, (ucharptr_c)&val);
+        return DiskHashTable::update((ucharptr_c)&key, (ucharptr_c)&val);
     }
 };
 
