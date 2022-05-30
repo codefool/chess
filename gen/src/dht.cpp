@@ -6,24 +6,17 @@ namespace dreid {
 
 #define TABLE_BUFF_SIZE 1024*1024*4 // 4 MiB
 
-std::map<size_t, BuffPtr> BucketFile::buff_map;
+std::map<size_t, BuffPtr> DiskHashTable::BucketFile::buff_map;
 // fopen is failing with errno 24 (too many files) on unlimited ulimit,
 // so postulating that I'm opening file too fast.
 std::mutex fopen_mtx;
-int opencnt(0);
 
-BucketFile::BucketFile(std::string fspec, size_t key_len, size_t val_len, bool must_exists)
+DiskHashTable::BucketFile::BucketFile(std::string fspec, size_t key_len, size_t val_len, bool must_exists)
 : _fspec(fspec), _keylen(key_len), _vallen(val_len), _reclen(key_len + val_len)
 {
     std::lock_guard<std::mutex> lock(fopen_mtx);
-    opencnt++;
-    // std::cout << opencnt << " Opening bucket file " << _fspec << std::endl;
-    const char *mode = (std::filesystem::exists(fspec)) ? "r+" : "w+";
-    _fp = std::fopen( _fspec.c_str(), mode );
-    if ( _fp == nullptr )
-    // std::cout << opencnt << " Opening bucket file " << _fspec << std::endl;
     _exists = std::filesystem::exists(fspec);
-    if (_exists || !must_exists)
+    if ( _exists || !must_exists )
     {
         if ( open() )
         {
@@ -31,17 +24,18 @@ BucketFile::BucketFile(std::string fspec, size_t key_len, size_t val_len, bool m
             if ( !stat( fspec.c_str(), &stat_buf ) )
                 _reccnt = stat_buf.st_size / _reclen;
             close();
+            _exists = true;
         }
     }
 }
 
-BucketFile::~BucketFile()
+DiskHashTable::BucketFile::~BucketFile()
 {
     std::lock_guard<std::mutex> lock( _mtx );
     close();
 }
 
-bool BucketFile::open()
+bool DiskHashTable::BucketFile::open()
 {
     if ( _fp == nullptr )
     {
@@ -57,7 +51,7 @@ bool BucketFile::open()
     return true;
 }
 
-bool BucketFile::close()
+bool DiskHashTable::BucketFile::close()
 {
     if ( _fp != nullptr)
     {
@@ -67,7 +61,7 @@ bool BucketFile::close()
     return true;
 }
 
-off_t BucketFile::search(ucharptr_c key, ucharptr val)
+off_t DiskHashTable::BucketFile::search(ucharptr_c key, ucharptr val)
 {
     std::lock_guard<std::mutex> lock(_mtx);
     int max_item_cnt = TABLE_BUFF_SIZE / _reclen;
@@ -84,7 +78,7 @@ off_t BucketFile::search(ucharptr_c key, ucharptr val)
         {
             if ( !std::memcmp(p, key, _keylen) )
             {
-                if ( val != nullptr )
+                if ( val != P_NAUGHT )
                     std::memcpy(val, p + _keylen, _vallen);
                 off_t off = pos.__pos + (p - buff.get());
                 return off;
@@ -97,7 +91,7 @@ off_t BucketFile::search(ucharptr_c key, ucharptr val)
     return -1;
 }
 
-bool BucketFile::append(ucharptr_c key, ucharptr_c val)
+bool DiskHashTable::BucketFile::append(ucharptr_c key, ucharptr_c val)
 {
     fpos_t pos;
     std::lock_guard<std::mutex> lock(_mtx);
@@ -105,15 +99,15 @@ bool BucketFile::append(ucharptr_c key, ucharptr_c val)
     std::fseek(_fp, 0, SEEK_END);
     std::fgetpos(_fp, &pos);
     std::fwrite(key, _keylen, 1, _fp);
-    if (val != nullptr)
+    if (val != P_NAUGHT)
         std::fwrite(val, _vallen, 1, _fp);
     else if(_vallen != 0)
-        std::fwrite(p_naught, 1, _vallen, _fp);
+        std::fwrite(P_NAUGHT, 1, _vallen, _fp);
     _reccnt++;
     return true;
 }
 
-bool BucketFile::update(ucharptr_c key, ucharptr_c val)
+bool DiskHashTable::BucketFile::update(ucharptr_c key, ucharptr_c val)
 {
     file_guard fg(*this);
     off_t pos = search(key);
@@ -121,10 +115,10 @@ bool BucketFile::update(ucharptr_c key, ucharptr_c val)
     {
         std::fseek(_fp, pos, SEEK_SET);
         std::fwrite(key, _keylen, 1, _fp);
-        if (val != nullptr)
+        if (val != P_NAUGHT)
             std::fwrite(val, _vallen, 1, _fp);
         else if(_vallen != 0)
-            std::fwrite(p_naught, 1, _vallen, _fp);
+            std::fwrite(P_NAUGHT, 1, _vallen, _fp);
         return true;
     }
     return false;
@@ -132,7 +126,7 @@ bool BucketFile::update(ucharptr_c key, ucharptr_c val)
 
 // read a specific record from the file. Return true
 // if record was read, or false if EOF.
-bool BucketFile::read(size_t recno, BuffPtr& buff)
+bool DiskHashTable::BucketFile::read(size_t recno, BuffPtr& buff)
 {
     file_guard fg(*this);
     off_t pos = recno * _reclen;
@@ -141,7 +135,7 @@ bool BucketFile::read(size_t recno, BuffPtr& buff)
 }
 
 // maintain a map of file buffers - one for each thread
-BuffPtr BucketFile::get_file_buff()
+BuffPtr DiskHashTable::BucketFile::get_file_buff()
 {
     std::hash<std::thread::id> hasher;
     size_t id_hash = hasher( std::this_thread::get_id() );
@@ -174,7 +168,7 @@ bool DiskHashTable::open(
     name     = base_name;
     keylen   = key_len;
     vallen   = val_len;
-    reclen   = key_len;
+    reclen   = key_len + val_len;
     reccnt   = 0;
     buckfunc = bucket_func;
 
@@ -234,15 +228,15 @@ bool DiskHashTable::update(ucharptr_c key, ucharptr_c val)
 
 // return the file pointer for the given bucket
 // Open the file pointer if it's not already
-BucketFilePtr DiskHashTable::get_bucket(const std::string& bucket)
+DiskHashTable::BucketFilePtr DiskHashTable::get_bucket(const std::string& bucket, bool must_exist)
 {
-    // auto itr = fp_map.find(bucket);
-    // if (itr != fp_map.end())
-    //     return itr->second;
+    auto itr = fp_map.find(bucket);
+    if (itr != fp_map.end())
+        return itr->second;
 
     std::string fspec = get_bucket_fspec(bucket);
-    BucketFilePtr bf = std::make_shared<BucketFile>(fspec, keylen, vallen);
-    // fp_map.insert({bucket, bf});
+    BucketFilePtr bf = std::make_shared<BucketFile>(fspec, keylen, vallen, must_exist);
+    fp_map.insert({bucket, bf});
     return bf;
 }
 
@@ -266,90 +260,56 @@ std::string DiskHashTable::default_hasher(ucharptr_c key, size_t keylen)
     return md5.hexdigest().substr(0,BUCKET_ID_WIDTH);
 }
 
-// DiskHashTable::iterator DiskHashTable::begin()
-// {
-//     return iterator(*this, pos(BUCKET_LO,0));
-// }
+// get the next record out of the bucket. If at the end of the bucket, then
+// open the next bucket. If out of buckets, return false.
+bool DiskHashTable::get_next(short& bucket, long& recno, ucharptr key, ucharptr val)
+{
+    BuffPtr buff = BuffPtr(new unsigned char[reclen],std::default_delete<uchar[]>());
+    char *p = (char*)(buff.get());
+    BucketFilePtr bf;
+    while(true)
+    {
+        std::sprintf( p, "%0*x", BUCKET_ID_WIDTH, bucket );
+        std::string bfid( p ) ;
+        bf = get_bucket(bfid, true);
+        if ( bf->open() )
+            break;
+        if ( ++bucket >= BUCKET_HI )
+            // we be out of buckets. So die
+            return false;
+        recno = 0;
+    }
+    bf->read(recno, buff);
+    std::memcpy( &key, p, keylen );
+    if (vallen)
+        std::memcpy( &val, p+keylen, vallen);
+    return true;
+}
 
-// DiskHashTable::iterator DiskHashTable::end()
-// {
-//     return iterator(*this, pos(BUCKET_END,0));
-// }
-
-// // Iterator
-// DiskHashTable::iterator::iterator(DiskHashTable& t, pos p)
-// : _dht(t), _pos(p)
-// {
-//     _buff = BuffPtr(
-//         new unsigned char[_dht.reclen],
-//         std::default_delete<uchar[]>()
-//     );
-// }
-
-// DiskHashTable::iterator& DiskHashTable::iterator::operator ++()
-// {
-
-//     // get next record
-//     return *this;
-// }
-
-// DiskHashTable::iterator  DiskHashTable::iterator::operator ++(int)
-// {
-//     // get next record, but return prior record
-//     return *this;
-// }
-
-// DiskHashTable::iterator& DiskHashTable::iterator::operator --()
-// {
-//     // get previous record - do we need this?
-//     return *this;
-// }
-
-// DiskHashTable::iterator DiskHashTable::iterator::operator --(int)
-// {
-//     // get previous record, but return current record - do we need this?
-//     return *this;
-// }
-
-// bool DiskHashTable::iterator::operator==(iterator other) const
-// {
-//     return _cur == other._cur;
-// }
-
-// bool DiskHashTable::iterator::operator!=(iterator other) const
-// {
-//     return _cur != other._cur;
-// }
-
-
-// BuffPtr DiskHashTable::iterator::operator *() const
-// {
-//     if ( _pro != _cur )
-//     {
-//         if (_pro._bucket != _cur._bucket)
-//         {
-//             char bucket[BUCKET_ID_WIDTH + 1];
-//             std::sprintf(bucket, "%0*x", BUCKET_ID_WIDTH, _pro._bucket);
-//             std::string fspec = DiskHashTable::get_bucket_fspec(_dht.path, _dht.name, bucket);
-//             if (!std::filesystem::exists(fspec))
-//             {
-//             }
-//             _fp = std::fopen( fspec.c_str(), "r" );
-//             if ( _fp == nullptr )
-//             {
-//                 ; // fail the iterator
-//             }
-//             std::fseek(_fp, _pro._pos, SEEK_SET);
-//             if ( std::fread(_buff.get(), _dht.reclen, 1, _fp) == EOF )
-//             {
-//                 ; // advance to the next bucket
-//             }
-//         }
-//     }
-//     return _buff;
-// }
-
-
-
+// get the prior record out of the bucket. If at the start of the bucket, then
+// open the prior bucket. If out of buckets, return false.
+bool DiskHashTable::get_prior(short& bucket, long& recno, ucharptr key, ucharptr val)
+{
+    BuffPtr buff = BuffPtr(new unsigned char[reclen],std::default_delete<uchar[]>());
+    char *p = (char*)(buff.get());
+    BucketFilePtr bf;
+    while(true)
+    {
+        std::sprintf( p, "%0*x", BUCKET_ID_WIDTH, bucket );
+        std::string bfid( p ) ;
+        bf = get_bucket(bfid, true);
+        if ( bf->open() )
+            break;
+        if ( ++bucket >= BUCKET_HI )
+            // we be out of buckets. So die
+            return false;
+        recno = 0;
+    }
+    bf->read(recno, buff);
+    std::memcpy( &key, p, keylen );
+    if (vallen)
+        std::memcpy( &val, p+keylen, vallen);
+    return true;
+}
 
 } // namespace dreid
