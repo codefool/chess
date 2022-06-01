@@ -12,7 +12,7 @@ std::map<size_t, BuffPtr> DiskHashTable::BucketFile::buff_map;
 std::mutex fopen_mtx;
 
 DiskHashTable::BucketFile::BucketFile(std::string fspec, size_t key_len, size_t val_len, bool must_exists)
-: _fspec(fspec), _keylen(key_len), _vallen(val_len), _reclen(key_len + val_len)
+: _fspec(fspec), _keylen(key_len), _vallen(val_len), _reclen(key_len + val_len), _reccnt(0)
 {
     std::lock_guard<std::mutex> lock(fopen_mtx);
     _exists = std::filesystem::exists(fspec);

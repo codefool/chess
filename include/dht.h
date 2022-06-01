@@ -91,10 +91,13 @@ class DiskHashTable
         BuffPtr get_file_buff();
     };
 
-    typedef std::shared_ptr<BucketFile> BucketFilePtr;
+public:
+    typedef std::shared_ptr<BucketFile>          BucketFilePtr;
+    typedef std::map<std::string, BucketFilePtr> BucketFilePtrMap;
+    typedef BucketFilePtrMap::const_iterator     BucketFilePtrMapCItr;
 
-private:
-    std::map<std::string, BucketFilePtr> fp_map;
+protected:
+    BucketFilePtrMap   fp_map;
     size_t             keylen;
     size_t             vallen;
     size_t             reclen;
@@ -147,12 +150,12 @@ public:
     class dht_pos
     {
     public:
-        short _bucket;
-        long  _recno;
-        K     key;
-        V     val;
+        BucketFilePtrMapCItr _bucket;
+        long                 _recno;
+        K                    key;
+        V                    val;
     public:
-        dht_pos(short bucket, long pos)
+        dht_pos(BucketFilePtrMapCItr bucket, long pos)
         : _bucket(bucket), _recno(pos)
         {}
 
@@ -172,6 +175,14 @@ public:
         }
     };
 
+    // iterator for a DiskHashTable
+    //
+    // For this iterator, we want to return consecutive records
+    // in the dht across file boundaries (i.e., the last record
+    // in one bucket is followed by the first record in the next
+    // bucket and vise versa.) But, we don't want to actually
+    // retrieve any record before unless the iterator is
+    // dereferenced (* or ->).
     class iterator : public std::iterator<
         std::input_iterator_tag,
         dht_pos,
@@ -180,20 +191,24 @@ public:
         dht_pos>
     {
     private:
-        dht<K,V>& _dht;
+        BucketFilePtrMapCItr _beg;
+        BucketFilePtrMapCItr _end;
         dht_pos   _pos;
 
         friend dht;
     public:
-        explicit iterator(dht<K,V>& t, dht_pos p)
-        : _dht(t), _pos(p)
+        explicit iterator(BucketFilePtrMapCItr beg, BucketFilePtrMapCItr end)
+        : _beg(beg), _end(end), _pos(beg,0)
         {}
 
         iterator operator ++()
         {
             _pos._recno++;
-            if (!_dht.get_next(_pos._bucket, _pos._recno, (ucharptr)&_pos.key, (ucharptr)&_pos.val))
-                return _dht.end();
+            if ( _pos._recno >= _pos._bucket->second->_reccnt )
+            {
+                ++(_pos._bucket);
+                _pos._recno = 0;
+            }
             return *this;
         }
         iterator  operator ++(int)
@@ -205,8 +220,11 @@ public:
         iterator operator --()
         {
             _pos._recno--;
-            if (!_dht.get_prior(_pos._bucket, _pos._recno, (ucharptr)&_pos.key, (ucharptr)&_pos.val))
-                return _dht.begin();
+            if ( _pos._recno < 0 && _pos._bucket != _beg )
+            {
+                --(_pos._bucket);
+                _pos._recno = _pos._bucket->second->_reccnt - 1;
+            }
             return *this;
         }
         iterator  operator --(int)
@@ -235,11 +253,11 @@ public:
 
     iterator begin()
     {
-        return iterator{*this, {BUCKET_LO,0}};
+        return iterator{fp_map.begin(), fp_map.end()};
     }
     iterator end()
     {
-        return iterator{*this, {BUCKET_HI,0}};
+        return iterator{fp_map.end(), fp_map.end()};
     }
 
     bool open(
