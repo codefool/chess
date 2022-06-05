@@ -205,9 +205,12 @@ bool open_tables(int level)
 
     auto itr = dht_resolved.begin();
     while( itr != dht_resolved.end() )
+    {
+        std::cout << itr->first << ' ' << itr->second << std::endl;
         ++itr;
+    }
 
-    if (dq_get->size() == 0 && dq_put->size() == 0)
+    if ( dq_get->size() == 0 && dq_put->size() == 0 )
     {
         // start from the beginning
         Position pos;

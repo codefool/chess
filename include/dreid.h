@@ -343,7 +343,7 @@ public:
 	Pos getSource();
 	Pos getTarget();
 
-	static Move unpack(MovePacked& p);
+	static Move unpack(const MovePacked& p);
 	MovePacked pack();
 
 	friend std::ostream& operator<<(std::ostream& os, const Move& p);
@@ -405,6 +405,7 @@ struct PosInfo
   PosInfo();
   PosInfo(PositionId i, PosInfo s, MovePacked m);
   bool operator==(const PosInfo& other);
+  friend std::ostream& operator<<(std::ostream& os, const PosInfo& pos);
 };
 
 typedef std::map<PositionPacked,PosInfo> PosMap;

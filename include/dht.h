@@ -41,35 +41,29 @@ class DiskHashTable
 {
     struct BucketFile
     {
-        // RAII object to close a BucketFile when it falls out of scope
-        // iif it wasn't already open when the guard was created.
-        class file_guard
+        struct file_guard
         {
-        public:
-            explicit file_guard(BucketFile& bf) : _bf(bf)
+            BucketFile& _bf;
+            bool        _was_open;
+            file_guard(BucketFile& bf) : _bf(bf)
             {
-                _was_open = _bf._fp != nullptr;  // already open?
-                if (!_was_open)
+                _was_open = _bf._fp != nullptr;
+                if ( !_was_open )
                     _bf.open();
             }
 
             ~file_guard()
             {
-                if (!_was_open)
+                if ( !_was_open )
                     _bf.close();
             }
-            file_guard(const file_guard&) = delete; // prevent copying
-            file_guard& operator=(const file_guard&) = delete;  // prevent assignment
-        private:
-            bool        _was_open;
-            BucketFile& _bf;
         };
 
         static std::map<size_t, BuffPtr> buff_map;
+
         std::mutex  _mtx;
         std::FILE*  _fp;
         std::string _fspec;
-        bool        _exists;
         size_t      _keylen;
         size_t      _vallen;
         size_t      _reccnt;
@@ -77,18 +71,21 @@ class DiskHashTable
 
         BucketFile( std::string fspec,
                     size_t key_len,
-                    size_t val_len = 0,
-                    bool must_exist = false);
+                    size_t val_len = 0);
         ~BucketFile();
         bool open();
         bool close();
         off_t search(ucharptr_c key, ucharptr   val = P_NAUGHT);
         bool  append(ucharptr_c key, ucharptr_c val = P_NAUGHT);
         bool  update(ucharptr_c key, ucharptr_c val = P_NAUGHT);
-        bool  read(size_t recno, BuffPtr buff);
+        bool  read(size_t recno, ucharptr key, ucharptr val);
 
         size_t seek();
         BuffPtr get_file_buff();
+
+        off_t search_nolock(ucharptr_c key, ucharptr val = P_NAUGHT);
+        bool  append_nolock(ucharptr_c key, ucharptr_c val = P_NAUGHT);
+        bool  update_nolock(ucharptr_c key, ucharptr_c val = P_NAUGHT);
     };
 
 public:
@@ -128,52 +125,23 @@ public:
     static std::string get_bucket_fspec(
         const std::string path,
         const std::string base,
-        const std::string bucket);
+        const std::string bucket,
+        bool *exists = nullptr);
 
 private:
-    std::string calc_bucket_id(ucharptr_c key);
-    BucketFilePtr get_bucket(const std::string& bucket, bool must_exist = false);
-    std::string get_bucket_fspec(const std::string& bucket);
+    std::string calc_bucket_id( ucharptr_c key );
+    BucketFilePtr get_bucket( const std::string& bucket, bool must_exist = false );
+    std::string get_bucket_fspec( const std::string& bucket, bool* exists = nullptr );
 protected:
     static std::string default_hasher(ucharptr_c key, size_t keylen);
-    bool get_next(short& bucket, long& recno, ucharptr key, ucharptr val);
-    bool get_prior(short& bucket, long& recno, ucharptr key, ucharptr val);
 };
 
 
 template <class K, class V>
 class dht : public DiskHashTable
 {
-// private:
-//     DiskHashTable _dht;
 public:
-    class dht_pos
-    {
-    public:
-        BucketFilePtrMapCItr _bucket;
-        long                 _recno;
-        K                    key;
-        V                    val;
-    public:
-        dht_pos(BucketFilePtrMapCItr bucket, long pos)
-        : _bucket(bucket), _recno(pos)
-        {}
-
-        bool operator==(const dht_pos& other) const
-        {
-            return _bucket == other._bucket && _recno == other._recno;
-        }
-
-        bool operator!=(const dht_pos& other) const
-        {
-            return !(*this == other);
-        }
-
-        const dht_pos* operator->()
-        {
-            return this;
-        }
-    };
+    typedef std::pair<K,V> KeyVal;
 
     // iterator for a DiskHashTable
     //
@@ -185,79 +153,97 @@ public:
     // dereferenced (* or ->).
     class iterator : public std::iterator<
         std::input_iterator_tag,
-        dht_pos,
-        dht_pos,
-        const dht_pos*,
-        dht_pos>
+        KeyVal,
+        KeyVal,
+        const KeyVal*,
+        KeyVal>
     {
-    private:
-        BucketFilePtrMapCItr _beg;
-        BucketFilePtrMapCItr _end;
-        dht_pos   _pos;
-
         friend dht;
+    private:
+        BucketFilePtrMap&    _map;
+        BucketFilePtrMapCItr _buck;
+        long                 _recno;
+        bool                 _read;
+        KeyVal               _keyval;
     public:
-        explicit iterator(BucketFilePtrMapCItr beg, BucketFilePtrMapCItr end)
-        : _beg(beg), _end(end), _pos(beg,0)
+        iterator(BucketFilePtrMap& m, BucketFilePtrMapCItr pos)
+        : _map(m), _buck(pos), _recno(0), _read(false)
         {}
 
-        iterator operator ++()
+        iterator& operator++()
         {
-            _pos._recno++;
-            if ( _pos._recno >= _pos._bucket->second->_reccnt )
+            if ( _recno >= _buck->second->_reccnt )
             {
-                ++(_pos._bucket);
-                _pos._recno = 0;
+                ++_buck;
+                if ( _buck == _map.end() )
+                    std::cout << "ended" << std::endl;
+                _recno = 0;
             }
+            else
+            {
+                ++_recno;
+            }
+            _read = false;
             return *this;
         }
-        iterator  operator ++(int)
+
+        iterator operator++(int)
         {
             iterator ret = *this;
             ++(*this);
             return ret;
         }
-        iterator operator --()
+
+        iterator& operator--()
         {
-            _pos._recno--;
-            if ( _pos._recno < 0 && _pos._bucket != _beg )
+            if ( _recno == 0 )
             {
-                --(_pos._bucket);
-                _pos._recno = _pos._bucket->second->_reccnt - 1;
+                --_buck;
+                _recno = _buck->second->_reccnt - 1;
             }
+            else
+            {
+                --_recno;
+            }
+            _read = false;
             return *this;
         }
-        iterator  operator --(int)
+
+        iterator operator--(int)
         {
             iterator ret = *this;
             --(*this);
             return ret;
         }
-        bool operator==(iterator other) const
+
+        bool operator==(const iterator& other) const
         {
-            return _pos == other._pos;
+            return _buck == other._buck && _recno == other._recno;
         }
-        bool operator!=(iterator other) const
+
+        bool operator!=(const iterator& other) const
         {
-            return !(_pos == other._pos);
+            return !(*this == other);
         }
-        const dht_pos& operator *() const
+
+        const KeyVal* operator->()
         {
-            return _pos;
-        }
-        const dht_pos* operator ->() const
-        {
-            return &_pos;
+            if ( !_read )
+            {
+                _buck->second->read( _recno, (ucharptr)&_keyval.first, (ucharptr)&_keyval.second );
+                _read = true;
+            }
+            return &_keyval;
         }
     };
 
     iterator begin()
     {
-        return iterator{fp_map.begin(), fp_map.end()};
+        return iterator{fp_map, fp_map.begin()};
     }
     iterator end()
     {
-        return iterator{fp_map.end(), fp_map.end()};
+        return iterator{fp_map, fp_map.end()};
     }
 
     bool open(
