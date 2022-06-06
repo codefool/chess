@@ -175,8 +175,6 @@ public:
             if ( _recno >= _buck->second->_reccnt )
             {
                 ++_buck;
-                if ( _buck == _map.end() )
-                    std::cout << "ended" << std::endl;
                 _recno = 0;
             }
             else

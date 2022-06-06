@@ -207,6 +207,16 @@ bool DiskHashTable::open(
     ss << path_name << level << '/' << name << '/';
     path = ss.str();
     std::filesystem::create_directories( path );
+
+    // preload the bucket file table so we have record counts
+    // but only for files that exist
+    char buff[ BUCKET_ID_WIDTH + 1 ];
+    for ( int i(0); i < BUCKET_HI; ++i )
+    {
+        std::sprintf( buff, "%0*x", BUCKET_ID_WIDTH, i );
+        get_bucket( buff, true );
+    }
+
     return true;
 }
 
