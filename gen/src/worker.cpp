@@ -203,13 +203,6 @@ bool open_tables(int level)
     dht_pawn_n1     .open(WORK_FILE_PATH, "pawn_init", level - 1);
     dht_pawn_n1_ref .open(WORK_FILE_PATH, "pawn_init_ref", level - 1);
 
-    auto itr = dht_resolved.begin();
-    while( itr != dht_resolved.end() )
-    {
-        std::cout << itr->first << ' ' << itr->second << std::endl;
-        ++itr;
-    }
-
     if ( dq_get->size() == 0 && dq_put->size() == 0 )
     {
         // start from the beginning
