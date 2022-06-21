@@ -124,6 +124,12 @@ const short Pos::f() const {
 	return _f;
 }
 
+// if the oddness of the Rank and File are the same,
+// the square is white, otherwise black.
+const Color Pos::color() const {
+    return ( r() % 2 == f() % 2 ) ? COLOR_WHITE : COLOR_BLACK;
+}
+
 const Rank Pos::rank() const {
 	return static_cast<Rank>(r());
 }

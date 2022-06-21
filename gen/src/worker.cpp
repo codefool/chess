@@ -13,6 +13,8 @@
 
 namespace dreid {
 
+EndGameReason checkEndOfGame(Board&, MoveList&, Side);
+
 #pragma pack(1)
 
 struct TierStats
@@ -288,23 +290,24 @@ void worker(int level)
         tstats.distance = prBase.pi.distance;
 
         prBase.pi.move_cnt = moves.size();
-        if (moves.size() == 0)
+        prBase.pi.egr = checkEndOfGame(sub_board, moves, s);
+        if ( prBase.pi.egr == EGR_13A_CHECKMATE )
         {
-            // no moves - so either checkmate or stalemate
-            bool onside_in_check = sub_board.test_for_attack(sub_board.getPosition().get_king_pos(s), s);
-            if (onside_in_check)
-            {
-                prBase.pi.egr = EGR_CHECKMATE;
-                stats.cm_cnt++;
-                tstats.cm_cnt++;
-            }
-            else
-            {
-                prBase.pi.egr = EGR_14A_STALEMATE;
-                stats.sm_cnt++;
-                tstats.sm_cnt++;
-            }
-            std::cout << std::this_thread::get_id() << " checkmate/stalemate:" << sub_board.getPosition().fen_string() << std::endl;
+            stats.cm_cnt++;
+            tstats.cm_cnt++;
+            std::cout << std::this_thread::get_id() << " checkmate:" << sub_board.getPosition().fen_string() << std::endl;
+        }
+        else if ( prBase.pi.egr == EGR_14A_STALEMATE )
+        {
+            stats.sm_cnt++;
+            tstats.sm_cnt++;
+            std::cout << std::this_thread::get_id() << " stalemate:" << sub_board.getPosition().fen_string() << std::endl;
+        }
+        else if ( prBase.pi.egr != EGR_NONE )
+        {
+            ss.str(std::string());
+            ss << "End of Game " << prBase.pi.egr << std::endl;
+            std::cout << ss.str();
         }
         else
         {

@@ -30,18 +30,25 @@ enum Side {
 	SIDE_BLACK = 1
 };
 
+enum Color {
+    COLOR_WHITE = 0,
+    COLOR_BLACK = 1,
+};
+
 enum EndGameReason {
 	EGR_NONE               = 0x00,
 	//
-	EGR_CHECKMATE          = 0x01,
+	EGR_13A_CHECKMATE      = 0x01,
 	EGR_14A_STALEMATE      = 0x02,
 	EGR_14C_TRIPLE_OF_POS  = 0x03,
-	EGR_14D_NO_MATERIAL    = 0x04,
-	EGR_14D1_KVK           = 0x05,
-	EGR_14D2_KVKWBN        = 0x06,
-	EGR_14D3_KWBVKWB       = 0x07,
-	EGR_14D4_NO_LGL_MV_CM  = 0x08,
-	EGR_14F_50_MOVE_RULE   = 0x09
+	EGR_14D1_KVK           = 0x04,
+	EGR_14D2_KVKWBN        = 0x05,
+	EGR_14D3_KWBVKWB       = 0x06,
+	EGR_14D4_NO_LGL_MV_CM  = 0x07,
+    EGR_14E1_LONE_KING     = 0x08,
+    EGR_14E2_KBOKK         = 0x09,
+    EGR_14E3_KNN           = 0x0a,
+	EGR_14F_50_MOVE_RULE   = 0x0b
 };
 
 enum Rank {
@@ -173,6 +180,7 @@ public:
 	void fromByte(uint8_t b);
 	const short r() const;
 	const short f() const;
+    const Color color() const;
 
 	const Rank rank() const;
 	const File file() const;
