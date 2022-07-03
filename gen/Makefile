@@ -2,13 +2,13 @@ SRC_DIR := src
 OBJ_DIR := obj
 BIN_DIR := ../bin
 LIB_DIR := ../lib
+INC_DIR := ../include
 
 SRC := $(wildcard $(SRC_DIR)/*.cpp)
 OBJ := $(SRC:$(SRC_DIR)/%.cpp=$(OBJ_DIR)/%.o)
-INC := ../include
 
 CC := g++
-CFLAGS := -g -std=c++20 -I $(INC)
+CFLAGS := -g -std=c++20 -I $(INC_DIR)
 LDFLAGS :=
 LDLIBS := -L/usr/lib/x86_64-linux-gnu -lpthread # -lmysqlcppconn8 -lmysqlcppconn
 

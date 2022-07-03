@@ -111,11 +111,10 @@ void Board::get_moves(PiecePtr ptr, MoveList& moves) {
         //
         // Directions are, of course, side dependent.
         // Case 1: pawns can only move one square forwad.
-        Pos ppos  = ptr->getPos();
-        Dir updn  = (isBlack)?DN:UP;
-        Dir updnl = (isBlack)?DNL:UPL;
-        Dir updnr = (isBlack)?DNR:UPR;
-        Pos pos   = ppos + offs[updn];
+        Pos  ppos = ptr->getPos();
+        Dir  updn = (isBlack)?DN:UP;
+        Rank pnhm = (isBlack)?R7:R2;
+        Pos  pos  = ppos + offs[updn];
         if( pos.in_bounds() && _p.is_square_empty(pos) ) {
             // pawn can move forward
             if ( (isBlack && pos.rank() == R1) || (pos.rank() == R8) ) {
@@ -129,7 +128,7 @@ void Board::get_moves(PiecePtr ptr, MoveList& moves) {
                 moves.push_back(Move::create(MV_MOVE, ptr->getPos(), pos));
             }
             // Case 2: Pawns on their home square may move two spaces.
-            if ( (isBlack && ppos.rank() == R7) || ppos.rank() == R2) {
+            if ( ppos.rank() == pnhm ) {
                 pos += offs[updn];
                 if( pos.in_bounds() && _p.is_square_empty(pos) )
                     moves.push_back(Move::create(MV_MOVE, ppos, pos));
@@ -137,7 +136,14 @@ void Board::get_moves(PiecePtr ptr, MoveList& moves) {
         }
         // Case 3: Pawns may capture directly to the UPL or UPR.
         // see if an opposing piece is UPL or UPR
-        dirs.assign({updnl,updnr});
+        if ( isBlack )
+        {
+            dirs.assign({DNL,DNR});
+        }
+        else
+        {
+            dirs.assign({UPL,UPR});
+        }
         gather_moves(ptr, dirs, 1, moves, true);
         // Case 4. A pawn on its own fifth rank may capture a neighboring pawn en passant moving
         // UPL or UPR iif the target pawn moved forward two squares on its last on-move.
@@ -148,14 +154,17 @@ void Board::get_moves(PiecePtr ptr, MoveList& moves) {
         // AND if target pawn is adjacent to this pawn
         if ( pt == PT_PAWN && _p.gi().hasEnPassant() ) {
             // an en passant candidate exists
-            Rank r_pawn = (isBlack) ? R4 : R5;      // where the pawns are
-            Rank r_move = (isBlack) ? R3 : R6;      // the space where our pawn moves
-            if( ppos.rank() == r_pawn && abs(ppos.f() - _p.gi().getEnPassantFile()) == 1) {
+            Rank r_pawn = (isBlack) ? R4 : R5;      // rank where the pawn is
+            Rank r_move = (isBlack) ? R3 : R6;      // rank with  the space where our pawn moves
+            // the en passant file is the file that contains the subject pawn
+            // if our pawn is one square away (left or right) from the en passant file
+            // then we *can* capture that pawn.
+            if( ppos.rank() == r_pawn && abs( ppos.f() - _p.gi().getEnPassantFile()) == 1 ) {
                 // If so, check if the space above the target pawn is empty.
                 // If so, then en passant is possible.
-                Pos epos(r_move, _p.gi().getEnPassantFile()); // pos of target square
+                Pos epos( r_move, _p.gi().getEnPassantFile() ); // pos of target square
                 if ( _p.is_square_empty(epos) )
-                    moves.push_back(Move::create(MV_EN_PASSANT, ppos, epos));
+                    moves.push_back( Move::create( MV_EN_PASSANT, ppos, epos ) );
             }
         }
     } else {
@@ -465,14 +474,13 @@ void Board::move_piece(PiecePtr ptr, Pos dst)
 bool Board::process_move(MovePtr mov, Side side) {
     PiecePtr   ptr = _p.get( mov->getSource() );
     MoveAction ma  = mov->getAction();
-    bool isPawnMove = ptr->getType() == PT_PAWN || ptr->getType() == PT_PAWN_OFF;
 
     switch( ma )
     {
     case MV_CASTLE_KINGSIDE: {
         // mov.getSource() is the location of the king,
         // mov.getTarget() is the location of the rook
-        // Move king to file g, rook to file f
+        // Move king to Fg, rook to Ff
         move_piece( ptr, ptr->getPos().withFile(Fg));
         PiecePtr rook = _p.get( mov->getTarget() );
         move_piece( rook, rook->getPos().withFile(Ff));
@@ -481,7 +489,7 @@ bool Board::process_move(MovePtr mov, Side side) {
     case MV_CASTLE_QUEENSIDE: {
         // mov.getSource() is the location of the king,
         // mov.getTarget() is the location of the rook
-        // Move king to file c, rook to file d
+        // Move king to Fc, rook to Fd
         move_piece( ptr, ptr->getPos().withFile(Fc));
         PiecePtr rook = _p.get( mov->getTarget().toByte() );
         move_piece( rook, rook->getPos().withFile(Fd));
@@ -503,9 +511,9 @@ bool Board::process_move(MovePtr mov, Side side) {
         // move the piece, but remove the pawn "passed by"
         //    a  b  c         a  b  c
         //   +--+--+--+      +--+--+--+
-        // 5 |  | P|  |    4 | p|xP|  |
+        // 6 |  | P|  |    4 | p|xP|  |
         //   +--/--+--+      +--\--+--+
-        // 4 | P|xp|  |    3 |  | p|  |
+        // 5 | P|xp|  |    3 |  | p|  |
         //   +--+--+--+      +--+--+--+
         //
         move_piece( ptr, mov->getTarget() );
@@ -518,7 +526,7 @@ bool Board::process_move(MovePtr mov, Side side) {
         }
         break;
     }
-    return isPawnMove;
+    return ptr->getType() == PT_PAWN || ptr->getType() == PT_PAWN_OFF;
 }
 
 PositionPacked Board::get_packed()

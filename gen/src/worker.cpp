@@ -13,6 +13,8 @@
 
 namespace dreid {
 
+EndGameReason checkEndOfGame(Board&, MoveList&, Side);
+
 #pragma pack(1)
 
 struct TierStats
@@ -85,10 +87,10 @@ void add_tier_stats(TierStats& add)
 
 std::mutex unresolved_mtx;
 
-DiskHashTable dht_resolved;
-DiskHashTable dht_resolved_ref;
-DiskHashTable dht_pawn_n1;
-DiskHashTable dht_pawn_n1_ref;
+dht<PositionPacked, PosInfo> dht_resolved;
+dht<PosRefRec, NAUGHT_TYPE>  dht_resolved_ref;
+dht<PositionPacked, PosInfo> dht_pawn_n1;
+dht<PosRefRec, NAUGHT_TYPE>  dht_pawn_n1_ref;
 
 DiskQueue dq_unr0(WORK_FILE_PATH, "unresolved0", sizeof( PositionRec ));
 DiskQueue dq_unr1(WORK_FILE_PATH, "unresolved1", sizeof( PositionRec ));
@@ -198,12 +200,12 @@ void insert_unresolved(PositionPacked& pp, PosInfo& pi)
 
 bool open_tables(int level)
 {
-    dht_resolved    .open(WORK_FILE_PATH, "resolved", level, sizeof(PositionPacked), sizeof(PosInfo));
-    dht_resolved_ref.open(WORK_FILE_PATH, "resolved_ref", level, sizeof(PosRefRec));
-    dht_pawn_n1     .open(WORK_FILE_PATH, "pawn_init", level - 1 , sizeof(PositionPacked), sizeof(PosInfo));
-    dht_pawn_n1_ref .open(WORK_FILE_PATH, "pawn_init_ref", level - 1, sizeof(PosRefRec));
+    dht_resolved    .open(WORK_FILE_PATH, "resolved", level);
+    dht_resolved_ref.open(WORK_FILE_PATH, "resolved_ref", level);
+    dht_pawn_n1     .open(WORK_FILE_PATH, "pawn_init", level - 1);
+    dht_pawn_n1_ref .open(WORK_FILE_PATH, "pawn_init_ref", level - 1);
 
-    if (dq_get->size() == 0 && dq_put->size() == 0)
+    if ( dq_get->size() == 0 && dq_put->size() == 0 )
     {
         // start from the beginning
         Position pos;
@@ -225,15 +227,15 @@ bool get_unresolved(PositionRec& pr)
             if ( dq_get->pop( (dq_data_t)&pr ))
             {
                 PosInfo ppi;
-                if (dht_resolved.search((ucharptr_c)&pr.pp, (ucharptr_c)&ppi))
+                if (dht_resolved.search(pr.pp, ppi))
                 {
                     PosRefRec prr(pr.pi.parent, pr.pi.move, ppi.id);
-                    dht_resolved_ref.append((ucharptr_c)&prr);
+                    dht_resolved_ref.append(prr);
                     stats.col_cnt++;
                     retry--;
                     continue;
                 }
-                dht_resolved.insert((ucharptr_c)&pr.pp, (ucharptr_c)&pr.pi);
+                dht_resolved.insert(pr.pp, pr.pi);
                 return true;
             }
             else
@@ -288,23 +290,24 @@ void worker(int level)
         tstats.distance = prBase.pi.distance;
 
         prBase.pi.move_cnt = moves.size();
-        if (moves.size() == 0)
+        prBase.pi.egr = checkEndOfGame(sub_board, moves, s);
+        if ( prBase.pi.egr == EGR_13A_CHECKMATE )
         {
-            // no moves - so either checkmate or stalemate
-            bool onside_in_check = sub_board.test_for_attack(sub_board.getPosition().get_king_pos(s), s);
-            if (onside_in_check)
-            {
-                prBase.pi.egr = EGR_CHECKMATE;
-                stats.cm_cnt++;
-                tstats.cm_cnt++;
-            }
-            else
-            {
-                prBase.pi.egr = EGR_14A_STALEMATE;
-                stats.sm_cnt++;
-                tstats.sm_cnt++;
-            }
-            std::cout << std::this_thread::get_id() << " checkmate/stalemate:" << sub_board.getPosition().fen_string() << std::endl;
+            stats.cm_cnt++;
+            tstats.cm_cnt++;
+            std::cout << std::this_thread::get_id() << " checkmate:" << sub_board.getPosition().fen_string() << std::endl;
+        }
+        else if ( prBase.pi.egr == EGR_14A_STALEMATE )
+        {
+            stats.sm_cnt++;
+            tstats.sm_cnt++;
+            std::cout << std::this_thread::get_id() << " stalemate:" << sub_board.getPosition().fen_string() << std::endl;
+        }
+        else if ( prBase.pi.egr != EGR_NONE )
+        {
+            ss.str(std::string());
+            ss << "End of Game " << prBase.pi.egr << std::endl;
+            std::cout << ss.str();
         }
         else
         {
@@ -333,22 +336,22 @@ void worker(int level)
                 {
                     stats.capt_cnt++;
                     tstats.capt_cnt++;
-                    if ( dht_pawn_n1.search( (ucharptr_c)&prPrime.pp, (ucharptr)&piFound ) )
+                    if ( dht_pawn_n1.search(prPrime.pp, piFound ) )
                     {
                         PosRefRec prr( prBase.pi.id, mv, piFound.id );
-                        dht_pawn_n1_ref.append((ucharptr_c)&prr);
+                        dht_pawn_n1_ref.append(prr);
                     }
                     else
                     {
-                        dht_pawn_n1.append( (ucharptr_c)&prPrime.pp, (ucharptr_c)&prPrime.pi );
+                        dht_pawn_n1.append( prPrime.pp, prPrime.pi );
                     }
                 }
                 else if(brdPrime.gi().getPieceCnt() == level)
                 {
-                    if ( dht_resolved.search( (ucharptr_c)&prPrime.pp, (ucharptr_c)&piFound ) )
+                    if ( dht_resolved.search( prPrime.pp, piFound ) )
                     {
                         PosRefRec prr(prBase.pi.id, mv, piFound.id);
-                        dht_resolved_ref.append((ucharptr_c)&prr);
+                        dht_resolved_ref.append(prr);
                         stats.col_cnt++;
                         tstats.coll_cnt++;
                     }
@@ -369,7 +372,7 @@ void worker(int level)
             }   // end for()
         }
 
-        dht_resolved.update((ucharptr_c)&prBase.pp, (ucharptr)&prBase.pi);
+        dht_resolved.update(prBase.pp, prBase.pi);
         add_tier_stats(tstats);
         // std::cout << "base,parent,mov/p/c/5/1,move,dist,coll_cnt,init_cnt,res_cnt,get,put,unr1,fifty,FEN\n";
         ss.str(std::string());
