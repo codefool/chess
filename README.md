@@ -1,3 +1,5 @@
+This project was a great incubator for working out all sorts of problems. Although the chess aspects were relatively simple, working the problem of an ever-expanding dataset with limited resources was extremely satisfying to attack. I'm retiring dried as driev_v1 and going to refactor what I've learned into dried_v2 in another repo.
+
 # chess
 Research to generate all possible games of Chess
 
